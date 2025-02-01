@@ -1,0 +1,3 @@
+- variable:
+    not-equals:
+      bamboo.inject.skip_build: '1'

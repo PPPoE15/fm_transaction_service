@@ -1,0 +1,5 @@
+file: ./bamboo-vars/.env-dev
+conditions:
+  - variable:
+      matches:
+        planRepository.branch: ^dev$

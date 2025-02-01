@@ -1,0 +1,5 @@
+file: ./bamboo-vars/.env-release
+conditions:
+  - variable:
+      matches:
+        planRepository.branch: ^release$

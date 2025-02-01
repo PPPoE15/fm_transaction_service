@@ -1,0 +1,11 @@
+-r ../requirements-common.in
+-r ../requirements-acm.in
+fastapi==0.100.1
+aio-pika==9.3.1
+asyncpg==0.26
+tenacity==8.2.2
+pyjwt==2.8.0
+# TODO: Есть конфликт с зависимостями Dramatiq 1.15.0.
+# opentelemetry-api==1.15.0
+# opentelemetry-sdk==1.15.0
+# prometheus-client==0.17.1

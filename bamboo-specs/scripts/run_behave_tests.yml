@@ -1,0 +1,41 @@
+  |
+
+  #!/bin/bash
+  
+  set -e
+  
+  ABS_PATH=/home/robot/sources
+  
+  REPOS="acm-labs-env:main"
+  
+  cd "$ABS_PATH"
+  
+  clone_func() {
+      repo_name=${repo%%:*}
+      git_branch=${repo#*:}
+      if [ -d "$repo_name" ]
+      then
+          echo -e "\n__________________________________ >>> Directory $repo_name exists."
+          cd ./"$repo_name"
+          git reset --hard
+          sudo git clean -ffd
+          git config pull.rebase false
+          git fetch --all
+          git checkout "$git_branch"
+          git pull
+          cd ../
+      else
+          echo -e "\n__________________________________ >>> Directory $repo_name does not exists."
+          git clone -b "$git_branch" ssh://git@git.astralinux.ru:7999/acm/"$repo_name".git
+      fi
+  }
+  
+  
+  for repo in ${REPOS};
+  do
+      echo -e "\n__________________________________ >>> Clone $repo branch"
+      clone_func "$repo";
+  done
+  
+  
+  /bin/bash acm-labs-env/scripts/run-behave-tests.sh ${bamboo.shortPlanName} ${bamboo.repository.pr.targetBranch} ${bamboo.buildResultKey}

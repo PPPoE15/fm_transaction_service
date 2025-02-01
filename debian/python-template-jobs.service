@@ -1,0 +1,24 @@
+[Unit]
+Description="python-template jobs-service"
+After=unit.service
+Wants=redis.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/python-template-service
+#ExecStartPre=
+
+ExecStart=/opt/python-template-service/bin/dramatiq -p 2 --watch . modules.jobs.main reload
+
+#ExecReload=
+#Restart=always
+#RestartSec=1s
+
+ExecStop=/bin/kill -TERM $MAINPID
+
+#StandardOutput=syslog
+#StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

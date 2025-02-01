@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  common-postgres:
+    image: acmp-docker.artifactory.astralinux.ru/postgres:v11.17_3
+    user: postgres
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      PG_SSL: "off"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./acm-proto/postgres/scripts-common:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: PGPASSWORD=$DB_PASSWORD psql -d $DB_DATABASE -c "\dt" -h localhost -U $DB_USER -w
+      timeout: 10s
+      interval: 30s
+      retries: 30
+
+  rabbitmq-server:
+    image: acmp-docker.artifactory.astralinux.ru/rabbitmq-server:v3.7.8_2
+    environment:
+      RABBITMQ_DEFAULT_USER: acmastra
+      RABBITMQ_DEFAULT_PASS: password
+    ports:
+      - "5672:5672"
+    healthcheck:
+        test: ["CMD", "rabbitmqadmin", "--username", "$RABBITMQ_DEFAULT_USER", "--password", "$RABBITMQ_DEFAULT_PASS", "list", "vhosts"]
+        interval: 30s
+        timeout: 10s
+        retries: 30
+
+  unit-test-service:
+    image: acmp-docker.artifactory.astralinux.ru/$shortPlanName-$shortPlanBranchName:latest
+    tty: true
+    environment:
+      SECRET_KEY: password
+      DB_PASSWORD: password
+      DB_HOST: common-postgres
+      RABBITMQ_HOST: rabbitmq-server
+    volumes:
+      - ./:/srv/python-template
+    working_dir: /srv/python-template
+    depends_on:
+      common-postgres:
+          condition: service_healthy
+      rabbitmq-server:
+          condition: service_healthy
+    entrypoint: bamboo-specs/scripts/run_unit_tests.sh
+
+  # there is no wait flag in the old version of docker-compose
+  # so this trick is needed
+  wait_container:
+    image: acmp-docker.artifactory.astralinux.ru/rabbitmq-server:v3.7.8_2
+    depends_on:
+      rabbitmq-server:
+          condition: service_healthy
+      common-postgres:
+          condition: service_healthy
+      unit-test-service:
+          condition: service_completed_successfully

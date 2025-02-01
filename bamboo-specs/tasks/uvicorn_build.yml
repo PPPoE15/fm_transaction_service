@@ -1,0 +1,13 @@
+  commandOption: build
+  repository: ${bamboo.artifactory_docker}/${bamboo.inject.python_image_to_run}
+  dockerfileOption: inline
+  dockerfile: |-
+    FROM ${bamboo.artifactory_docker}/${bamboo.inject.python_pip_req_services}
+
+    ENV HEALTHCHECK_MODE=1
+    RUN mkdir -p /run/secrets
+    ADD . /srv/${bamboo.shortPlanName}
+    ENTRYPOINT ["bamboo-specs/scripts/uvicorn_up.sh"]
+
+  nocache: 'true'
+  save: 'false'

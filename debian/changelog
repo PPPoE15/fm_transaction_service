@@ -1,0 +1,27 @@
+python-template (1.2.0) UNRELEASED; urgency=low
+
+  * python-template: New debian packaging
+
+ -- Sergey Shitenkov <sshitenkov@astralinux.ru>  Fri, 20 Sep 2024 12:24:18 +0300
+
+python-template (1.1.0) UNRELEASED; urgency=low
+
+  * python-template: New debian packaging
+
+ -- Sergey Shitenkov <sshitenkov@astralinux.ru>  Mon, 03 Sep 2024 09:19:06 +0300
+
+python-template (1.0.0) UNRELEASED; urgency=low
+
+  * python-template: New debian packaging
+
+ -- Sergey Shitenkov <sshitenkov@astralinux.ru>  Mon, 06 May 2024 09:19:06 +0300
+
+python-template (0.2.0) UNRELEASED; urgency=low
+
+  [ Adel Gimadiev ]
+  * python-template: Initial debian packaging
+
+  [ root ]
+  * python-template: RC version 0.2.0
+
+ -- Adel Gimadiev <agimadiev@astralinux.ru>  Wed, 04 Dec 2023 15:23:56 +0000

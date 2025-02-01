@@ -1,0 +1,5 @@
+file: ./bamboo-vars/.env-master
+conditions:
+  - variable:
+      matches:
+        planRepository.branch: ^master$

@@ -1,0 +1,20 @@
+version: 2
+deployment:
+  name: ACM Python Template
+  source-plan: ACM-APTY
+release-naming:
+  next-version-name: release-1
+  applies-to-branches: false
+  auto-increment: true
+  auto-increment-variables: []
+environments:
+- master_stand_1
+- master_stand_deb
+- dev_stand_1
+- rc_stand_1
+- release_stand_1
+rc_stand_1: !include 'deployment-environments/rc-stand-1.yml'
+master_stand_1: !include 'deployment-environments/master-stand-1.yml'
+master_stand_deb: !include 'deployment-environments/master-stand-deb.yml'
+release_stand_1: !include 'deployment-environments/release-stand-1.yml'
+dev_stand_1: !include 'deployment-environments/dev-stand-1.yml'

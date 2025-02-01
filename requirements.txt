@@ -1,0 +1,199 @@
+--extra-index-url https://artifactory.astralinux.ru/artifactory/api/pypi/acmp-pypi-packages/simple
+
+acm-lib-message-broker==3.4.0
+    # via
+    #   -r jobs/../requirements-acm.in
+    #   -r web/../requirements-acm.in
+aio-pika==9.3.1
+    # via -r web/requirements.in
+aiormq==6.7.7
+    # via aio-pika
+alembic[tz]==1.12.1
+    # via -r requirements-migrations.in
+annotated-types==0.5.0
+    # via pydantic
+anyio==3.7.1
+    # via starlette
+apscheduler==3.10.4
+    # via -r jobs/requirements.in
+argh==0.27.2
+    # via watchdog
+asyncpg==0.26.0
+    # via -r web/requirements.in
+backports-zoneinfo==0.2.1
+    # via
+    #   psycopg
+    #   tzlocal
+click==8.1.7
+    # via uvicorn
+coverage[toml]==7.2.7
+    # via pytest-cov
+dramatiq[rabbitmq,watch]==1.5.0
+    # via -r jobs/requirements.in
+exceptiongroup==1.2.1
+    # via
+    #   anyio
+    #   pytest
+factory-boy==3.3.0
+    # via -r requirements-dev.in
+faker==18.13.0
+    # via factory-boy
+fastapi==0.100.1
+    # via -r web/requirements.in
+gevent==22.10.2
+    # via watchdog-gevent
+greenlet==3.0.3
+    # via
+    #   gevent
+    #   sqlalchemy
+h11==0.14.0
+    # via uvicorn
+idna==3.7
+    # via
+    #   anyio
+    #   yarl
+importlib-metadata==6.7.0
+    # via
+    #   alembic
+    #   apscheduler
+    #   click
+    #   factory-boy
+    #   mako
+    #   pluggy
+    #   pydantic
+    #   pytest
+    #   sqlalchemy
+importlib-resources==5.12.0
+    # via alembic
+iniconfig==2.0.0
+    # via pytest
+mako==1.2.4
+    # via alembic
+markupsafe==2.1.5
+    # via mako
+multidict==6.0.5
+    # via yarl
+mypy==1.4.0
+    # via -r requirements-dev.in
+mypy-extensions==1.0.0
+    # via mypy
+packaging==24.0
+    # via pytest
+pamqp==3.2.1
+    # via aiormq
+pathtools==0.1.2
+    # via watchdog
+pika==0.13.1
+    # via dramatiq
+pluggy==1.2.0
+    # via pytest
+prometheus-client==0.2.0
+    # via dramatiq
+psycopg==3.1.19
+    # via -r jobs/requirements.in
+pydantic==2.5.3
+    # via
+    #   -r jobs/../requirements-common.in
+    #   -r web/../requirements-common.in
+    #   fastapi
+    #   pydantic-settings
+pydantic-core==2.14.6
+    # via pydantic
+pydantic-settings==2.0.3
+    # via
+    #   -r jobs/../requirements-common.in
+    #   -r web/../requirements-common.in
+pyjwt==2.8.0
+    # via -r web/requirements.in
+pytest==7.4.4
+    # via
+    #   -r requirements-dev.in
+    #   pytest-asyncio
+    #   pytest-cov
+    #   pytest-ordering
+pytest-asyncio==0.21.2
+    # via -r requirements-dev.in
+pytest-cov==4.1.0
+    # via -r requirements-dev.in
+pytest-ordering==0.6
+    # via -r requirements-dev.in
+python-dateutil==2.9.0.post0
+    # via
+    #   alembic
+    #   faker
+python-dotenv==0.21.1
+    # via pydantic-settings
+pytz==2024.1
+    # via apscheduler
+pyyaml==6.0.1
+    # via watchdog
+ruff==0.2.0
+    # via -r requirements-dev.in
+six==1.16.0
+    # via
+    #   apscheduler
+    #   python-dateutil
+sniffio==1.3.1
+    # via anyio
+sqlalchemy[asyncio]==2.0.29
+    # via
+    #   -r jobs/../requirements-common.in
+    #   -r web/../requirements-common.in
+    #   alembic
+starlette==0.27.0
+    # via fastapi
+tenacity==8.2.2
+    # via -r web/requirements.in
+tomli==2.0.1
+    # via
+    #   coverage
+    #   mypy
+    #   pytest
+typed-ast==1.5.5
+    # via mypy
+typing-extensions==4.7.1
+    # via
+    #   aio-pika
+    #   alembic
+    #   annotated-types
+    #   anyio
+    #   asyncpg
+    #   faker
+    #   fastapi
+    #   h11
+    #   importlib-metadata
+    #   mypy
+    #   psycopg
+    #   pydantic
+    #   pydantic-core
+    #   pyjwt
+    #   pytest-asyncio
+    #   sqlalchemy
+    #   starlette
+    #   uvicorn
+    #   yarl
+tzlocal==5.1
+    # via apscheduler
+uvicorn==0.22.0
+    # via -r requirements-dev.in
+watchdog==0.8.3
+    # via
+    #   dramatiq
+    #   watchdog-gevent
+watchdog-gevent==0.1.0
+    # via dramatiq
+yarl==1.9.4
+    # via
+    #   aio-pika
+    #   aiormq
+zipp==3.15.0
+    # via
+    #   importlib-metadata
+    #   importlib-resources
+zope-event==5.0
+    # via gevent
+zope-interface==6.3
+    # via gevent
+
+# The following packages are considered to be unsafe in a requirements file:
+# setuptools

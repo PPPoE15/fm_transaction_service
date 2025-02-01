@@ -1,0 +1,49 @@
+  |
+
+  set -euo pipefail
+
+  ABS_PATH=/opt/acm/venvs
+  MAIN_PROJECT_NAME=${bamboo.shortPlanName}
+  SYSTEMD_SERVICE_NAME=$(echo ${MAIN_PROJECT_NAME} | sed "s/-service//")
+  export DEBIAN_FRONTEND=noninteractive
+
+  artifactory_deb_pkg_url=${bamboo.inject.artifactory_deb_pkg_url}
+  branch=${bamboo.planRepository.branchName}
+  component=${bamboo.inject.component}
+  debian_pkg_name_with_no_version=${bamboo.inject.debian_pkg_name_with_no_version}
+  debian_pkg_version=${bamboo.inject.debian_pkg_version}
+
+  url_to_repo_for_apt=$(echo "$artifactory_deb_pkg_url" | awk -F '/pool' '{print $1}')
+
+  # ensure adding new repo url (only if it doesn't exist)
+  grep -r "deb $url_to_repo_for_apt $branch $component" /etc/apt/sources.list* || \
+       sudo bash -c "echo 'deb $url_to_repo_for_apt $branch $component' >> /etc/apt/sources.list"
+
+  echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
+
+  max_iteration=5
+  for i in $(seq 1 $max_iteration)
+  do
+    set +e
+    sudo apt-get update
+    sudo apt-get -d reinstall -y "$debian_pkg_name_with_no_version=$debian_pkg_version"
+    result=$?
+    if [[ $result -eq 0 ]]
+    then
+        echo "The deb package is loaded."
+        break
+    else
+        echo "The package was not uploaded!"
+        sleep 10
+    fi
+  done
+  set -e
+  if [[ $result -ne 0 ]]
+  then
+      echo "All attempts to download the package failed"
+      exit 2
+  fi
+  sudo apt-get install -y gettext-base
+  sudo apt-get reinstall -y "$debian_pkg_name_with_no_version=$debian_pkg_version"
+  sudo sh -c "source /home/robot/.${bamboo.shortPlanName}_ci_env && envsubst < /opt/acm/venvs/${bamboo.shortPlanName}/template.env > /etc/${bamboo.shortPlanName}/dev_config.ini"
+  tail -n10 /var/log/dpkg.log

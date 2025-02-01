@@ -1,0 +1,5 @@
+file: ./bamboo-vars/.env-rc
+conditions:
+  - variable:
+      matches:
+        planRepository.branch: ^(rc\/.*$).*

@@ -1,0 +1,60 @@
+#!/usr/bin/make -f
+#
+# Build Debian package using https://github.com/spotify/dh-virtualenv
+#
+# The below targets create a clean copy of the workdir via
+# using "sdist", else "pip" goes haywire when installing from
+# sourcedir ".", because that includes the debian build stage,
+# and a recursive explosion ensues when symlinks are followed.
+#
+# It also ensures your MANIFEST is complete and at least covers
+# all files needed for a release build.
+
+# Increase trace logging, see debhelper(7) (uncomment to enable)
+DH_VERBOSE=1
+LC_ALL := C.UTF-8
+SNAKE=/usr/bin/python3
+
+export LC_ALL
+export DH_VIRTUALENV_INSTALL_ROOT=/opt/acm/venvs
+export DH_VIRTUALENV_ARGUMENTS := --no-site-packages --python $(SNAKE)
+
+
+DH_VENV_ARGS=--setuptools --builtin-venv --python=$(SNAKE) \
+            --extra-pip-arg=--progress-bar=pretty \
+	    -v
+PACKAGE=$(shell dh_listpackages)
+SYSTEMD_SERVICE_NAME=$(shell dh_listpackages | sed "s/-service//")
+
+
+.PHONY: override_dh_virtualenv override_dh_strip_nondeterminism
+	# override_dh_shlibdeps
+
+%:
+	dh $@ --buildsystem=dh_virtualenv $(DH_VENV_ARGS)
+
+override_dh_auto_install:
+	dh_auto_install
+
+	@echo "Moving source files..."
+	mkdir -p build/lib/$(PACKAGE) debian/$(PACKAGE)/lib/$(PACKAGE)/
+	find build/lib/ -mindepth 1 -maxdepth 1 -type d -not -name $(PACKAGE) -exec mv {} build/lib/$(PACKAGE)/ \;
+	find debian/$(PACKAGE)/lib/ -mindepth 1 -maxdepth 1 -type d -not -name $(PACKAGE) -exec mv {} debian/$(PACKAGE)/lib/$(PACKAGE)/ \;
+	rm -rf debian/$(PACKAGE)/lib/migrations
+	
+	@echo "Removing VCS ignore files..."
+	find $(CURDIR)/debian/$(PACKAGE) -name '*.gitignore' -exec rm -f {} +
+	find $(CURDIR)/debian/$(PACKAGE) -name '*.npmignore' -exec rm -f {} +
+
+override_dh_installsystemd:
+	dh_installsystemd --name=$(SYSTEMD_SERVICE_NAME) --no-start
+	dh_installsystemd --name=$(SYSTEMD_SERVICE_NAME)-jobs --no-start
+	dh_installsystemd --name=$(SYSTEMD_SERVICE_NAME)-scheduler --no-start
+
+override_dh_installlogrotate:
+	dh_installlogrotate --name=$(SYSTEMD_SERVICE_NAME)
+
+override_dh_strip_nondeterminism:
+	dh_strip --exclude=cffi --exclude=_imaging
+
+override_dh_auto_test:

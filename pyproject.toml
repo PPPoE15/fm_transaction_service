@@ -1,0 +1,130 @@
+[project]
+name = "python-template"
+version = "1.0.0"
+description = "Template for python services"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[tool.ruff]
+src=["src"]
+# Список подключенных плагинов, правил
+lint.select = ["ALL"]
+# Список для исключения из проверки правил и плагинов
+lint.ignore = [
+    "COM812", # Запятые в конце для элементов () в исключения
+    "D104", # Проверяет наличие docstring в файле __init__
+    "D407", # Проверяет заголовки разделов в строках документации, за которыми не следует подчеркивание. (конфликтует с D417)
+    "FA100", # Missing `from __future__ import annotations`, but uses `typing.Optional
+    "ANN101", # Проверка наличия аннотации для self
+    "ANN102", # Провекра наличия аннотации для cls
+    "ERA001", # Найден закомментированный код
+    "TD002", # Правила оформления ToDo
+    "TD003", # Правила оформления TODO
+    "RUF001", # Проверка на наличие кириллицы С, A и тд в латинице.
+    "RUF002", # Проверка на наличие кириллицы о, о и тд в латинице.
+    "RUF003", # Проверка на наличие кириллицы c, a и тд в латинице.
+    "D212", # Правила оформления multiline docstring
+    "D400", # Проверка на наличие точки в конце docstring
+    "D415", # Проверка на наличие точки в конце docstring
+    "D203", # Требуется одна пустая строка перед докстринг класса
+    "D102", # Требуется docstring для методов класса
+    "D210", # Требуется отсутствие пробелов между """ """ для docstring в одной строке
+    "D100", # Проверят есть ли docstring на уровне модуля(файла)
+    "FBT", # Не использовать Boolean в качестве входных аргументов функции.
+    "TRY400", # Use logging.exception instead of logging.error
+    "TRY003", # Avoid specifying long messages outside the exception class
+    "FIX002", # Использование TODO
+    "D413", # Пустая строка в конце docstring,
+]
+# Максимальная длина линии
+line-length = 120
+# Список файлов и директорий, исключенных из проверки
+exclude = [
+    ".git",
+    "__pycache__",
+    "env/*",
+    "*.pyc",
+    ".mypy_cache",
+    ".pytest_cache",
+    "/setup.py",
+    "scripts/*",
+]
+# Исключить из проверки, подходящее под регулярное выражение
+lint.dummy-variable-rgx = "(?x)(^env/ | ^env\\.py$)"
+show-fixes = true
+output-format = "full"
+# Версия Python
+target-version = "py37"
+
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = [
+    "pydantic.validator",
+    "pydantic.root_validator",
+    "sqlalchemy.orm.declared_attr",
+]
+
+
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi_filter.FilterDepends",
+]
+
+
+[tool.ruff.lint.pylint]
+# Maximum number of arguments for function / method.
+max-args=10
+
+# Maximum number of branch for function / method body.
+max-branches=12
+
+# Maximum number of return / yield for function / method body.
+max-returns=6
+
+# Maximum number of statements in function / method body.
+max-statements=50
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = ["S101", "D100", "ARG", "FBT"]
+"migrations/*" = ["D103", "INP001", "D205"]
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+exclude = [
+    '(?x)(^env/ | ^env\.py$)',
+]
+disable_error_code = ["assignment", "attr-defined", "type-arg", "no-any-return", "name-defined"]
+
+plugins = ["pydantic.mypy"]
+
+follow_imports = "silent"
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_reexport = true
+
+# for strict mypy: (this is the tricky one :-))
+disallow_untyped_defs = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true
