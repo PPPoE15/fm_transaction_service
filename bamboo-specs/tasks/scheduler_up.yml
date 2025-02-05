@@ -1,5 +1,0 @@
-  commandOption: run
-  image: ${bamboo.artifactory_docker}/scheduler_up:latest
-  detach: 'true'
-  name: scheduler-up
-  workDir: /srv/${bamboo.shortPlanName}

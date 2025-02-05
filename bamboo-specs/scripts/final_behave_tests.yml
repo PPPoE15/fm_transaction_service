@@ -1,9 +1,0 @@
-  |
-
-  #!/bin/bash
-  
-  ABS_PATH=/home/robot/sources
-
-  cd "$ABS_PATH"
-
-  /bin/bash acm-labs-env/scripts/cleanup-behave-tests.sh ${bamboo.buildResultKey}

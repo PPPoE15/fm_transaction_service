@@ -1,3 +1,0 @@
-- variable:
-    not-equals:
-      bamboo.inject.skip_deb_publish: '1'
