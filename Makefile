@@ -10,20 +10,22 @@ pytest_coverage:  ## Запуск pytest с coverage
 	pytest --cov --cov-report html
 
 build: ## Собрать образ.
-	docker compose -f docker/docker-compose.yml -p python-template build
+	docker-compose -f docker/docker-compose.yml -p financial_manager build --no-cache
+
+gen_docker_env: ## Сгенерировать/обновить env-файл для запуска в docker
+	$(MAKE) -C docker gen_docker_env
 
 up_all:  ## Запуск сервиса.
-	docker compose -f docker/docker-compose.yml -p python-template up --force-recreate -d web jobs scheduler
+	docker-compose -f docker/docker-compose.yml -p financial_manager up --force-recreate -d web #jobs scheduler
 
 down_all:  ## Остановка сервиса.
-	docker compose -f docker/docker-compose.yml -p python-template down
+	docker-compose -f docker/docker-compose.yml -p financial_manager down
 
 migrate: ## Применить миграции для указанной в env файле БД.
-	alembic upgrade head
+	$(MAKE) -C src migrate
 
 generate_migration:  ## Сгенерировать миграцию
-	@read -p "Migration title: " migration_title; \
-	alembic revision --autogenerate -m "$$migration_title"
+	$(MAKE) -C src generate_migration
 
 gen_dev_requirements: ## Сгенерировать файл requirements.txt для разработки
 	$(MAKE) -C docker/modules gen_dev_requirements

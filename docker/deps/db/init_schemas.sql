@@ -1,1 +1,1 @@
-CREATE DATABASE "python_template";
+CREATE DATABASE "financial_manager";

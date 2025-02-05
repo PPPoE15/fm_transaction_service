@@ -8,58 +8,54 @@ services:
 # --- apps ---
 
   web:
-    image: python-temlate:testing
+    image: financial_manager:testing
     platform: linux/amd64
     depends_on:
       _init-migrations:
         condition: service_completed_successfully
-      rmq:
-        condition: service_healthy
+      # rmq:
+      #   condition: service_healthy
     env_file:
-      - modules/testing.env
+      - docker.env
     volumes:
-      - ../src/modules:/opt/python-template/modules
+      - ../src/modules:/opt/financial_manager/modules
     ports:
       - 8000:8000
     command: uvicorn modules.web.main:app --host "0.0.0.0" --port 8000 --reload
 
-  jobs:
-    image: python-temlate:testing
-    platform: linux/amd64
-    depends_on:
-      _init-migrations:
-        condition: service_completed_successfully
-      rmq:
-        condition: service_healthy
-    env_file:
-      - modules/testing.env
-    volumes:
-      - ../src/modules:/opt/python-template/modules
-    command: dramatiq -p 1 modules.jobs.main
+  # jobs:
+  #   image: financial_manager:testing
+  #   platform: linux/amd64
+  #   depends_on:
+  #     _init-migrations:
+  #       condition: service_completed_successfully
+  #   env_file:
+  #     - docker.env
+  #   volumes:
+  #     - ../src/modules:/opt/financial_manager/modules
+  #   command: dramatiq -p 1 modules.jobs.main
     
-  scheduler:
-    image: python-temlate:testing
-    platform: linux/amd64
-    depends_on:
-      _init-migrations:
-        condition: service_completed_successfully
-      rmq:
-        condition: service_healthy
-    env_file:
-      - modules/testing.env
-    volumes:
-      - ../src/modules:/opt/python-template/modules
-    command: python -m modules.jobs.scheduler
+  # scheduler:
+  #   image: financial_manager:testing
+  #   platform: linux/amd64
+  #   depends_on:
+  #     _init-migrations:
+  #       condition: service_completed_successfully
+  #   env_file:
+  #     - docker.env
+  #   volumes:
+  #     - ../src/modules:/opt/financial_manager/modules
+  #   command: python -m modules.jobs.scheduler
 
 # --- tests ---
 
   downgrade-migrations-tests:
-    image: python-temlate:testing
+    image: financial_manager:testing
     depends_on:
       _init-migrations:
         condition: service_completed_successfully
     env_file:
-      - modules/testing.env
+      - docker.env
     volumes:
       - ../src:/opt/python-template/
     command: alembic downgrade base
@@ -67,9 +63,9 @@ services:
 # ---
 
   _init-migrations:
-    image: python-temlate:testing
+    image: financial_manager:testing
     env_file:
-      - modules/testing.env
+      - docker.env
     volumes:
       - ../src/:/opt/python-template
     depends_on:
@@ -83,9 +79,10 @@ services:
 
   _build-app:
     build:
+      context: .
       dockerfile: Dockerfile
       target: "development-env"
-    image: python-temlate:testing
+    image: financial_manager:testing
     command: echo "ok!"
 
   # ---
@@ -97,7 +94,6 @@ services:
       - 8080:8080
 
   db:
-    # image: acmp-docker.artifactory.astralinux.ru/postgres:v11.17_3
     image: postgres:16.0
     user: postgres
     healthcheck:
@@ -114,18 +110,17 @@ services:
       - ./deps/db/:/docker-entrypoint-initdb.d/
       - postgres_data:/var/lib/postgresql/data
 
-  rmq:
-    # image: acmp-docker.artifactory.astralinux.ru/rabbitmq-server:v3.7.8_2
-    # login/password: user/password
-    image: rabbitmq:3.12-management
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 5s
-      timeout: 1s
-      retries: 10
-    ports:
-      - "5672:5672" # Порт для AMPQ
-      - "15672:15672" # Порт для RabbitMQ Management UI
-    volumes:
-      - ./deps/rmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-      - ./deps/rmq/definitions.json:/etc/rabbitmq/definitions.json:rox
+  # rmq:
+  #   # login/password: user/password
+  #   image: rabbitmq:3.12-management
+  #   healthcheck:
+  #     test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+  #     interval: 5s
+  #     timeout: 1s
+  #     retries: 10
+  #   ports:
+  #     - "5672:5672" # Порт для AMPQ
+  #     - "15672:15672" # Порт для RabbitMQ Management UI
+  #   volumes:
+  #     - ./deps/rmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+  #     - ./deps/rmq/definitions.json:/etc/rabbitmq/definitions.json:rox

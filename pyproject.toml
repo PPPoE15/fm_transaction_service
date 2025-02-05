@@ -1,7 +1,7 @@
 [project]
-name = "python-template"
-version = "1.0.0"
-description = "Template for python services"
+name = "financial_manager"
+version = "0.0.1"
+description = "Manage your finance"
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
@@ -100,8 +100,8 @@ max-returns=6
 max-statements=50
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/*" = ["S101", "D100", "ARG", "FBT"]
-"migrations/*" = ["D103", "INP001", "D205"]
+"src/tests/*" = ["S101", "D100", "ARG", "FBT", "SLF001"]
+"src/migrations/*" = ["D103", "INP001", "D205"]
 
 [tool.mypy]
 warn_return_any = true
@@ -128,3 +128,17 @@ init_forbid_extra = true
 init_typed = true
 warn_required_dynamic_aliases = true
 warn_untyped_fields = true
+
+[tool.coverage.run]
+# в проверке покрытия учитываем код приложения
+source = [
+    "src/modules",
+]
+omit = [
+    # исключаем из покрытия библиотеку брокера
+    "*/message_broker/*",
+    # исключаем из покрытия хэндлеры
+    "*/handlers/*",
+    # исключаем из покрытия запросы
+    "*/queries/*",
+]
