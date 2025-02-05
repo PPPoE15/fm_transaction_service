@@ -14,32 +14,32 @@ class ForbiddenErrorResponseSchema(base.BaseErrorResponseSchema):
     type: str = Field(
         title="URI",
         description="Ссылка на документацию",
-        example="/help-center?helpSectionId=errors#403",
+        examples=["/help-center?helpSectionId=errors#403"],
         default="/help-center?helpSectionId=errors#403",
     )
     title: str = Field(
         title="Ответ (описание)",
         description="Описание HTTP-кода ответа",
         max_length=256,
-        example="Forbidden",
+        examples=["Forbidden"],
         default="Forbidden",
     )
     status: int = Field(
         title="Ответ (код)",
         description="Число, строго соответствует HTTP-коду ответа",
-        example=status.HTTP_403_FORBIDDEN,
+        examples=[status.HTTP_403_FORBIDDEN],
         default=status.HTTP_403_FORBIDDEN,
     )
     detail: str = Field(
         title="Информация",
         description="Интернациолизируемое описание ошибки",
-        example="Доступ запрещен",
+        examples=["Доступ запрещен"],
         default="Доступ запрещен",
     )
     code: str = Field(
         title="Внутренний код ошибки",
         description="Числобуквенный код ошибки в рамках продута ACM",
-        example="ACM-403000",
+        examples=["ACM-403000"],
         default="ACM-403000",
     )
 

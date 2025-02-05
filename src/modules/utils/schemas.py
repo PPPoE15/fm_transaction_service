@@ -59,7 +59,7 @@ class CreatingMixin:
     created_date: Optional[dt.datetime] = Field(
         title="Created Date",
         description="Дата создания записи пользователем",
-        example="2023-08-02T08:25:20.918267",
+        examples=["2023-08-02T08:25:20.918267"],
         default=None,
         alias="creation_date",
     )
@@ -76,7 +76,7 @@ class UpdatingMixin(Base):
     last_modified_date: Optional[dt.datetime] = Field(
         title="Last Modified Date",
         description="Дата обновления записи пользователем",
-        example="2023-08-02T08:25:20.962678",
+        examples=["2023-08-02T08:25:20.962678"],
         default=None,
     )
     last_modified_by: Optional[str] = Field(

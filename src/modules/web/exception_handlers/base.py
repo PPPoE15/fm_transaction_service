@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional, Tuple
+from typing import Any
 
 from fastapi.responses import JSONResponse
 
@@ -18,38 +18,38 @@ class BaseErrorResponseSchema(BaseModel):
     type: str = Field(
         title="URI",
         description="Ссылка на документацию",
-        example="/help-center?helpSectionId=errors#403",
+        examples=["/help-center?helpSectionId=errors#403"],
     )
     title: str = Field(
         title="Ответ (описание)",
         description="Описание HTTP-кода ответа",
         max_length=256,
-        example="Bad Request",
+        examples=["Bad Request"],
     )
     status: int = Field(
         title="Ответ (код)",
         description="Число, строго соответствует HTTP-коду ответа",
-        example=HTTP_400_BAD_REQUEST,
+        examples=[HTTP_400_BAD_REQUEST],
     )
     detail: str = Field(
         title="Информация",
         description="Интернациолизируемое описание ошибки",
-        example="Валидация не пройдена",
+        examples=["Валидация не пройдена"],
     )
     instance: str = Field(
         title="Путь",
         description="Подпуть запроса",
-        example="/cards",
+        examples=["/cards"],
     )
     code: str = Field(
         title="Внутренний код ошибки",
         description="Числобуквенный код ошибки в рамках продута ACM",
-        example="ACM-403000",
+        examples=["ACM-403000"],
     )
-    trace: Optional[str] = Field(
+    trace: str | None = Field(
         title="traceID",
         description="ID в OpenTracing",
-        example="18eb321f07f637f091ca2b3e4df91cbb",
+        examples=["18eb321f07f637f091ca2b3e4df91cbb"],
         default=None,
     )
 
@@ -66,7 +66,7 @@ class BaseErrorResponseSchema(BaseModel):
         )
 
 
-def get_body_info(exception_body: Optional[Any], pointer: Tuple) -> Optional[str]:  # noqa: ANN401
+def get_body_info(exception_body: Any | None, pointer: tuple) -> str | None:  # noqa: ANN401
     """
     В зависимости от типа ошибки может изменяться тип exception_body.
 

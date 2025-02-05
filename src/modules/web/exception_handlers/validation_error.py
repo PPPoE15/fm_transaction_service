@@ -1,4 +1,5 @@
-from typing import Iterable, List, Optional, cast
+from collections.abc import Iterable
+from typing import cast
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -17,23 +18,23 @@ class ValidationField(BaseModel):
     message: str = Field(
         title="Сообщение",
         description="Текст ошибки валидации",
-        example="Не должно быть пустым",
+        examples=["Не должно быть пустым"],
     )
     field: str = Field(
         title="Поле в запросе",
         description="Название поля в запросе, на котором сработала валидация",
-        example="card.surname",
+        examples=["card.surname"],
     )
-    rejected_value: Optional[str] = Field(
+    rejected_value: str | None = Field(
         title="Содержимое поля",
         description="Значение поля, не прошедшее валидацию",
-        example="comment",
+        examples=["comment"],
         alias="rejectedValue",
     )
     rule: str = Field(
         title="Правило",
         description="Название правила валидации",
-        example="NotEmpty",
+        examples=["NotEmpty"],
     )
 
 
@@ -43,36 +44,36 @@ class ValidationErrorResponseSchema(base.BaseErrorResponseSchema):
     type: str = Field(
         title="URI",
         description="Ссылка на документацию",
-        example="/help-center?helpSectionId=errors#422",
+        examples=["/help-center?helpSectionId=errors#422"],
         default="/help-center?helpSectionId=errors#422",
     )
     title: str = Field(
         title="Ответ (описание)",
         description="Описание HTTP-кода ответа",
         max_length=256,
-        example="Bad Request",
+        examples=["Bad Request"],
         default="Bad Request",
     )
     status: int = Field(
         title="Ответ (код)",
         description="Число, строго соответствует HTTP-коду ответа",
-        example=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        examples=[status.HTTP_422_UNPROCESSABLE_ENTITY],
         default=status.HTTP_422_UNPROCESSABLE_ENTITY,
     )
     detail: str = Field(
         title="Информация",
         description="Интернациолизируемое описание ошибки",
-        example="Валидация не пройдена",
+        examples=["Валидация не пройдена"],
         default="Валидация не пройдена",
     )
-    validation: List[ValidationField] = Field(
+    validation: list[ValidationField] = Field(
         title="Ошибки валидации",
         description="Список ошибок форматной валидации",
     )
     code: str = Field(
         title="Внутренний код ошибки",
         description="Числобуквенный код ошибки в рамках продута ACM",
-        example="ACM-422000",
+        examples=["ACM-422000"],
         default="ACM-422000",
     )
 

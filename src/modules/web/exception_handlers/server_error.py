@@ -12,32 +12,32 @@ class ServerErrorResponseSchema(base.BaseErrorResponseSchema):
     type: str = Field(
         title="URI",
         description="Ссылка на документацию",
-        example="/help-center?helpSectionId=errors#500",
+        examples=["/help-center?helpSectionId=errors#500"],
         default="/help-center?helpSectionId=errors#500",
     )
     title: str = Field(
         title="Ответ (описание)",
         description="Описание HTTP-кода ответа",
         max_length=256,
-        example="Internal Server Error",
+        examples=["Internal Server Error"],
         default="Internal Server Error",
     )
     status: int = Field(
         title="Ответ (код)",
         description="Число, строго соответствует HTTP-коду ответа",
-        example=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        examples=[status.HTTP_500_INTERNAL_SERVER_ERROR],
         default=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
     detail: str = Field(
         title="Информация",
         description="Интернациолизируемое описание ошибки",
-        example="Внутренняя ошибка сервера",
+        examples=["Внутренняя ошибка сервера"],
         default="Внутренняя ошибка сервера",
     )
     code: str = Field(
         title="Внутренний код ошибки",
         description="Числобуквенный код ошибки в рамках продута ACM",
-        example="ACM-500000",
+        examples=["ACM-500000"],
         default="ACM-500000",
     )
 

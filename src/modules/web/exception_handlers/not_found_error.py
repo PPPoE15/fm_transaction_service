@@ -14,32 +14,32 @@ class NotFoundErrorResponseSchema(base.BaseErrorResponseSchema):
     type: str = Field(
         title="URI",
         description="Ссылка на документацию",
-        example="/help-center?helpSectionId=errors#404",
+        examples=["/help-center?helpSectionId=errors#404"],
         default="/help-center?helpSectionId=errors#404",
     )
     title: str = Field(
         title="Ответ (описание)",
         description="Описание HTTP-кода ответа",
         max_length=256,
-        example="Resource not found",
+        examples=["Resource not found"],
         default="Resource not found",
     )
     status: int = Field(
         title="Ответ (код)",
         description="Число, строго соответствует HTTP-коду ответа",
-        example=status.HTTP_404_NOT_FOUND,
+        examples=[status.HTTP_404_NOT_FOUND],
         default=status.HTTP_404_NOT_FOUND,
     )
     detail: str = Field(
         title="Информация",
         description="Интернациолизируемое описание ошибки",
-        example="Ресурс не найден",
+        examples=["Ресурс не найден"],
         default="Ресурс не найден",
     )
     code: str = Field(
         title="Внутренний код ошибки",
         description="Числобуквенный код ошибки в рамках продута ACM",
-        example="ACM-404000",
+        examples=["ACM-404000"],
         default="ACM-404000",
     )
 

@@ -13,32 +13,32 @@ class UnauthorizedErrorResponseSchema(base.BaseErrorResponseSchema):
     type: str = Field(
         title="URI",
         description="Ссылка на документацию",
-        example="/help-center?helpSectionId=errors#401",
+        examples=["/help-center?helpSectionId=errors#401"],
         default="/help-center?helpSectionId=errors#401",
     )
     title: str = Field(
         title="Ответ (описание)",
         description="Описание HTTP-кода ответа",
         max_length=256,
-        example="Unauthorized",
+        examples=["Unauthorized"],
         default="Unauthorized",
     )
     status: int = Field(
         title="Ответ (код)",
         description="Число, строго соответствует HTTP-коду ответа",
-        example=status.HTTP_401_UNAUTHORIZED,
+        examples=[status.HTTP_401_UNAUTHORIZED],
         default=status.HTTP_401_UNAUTHORIZED,
     )
     detail: str = Field(
         title="Информация",
         description="Интернациолизируемое описание ошибки",
-        example="Неавторизованный запрос",
+        examples=["Неавторизованный запрос"],
         default="Неавторизованный запрос",
     )
     code: str = Field(
         title="Внутренний код ошибки",
         description="Числобуквенный код ошибки в рамках продута ACM",
-        example="ACM-401000",
+        examples=["ACM-401000"],
         default="ACM-401000",
     )
 
