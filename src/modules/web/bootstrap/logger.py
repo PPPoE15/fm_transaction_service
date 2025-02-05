@@ -9,7 +9,7 @@ from modules.web.telemetry.logging_tools import ReplicaIDFilter, SegmentUIDFilte
 
 def setup() -> None:
     """Настройка логгера."""
-    logging.config.dictConfig(config=common_config.log_config.model_dump())
+    logging.config.dictConfig(config=common_config.log_settings.model_dump())
     logger = get_logger()
 
     logger.addFilter(ReplicaIDFilter(replica_uid=str(uuid4())))

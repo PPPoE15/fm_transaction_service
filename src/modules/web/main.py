@@ -3,7 +3,9 @@ from typing import Optional, Type
 
 from fastapi import FastAPI
 
-from modules.web.bootstrap import dramatiq, logger, metrics, rmq
+from modules.web.bootstrap import logger, metrics
+
+# from modules.web.bootstrap import dramatiq, logger, metrics, rmq
 from modules.web.config import app_settings
 
 
@@ -23,7 +25,7 @@ class LifespanEvent:
         """Событие выполняющееся при starts up."""
         if not app_settings.HEALTHCHECK_MODE:
             logger.setup()
-            await rmq.connect()
+            # await rmq.connect()
 
     async def __aexit__(
         self,
@@ -39,8 +41,8 @@ class LifespanEvent:
             exc_value: Объект ошибки.
             traceback: Объект трассировки ошибки.
         """
-        if not app_settings.HEALTHCHECK_MODE:
-            await rmq.disconnect()
+        # if not app_settings.HEALTHCHECK_MODE:
+        #     await rmq.disconnect()
 
 
 def build_app() -> FastAPI:
@@ -53,7 +55,7 @@ def build_app() -> FastAPI:
     )
 
     if not app_settings.HEALTHCHECK_MODE:
-        dramatiq.setup()
+        # dramatiq.setup()
 
         from modules.web.router import main_router
 
