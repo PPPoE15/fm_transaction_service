@@ -3,8 +3,8 @@ run_linters: ## Запуск линтеров
 	mypy --cache-dir=/dev/null src || echo
 
 test_downgrade_migrations_compose:  ## Запуск проверки отката всех миграций через docker compose.
-	docker compose -f docker/docker-compose-dev-team.yaml -p python-template-tests up --force-recreate --abort-on-container-exit downgrade-migrations-tests || true
-	docker compose -f docker/docker-compose-dev-team.yaml -p python-template-tests down -v --remove-orphans
+	docker compose -f docker/docker-compose-dev-team.yaml -p financial_manager-tests up --force-recreate --abort-on-container-exit downgrade-migrations-tests || true
+	docker compose -f docker/docker-compose-dev-team.yaml -p financial_manager-tests down -v --remove-orphans
 
 pytest_coverage:  ## Запуск pytest с coverage
 	pytest --cov --cov-report html

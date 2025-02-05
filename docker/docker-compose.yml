@@ -57,7 +57,7 @@ services:
     env_file:
       - docker.env
     volumes:
-      - ../src:/opt/python-template/
+      - ../src:/opt/financial_manager/
     command: alembic downgrade base
 
 # ---
@@ -67,7 +67,7 @@ services:
     env_file:
       - docker.env
     volumes:
-      - ../src/:/opt/python-template
+      - ../src/:/opt/financial_manager
     depends_on:
       _build-app:
         condition: service_completed_successfully

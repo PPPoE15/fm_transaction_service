@@ -40,8 +40,8 @@ services:
       DB_HOST: common-postgres
       RABBITMQ_HOST: rabbitmq-server
     volumes:
-      - ./:/srv/python-template
-    working_dir: /srv/python-template
+      - ./:/srv/financial_manager
+    working_dir: /srv/financial_manager
     depends_on:
       common-postgres:
           condition: service_healthy

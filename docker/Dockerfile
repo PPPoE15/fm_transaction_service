@@ -1,11 +1,12 @@
-ARG DOCKER_REGISTRY="docker.io"
+# ARG DOCKER_REGISTRY="docker.io"
 
 ARG SERVICE_NAME="financial_manager"
 ARG WORKING_DIR="/opt/${SERVICE_NAME}"
 
 ARG VIRTUAL_ENV="/opt/venv"
 
-FROM ${DOCKER_REGISTRY}/unit:python3.11 AS common
+# FROM ${DOCKER_REGISTRY}/unit:python3.11 AS common
+FROM python:3.11-slim AS common
 
 ARG VIRTUAL_ENV
 ENV LANG=C.UTF-8 \

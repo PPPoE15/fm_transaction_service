@@ -13,10 +13,10 @@ with open('README.md') as readme_file:
         readme = readme_file.read()
 
 setup(
-    author="Sergey Shitenkov",
-    author_email='sshitenkov@astralinux.ru',
+    author="Artem Viktorov",
+    author_email='aviktorov12@gmail.com',
     long_description=readme,
-    name='python-template',
+    name='financial_manager',
     version='1.2.0',
     packages=find_packages(where="src/", exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     package_dir={"": "src"},
@@ -28,6 +28,6 @@ setup(
         'Intended Audience :: Developers',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.11',
     ]
 )
