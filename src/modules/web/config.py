@@ -38,8 +38,8 @@ class MQSettings(BaseSettings):
     VHOST: str = Field(description="Виртаульный хост RMQ.")
 
     SOURCE: str = Field(description="Источник сообщений.")
-    EXCH_ACM_SERVICE_EVT: str = Field(description="Имя Exchange RMQ, обрабатывающий исходящие сообщения.")
-    EXCH_ACM_SERVICE_ERR: str = Field(description="Имя Exchange RMQ, обрабатывающий ошибки.")
+    EXCH_FM_SERVICE_EVT: str = Field(description="Имя Exchange RMQ, обрабатывающий исходящие сообщения.")
+    EXCH_FM_SERVICE_ERR: str = Field(description="Имя Exchange RMQ, обрабатывающий ошибки.")
 
     RETRY_ATTEMPTS: int = Field(description="Количество попыток повтора.")
     RETRY_WAIT_MIN: int = Field(description="Минимальное время ожидания в секундах между попытками повтора.")

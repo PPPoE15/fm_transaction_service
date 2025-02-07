@@ -43,8 +43,8 @@ class BaseErrorResponseSchema(BaseModel):
     )
     code: str = Field(
         title="Внутренний код ошибки",
-        description="Числобуквенный код ошибки в рамках продута ACM",
-        examples=["ACM-403000"],
+        description="Числобуквенный код ошибки в рамках продута",
+        examples=["FM-403000"],
     )
     trace: str | None = Field(
         title="traceID",

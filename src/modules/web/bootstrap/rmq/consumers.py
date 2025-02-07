@@ -1,8 +1,7 @@
 import logging
 from typing import Optional
 
-from acm_lib_message_broker import ConsumerPool
-from acm_lib_message_broker.consumer.consumer import Consumer
+from lib_message_broker import ConsumerPool
 
 from modules.web.app.handlers.events import handlers_mappers
 from modules.web.app.handlers.events.dispatcher import EventDispatcher

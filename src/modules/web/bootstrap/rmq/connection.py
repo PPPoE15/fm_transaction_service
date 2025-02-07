@@ -1,4 +1,4 @@
-from acm_lib_message_broker import get_connection
+from lib_message_broker import get_connection
 
 from modules.web.config import mq_settings
 from modules.web.connectors import rmq

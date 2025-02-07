@@ -1,8 +1,8 @@
 import logging
 from typing import Dict, Optional, Type
 
-from acm_lib_message_broker.producer.schemas import HeadersRMQSchema
 from aio_pika.abc import AbstractIncomingMessage
+from lib_message_broker.producer.schemas import HeadersRMQSchema
 from pydantic import ValidationError
 from tenacity import AsyncRetrying, RetryError, stop_after_attempt, wait_random
 

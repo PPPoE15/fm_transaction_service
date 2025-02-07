@@ -7,7 +7,7 @@ from typing_extensions import ParamSpec
 
 from modules.jobs.logger import get_logger
 
-ACTOR_QUEUE_NAME = "acm.<your-service-name-here>.jobs"
+ACTOR_QUEUE_NAME = "<your-service-name-here>.jobs"
 
 T = TypeVar("T")
 P = ParamSpec("P")

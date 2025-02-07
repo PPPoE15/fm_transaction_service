@@ -37,9 +37,9 @@ class UnauthorizedErrorResponseSchema(base.BaseErrorResponseSchema):
     )
     code: str = Field(
         title="Внутренний код ошибки",
-        description="Числобуквенный код ошибки в рамках продута ACM",
-        examples=["ACM-401000"],
-        default="ACM-401000",
+        description="Числобуквенный код ошибки в рамках продута FM",
+        examples=["FM-401000"],
+        default="FM-401000",
     )
 
 

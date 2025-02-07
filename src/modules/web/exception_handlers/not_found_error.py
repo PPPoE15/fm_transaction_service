@@ -38,9 +38,9 @@ class NotFoundErrorResponseSchema(base.BaseErrorResponseSchema):
     )
     code: str = Field(
         title="Внутренний код ошибки",
-        description="Числобуквенный код ошибки в рамках продута ACM",
-        examples=["ACM-404000"],
-        default="ACM-404000",
+        description="Числобуквенный код ошибки в рамках продута FM",
+        examples=["FM-404000"],
+        default="FM-404000",
     )
 
 

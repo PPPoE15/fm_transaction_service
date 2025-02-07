@@ -38,9 +38,9 @@ class ForbiddenErrorResponseSchema(base.BaseErrorResponseSchema):
     )
     code: str = Field(
         title="Внутренний код ошибки",
-        description="Числобуквенный код ошибки в рамках продута ACM",
-        examples=["ACM-403000"],
-        default="ACM-403000",
+        description="Числобуквенный код ошибки в рамках продута",
+        examples=["FM-403000"],
+        default="FM-403000",
     )
 
 

@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from acm_lib_message_broker.cluster_builder.cluster_builder import ClusterBuilder
+from lib_message_broker.cluster_builder.cluster_builder import ClusterBuilder
 
 from modules.web.config import mq_settings
 from modules.web.connectors import rmq
@@ -24,7 +24,7 @@ async def _declare_evt_queue(rmq_cluster: ClusterBuilder) -> None:
     Args:
         rmq_cluster: Построитель кластера RMQ.
     """
-    exchange_name = mq_settings.EXCH_ACM_SERVICE_EVT
+    exchange_name = mq_settings.EXCH_FM_SERVICE_EVT
     queue_evt_name = ...
 
     exchange_evt = await rmq_cluster.declare_exchange(name=exchange_name)
@@ -54,6 +54,6 @@ async def _declare_error_queue(rmq_cluster: ClusterBuilder) -> None:
         rmq_cluster: Построитель кластера RMQ.
     """
     queue_error_name = ...
-    exchange_err = await rmq_cluster.declare_exchange(name=mq_settings.EXCH_ACM_SERVICE_ERR)
+    exchange_err = await rmq_cluster.declare_exchange(name=mq_settings.EXCH_FM_SERVICE_ERR)
     queue_err = await rmq_cluster.declare_queue(name=queue_error_name)
     await queue_err.bind(exchange=exchange_err, routing_key=constants.RKEY_ALL)

@@ -72,9 +72,9 @@ class ValidationErrorResponseSchema(base.BaseErrorResponseSchema):
     )
     code: str = Field(
         title="Внутренний код ошибки",
-        description="Числобуквенный код ошибки в рамках продута ACM",
-        examples=["ACM-422000"],
-        default="ACM-422000",
+        description="Числобуквенный код ошибки в рамках продута FM",
+        examples=["FM-422000"],
+        default="FM-422000",
     )
 
 

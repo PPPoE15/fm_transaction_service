@@ -36,9 +36,9 @@ class ServerErrorResponseSchema(base.BaseErrorResponseSchema):
     )
     code: str = Field(
         title="Внутренний код ошибки",
-        description="Числобуквенный код ошибки в рамках продута ACM",
-        examples=["ACM-500000"],
-        default="ACM-500000",
+        description="Числобуквенный код ошибки в рамках продута FM",
+        examples=["FM-500000"],
+        default="FM-500000",
     )
 
 

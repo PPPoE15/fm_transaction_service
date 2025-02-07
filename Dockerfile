@@ -1,6 +1,6 @@
-ARG DOCKER_REGISTRY="acmp-docker.artifactory.astralinux.ru"
+ARG DOCKER_REGISTRY="docker.io"
 
-ARG SERVICE_NAME="acm_configuration_service"
+ARG SERVICE_NAME="financial_manager_service"
 ARG WORKING_DIR="/opt/${SERVICE_NAME}"
 
 ARG VIRTUAL_ENV="/opt/venv"

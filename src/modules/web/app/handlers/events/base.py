@@ -2,8 +2,8 @@ import abc
 import logging
 from typing import Generic, Optional, Type
 
-from acm_lib_message_broker.producer.schemas import HeadersRMQSchema
 from aio_pika.abc import AbstractIncomingMessage
+from lib_message_broker.producer.schemas import HeadersRMQSchema
 from pydantic import BaseModel
 from typing_extensions import TypeVar
 
