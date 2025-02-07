@@ -15,10 +15,10 @@ if TYPE_CHECKING:
     from modules import types
 
 
-class Incomes(Base):
-    """Список доходов пользователя"""
+class TransactionSchema(Base):
+    """Список транзакций пользователя"""
 
-    income_date: datetime = Field(
+    transaction_date: datetime = Field(
         description="Дата транзакции.",
     )
     category: types.CategoryName = Field(
@@ -27,16 +27,27 @@ class Incomes(Base):
     money_sum: types.MoneySum = Field(
         description="Сумма транзакции.",
     )
-    description: types.Description | None = Field(
+    transaction_type: types.TransactionType = Field(
+        description="Тип транзакции.",
+    )
+    description: types.Description = Field(
         description="Описание транзакции.",
     )
 
 
 @dataclass
-class IncomeFilters:
+class TransactionFilters:
     """Фильтр по транзакциям."""
 
     category: Annotated[
+        str | None,
+        Query(
+            title="Название категории",
+            description="Поиск по совпадению символов в названиях категорий, без учета регистра",
+        ),
+    ] = None
+
+    transaction_type: Annotated[
         str | None,
         Query(
             title="Название категории",
