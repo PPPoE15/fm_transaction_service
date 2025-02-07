@@ -9,6 +9,7 @@ from .simple_types import (
     UserName,
     UserUID,
 )
+from .transaction import TransactionType
 
 __all__ = [
     "CategoryName",
@@ -20,4 +21,5 @@ __all__ = [
     "CategoryUID",
     "UserName",
     "UserUID",
+    "TransactionType",
 ]

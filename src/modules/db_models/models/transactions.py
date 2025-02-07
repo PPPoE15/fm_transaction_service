@@ -12,10 +12,10 @@ from modules.db_models.utils.types import TZDateTime
 if TYPE_CHECKING:
     from .users import User
 
-class Outcome(AsyncBase):
-    """Сущность единицы расхода."""
+class Transaction(AsyncBase):
+    """Сущность единицы транзакции."""
 
-    __tablename__ = "outcomes"
+    __tablename__ = "transactions"
 
     uid: Mapped[types.IncomeUID] = mapped_column(
         UUID,
@@ -26,8 +26,7 @@ class Outcome(AsyncBase):
         ForeignKey("users.uid", ondelete="CASCADE"),
         doc="Внешний ключ на uid пользователя.",
     )
-    # TODO: переименовать
-    income_date: Mapped[datetime] = mapped_column(
+    transaction_date: Mapped[datetime] = mapped_column(
         TZDateTime,
         doc="Дата транзакции.",
     )
@@ -39,13 +38,16 @@ class Outcome(AsyncBase):
         Integer,
         doc="Сумма транзакции.",
     )
-    # TODO: Сделать поле optional
+    transaction_type: Mapped[types.TransactionType] = mapped_column(
+        String,
+        doc="Тип транзакции.",
+    )
     description: Mapped[types.Description] = mapped_column(
         String,
         doc="Описание транзакции.",
     )
 
     user: Mapped["User"] = relationship(
-        back_populates="outcomes",
+        back_populates="transactions",
         foreign_keys=user_uid,
     )

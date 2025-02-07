@@ -5,14 +5,12 @@ from typing import TYPE_CHECKING
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import UUID, String
 
+from modules import types  # noqa: TCH001
 from modules.db_models.base import AsyncBase
 
 if TYPE_CHECKING:
-    from modules import types
-
     from .categories import Category
-    from .incomes import Income
-    from .outcomes import Outcome
+    from .transactions import Transaction
 
 class User(AsyncBase):
     """Сущность пользователя."""
@@ -37,11 +35,7 @@ class User(AsyncBase):
         back_populates="user",
         cascade="all,delete-orphan",
     )
-    incomes: Mapped[list["Income"]] = relationship(
-        back_populates="user",
-        cascade="all,delete-orphan",
-    )
-    outcomes: Mapped[list["Outcome"]] = relationship(
+    transactions: Mapped[list["Transaction"]] = relationship(
         back_populates="user",
         cascade="all,delete-orphan",
     )
