@@ -1,12 +1,15 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import UUID, String
 
-from modules import types
 from modules.db_models.base import AsyncBase
 
 if TYPE_CHECKING:
+    from modules import types
+
     from .categories import Category
     from .incomes import Income
     from .outcomes import Outcome

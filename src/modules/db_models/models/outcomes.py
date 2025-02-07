@@ -20,27 +20,29 @@ class Outcome(AsyncBase):
     uid: Mapped[types.IncomeUID] = mapped_column(
         UUID,
         primary_key=True,
-        doc="Уникальный ID записи расхода.",
+        doc="Уникальный ID записи транзакции.",
     )
     user_uid: Mapped[types.UserUID] = mapped_column(
         ForeignKey("users.uid", ondelete="CASCADE"),
         doc="Внешний ключ на uid пользователя.",
     )
+    # TODO: переименовать
     income_date: Mapped[datetime] = mapped_column(
         TZDateTime,
-        doc="Дата расхода.",
+        doc="Дата транзакции.",
     )
     category: Mapped[types.CategoryName] = mapped_column(
         String,
-        doc="Категория расхода.",
+        doc="Категория транзакции.",
     )
     money_sum: Mapped[types.MoneySum] = mapped_column(
         Integer,
-        doc="Сумма расхода.",
+        doc="Сумма транзакции.",
     )
+    # TODO: Сделать поле optional
     description: Mapped[types.Description] = mapped_column(
         String,
-        doc="Описание расхода.",
+        doc="Описание транзакции.",
     )
 
     user: Mapped["User"] = relationship(
