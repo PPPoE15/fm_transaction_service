@@ -17,7 +17,7 @@ class Transaction(AsyncBase):
 
     __tablename__ = "transactions"
 
-    uid: Mapped[types.IncomeUID] = mapped_column(
+    uid: Mapped[types.TransactionUID] = mapped_column(
         UUID,
         primary_key=True,
         doc="Уникальный ID записи транзакции.",

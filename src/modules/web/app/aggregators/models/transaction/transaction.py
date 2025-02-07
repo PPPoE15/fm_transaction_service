@@ -13,16 +13,16 @@ if TYPE_CHECKING:
     from modules import types
 
 
-class Income(Base):
-    """Агрегатор доходов пользователя"""
+class Transaction(Base):
+    """Агрегатор транзакции пользователя"""
 
-    uid: types.CategoryUID = Field(
+    uid: types.TransactionUID = Field(
         description="Уникальный ID записи транзакции.",
     )
     user_uid: types.UserUID = Field(
         description="UID пользователя.",
     )
-    income_date: datetime = Field(
+    transaction_date: datetime = Field(
         description="Дата транзакции.",
     )
     category: types.CategoryName = Field(
@@ -31,7 +31,10 @@ class Income(Base):
     money_sum: types.MoneySum = Field(
         description="Сумма транзакции.",
     )
-    description: types.Description | None = Field(
+    transaction_type: types.TransactionType = Field(
+        description="Тип транзакции.",
+    )
+    description: types.Description = Field(
         description="Описание транзакции.",
     )
 
@@ -39,18 +42,20 @@ class Income(Base):
     def create(
         cls,
         user_uid: types.UserUID,
-        money_sum: types.MoneySum,
-        income_date: datetime,
+        transaction_date: datetime,
         category: types.CategoryName,
-        description: types.Description | None,
+        money_sum: types.MoneySum,
+        transaction_type: types.TransactionType,
+        description: types.Description,
     ) -> Self:
         """
-        Создать пользователя.
+        Создать транзакцию.
 
         Args:
             user_uid: UID пользователя.
+            transaction_date: Дата транзакции.
             money_sum: Денежная сумма по категории.
-            income_date: Дата транзакции.
+            transaction_type:Тип транзакции.
             category: Категория.
             description: Описание.
         """
@@ -58,8 +63,9 @@ class Income(Base):
         return cls(
             uid=uid,
             user_uid=user_uid,
-            money_sum=money_sum,
-            income_date=income_date,
+            transaction_date=transaction_date,
             category=category,
+            money_sum=money_sum,
+            transaction_type=transaction_type,
             description=description,
         )
