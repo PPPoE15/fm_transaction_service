@@ -10,6 +10,7 @@ from modules.db_models.base import AsyncBase
 if TYPE_CHECKING:
     from .users import User
 
+
 class Category(AsyncBase):
     """Сущность категории бюджета."""
 

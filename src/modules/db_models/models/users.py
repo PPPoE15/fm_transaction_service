@@ -1,16 +1,12 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import UUID, String
 
-from modules import types  # noqa: TCH001
+from modules import types
 from modules.db_models.base import AsyncBase
 
-if TYPE_CHECKING:
-    from .categories import Category
-    from .transactions import Transaction
+from .categories import Category
+from .transactions import Transaction
+
 
 class User(AsyncBase):
     """Сущность пользователя."""
@@ -31,11 +27,11 @@ class User(AsyncBase):
         doc="Email пользователя",
     )
 
-    categories: Mapped[list["Category"]] = relationship(
+    categories: Mapped[list[Category]] = relationship(
         back_populates="user",
         cascade="all,delete-orphan",
     )
-    transactions: Mapped[list["Transaction"]] = relationship(
+    transactions: Mapped[list[Transaction]] = relationship(
         back_populates="user",
         cascade="all,delete-orphan",
     )

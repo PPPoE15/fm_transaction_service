@@ -2,10 +2,10 @@ from typing import Dict
 
 from fastapi import APIRouter, Depends
 
-from modules.web.app.handlers.api.schemas import BaseListResponseSchema, BaseResponseSchema
-from .endpoints import deps
-from modules.web.app.handlers.deps import async_session_factory
+from modules.utils.schemas import PageParams
 from modules.web.app.application.queries.user import schemas as q_schemas
+from modules.web.app.handlers.api.schemas import BaseListResponseSchema
+from modules.web.app.handlers.deps import async_session_factory
 
 from . import deps
 
@@ -24,9 +24,8 @@ async def demo() -> Dict[str, str]:
     description="Получить список транзакций пользователя",
 )
 async def get_user_transactions(
-    page_params: PageParamsType,
-    user: Annotated[UserInfo, Depends(get_user_info)],
-    filter_params: q_schemas.UserFilters = Depends(),
+    page_params: PageParams = Depends(),
+    filter_params: q_schemas.TransactionFilters = Depends(),
 ) -> BaseListResponseSchema[q_schemas.TransactionSchema]:
     """
     Список транзакций пользователя.
@@ -37,14 +36,9 @@ async def get_user_transactions(
         user: Информация об авторизованном пользователе.
     """
     async with async_session_factory() as session:
-        system_users_queries = deps.build_queries(
-            session=session,
-            user_uid=user.uid,
-        )
-        system_users, total = await system_users_queries.get_list(
+        transactions_queries = deps.build_queries(session)
+        transactions, total = await transactions_queries.get_transactions(
             page_params=page_params,
             filter_params=filter_params,
         )
-    return BaseListResponseSchema(total=total, content=system_users)
-
-
+    return BaseListResponseSchema(total=total, content=transactions)

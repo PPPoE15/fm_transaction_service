@@ -12,6 +12,7 @@ from modules.db_models.utils.types import TZDateTime
 if TYPE_CHECKING:
     from .users import User
 
+
 class Transaction(AsyncBase):
     """Сущность единицы транзакции."""
 

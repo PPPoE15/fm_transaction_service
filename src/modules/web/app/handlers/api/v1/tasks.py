@@ -7,6 +7,7 @@ tasks_router = APIRouter(tags=["Tasks"], prefix="/api/v1/tasks")
 
 
 def build_echo_msg_handler() -> AddEchoMsgTaskHandler:
+    """Simple docs"""
     return AddEchoMsgTaskHandler(
         tasks_rmq_adapter=TasksRMQAdapter(),
     )

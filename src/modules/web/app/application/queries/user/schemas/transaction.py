@@ -1,18 +1,12 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Annotated
+from datetime import datetime
+from typing import Annotated
 
+from fastapi import Query
 from pydantic import Field
 
+from modules import types
 from modules.utils.schemas import Base
-
-if TYPE_CHECKING:
-    from datetime import datetime
-
-    from fastapi import Query
-
-    from modules import types
 
 
 class TransactionSchema(Base):

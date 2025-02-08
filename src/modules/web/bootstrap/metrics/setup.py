@@ -7,7 +7,7 @@ from fastapi import FastAPI
 # from .metrics import PrometheusMiddleware
 
 
-def setup(app: FastAPI) -> None:
+def setup(app: FastAPI) -> None:  # noqa: ARG001
     """
     Настройка обработчиков внутренних приложений.
 

@@ -12,7 +12,7 @@ constants = ...  # from modules.web.app.infrastructrure.rmq import constants
 async def build_rmq_cluster(logger: Optional[logging.Logger] = None) -> None:
     """Создать необходимые для работы сервиса точки обмена и очереди."""
     async with rmq.rmq_connection.channel() as channel:
-        rmq_cluster = ClusterBuilder(channel=channel, logger=logger)
+        ClusterBuilder(channel=channel, logger=logger)
         # await _declare_evt_queue(rmq_cluster)
         # await _declare_error_queue(rmq_cluster)
 

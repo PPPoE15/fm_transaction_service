@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import logging
-from typing import TYPE_CHECKING, Any, Dict, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from sqlalchemy import Select, inspect
 
 if TYPE_CHECKING:
+    import logging
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from modules.db_models.base import AsyncBase
@@ -49,7 +50,7 @@ class BaseQueries(Generic[AccessControllerType]):
         return stmt.limit(page_params.limit).offset(page_params.skip)
 
     @staticmethod
-    def _model_to_dict(orm_model: AsyncBase) -> Dict[str, Any]:
+    def _model_to_dict(orm_model: AsyncBase) -> dict[str, Any]:
         """
         Преобразовать orm-модель в словарь, содержащий поля модели, включая связи.
 

@@ -1,15 +1,19 @@
-from collections.abc import Iterable
-from typing import cast
+from __future__ import annotations
 
-from fastapi import FastAPI, Request
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, cast
+
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from starlette import status
 
 from modules.web.app.utils.exceptions import BaseCustomValidationError
 
 from . import base
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI, Request
+    from fastapi.responses import JSONResponse
 
 
 class ValidationField(BaseModel):

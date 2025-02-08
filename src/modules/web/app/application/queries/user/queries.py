@@ -7,7 +7,7 @@ from sqlalchemy import Select, exists, func, select
 from modules import db_models as orm_models
 from modules.web.app.application.queries.base import BaseQueries
 
-from . import exceptions, schemas
+from . import schemas
 
 if TYPE_CHECKING:
     from modules.utils.schemas import PageParams

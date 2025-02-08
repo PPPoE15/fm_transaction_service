@@ -1,30 +1,30 @@
-aio-pika==9.3.1
+aio-pika==9.5.4
     # via -r /home/artem/financial_manager/docker/modules/web/requirements.in
-aiormq==6.7.7
+aiormq==6.8.1
     # via aio-pika
-alembic[tz]==1.12.1
+alembic[tz]==1.14.1
     # via -r /home/artem/financial_manager/docker/modules/requirements-migrations.in
 annotated-types==0.7.0
     # via pydantic
 anyio==4.8.0
     # via starlette
-apscheduler==3.10.4
+apscheduler==3.11.0
     # via -r /home/artem/financial_manager/docker/modules/jobs/requirements.in
-argh==0.31.3
-    # via watchdog
 asyncpg==0.30.0
     # via -r /home/artem/financial_manager/docker/modules/web/requirements.in
 click==8.1.8
     # via uvicorn
 coverage[toml]==7.6.10
     # via pytest-cov
-dramatiq[rabbitmq,watch]==1.5.0
+dramatiq[rabbitmq,watch]==1.17.1
     # via -r /home/artem/financial_manager/docker/modules/jobs/requirements.in
-factory-boy==3.3.0
+exceptiongroup==1.2.2
+    # via aio-pika
+factory-boy==3.3.3
     # via -r requirements-dev.in
 faker==35.2.0
     # via factory-boy
-fastapi==0.100.1
+fastapi==0.115.8
     # via -r /home/artem/financial_manager/docker/modules/web/requirements.in
 gevent==24.11.1
     # via watchdog-gevent
@@ -40,42 +40,40 @@ idna==3.10
     #   yarl
 iniconfig==2.0.0
     # via pytest
-mako==1.3.8
+mako==1.3.9
     # via alembic
 markupsafe==3.0.2
     # via mako
 multidict==6.1.0
     # via yarl
-mypy==1.4.0
+mypy==1.15.0
     # via -r requirements-dev.in
 mypy-extensions==1.0.0
     # via mypy
 packaging==24.2
     # via pytest
-pamqp==3.2.1
+pamqp==3.3.0
     # via aiormq
-pathtools==0.1.2
-    # via watchdog
-pika==0.13.1
+pika==1.3.2
     # via dramatiq
 pluggy==1.5.0
     # via pytest
-prometheus-client==0.2.0
+prometheus-client==0.21.1
     # via dramatiq
 propcache==0.2.1
     # via yarl
-psycopg==3.1.19
+psycopg==3.2.4
     # via -r /home/artem/financial_manager/docker/modules/jobs/requirements.in
-pydantic==2.5.3
+pydantic==2.10.6
     # via
     #   -r /home/artem/financial_manager/docker/modules/requirements-common.in
     #   fastapi
     #   pydantic-settings
-pydantic-core==2.14.6
+pydantic-core==2.27.2
     # via pydantic
-pydantic-settings==2.0.3
+pydantic-settings==2.7.1
     # via -r /home/artem/financial_manager/docker/modules/requirements-common.in
-pyjwt==2.8.0
+pyjwt==2.10.1
     # via -r /home/artem/financial_manager/docker/modules/web/requirements.in
 pytest==8.3.4
     # via
@@ -90,31 +88,22 @@ pytest-cov==6.0.0
 pytest-ordering==0.6
     # via -r requirements-dev.in
 python-dateutil==2.9.0.post0
-    # via
-    #   alembic
-    #   faker
+    # via faker
 python-dotenv==1.0.1
     # via pydantic-settings
-pytz==2025.1
-    # via apscheduler
-pyyaml==6.0.2
-    # via watchdog
-ruff==0.2.0
+ruff==0.9.5
     # via -r requirements-dev.in
 six==1.17.0
-    # via
-    #   apscheduler
-    #   python-dateutil
+    # via python-dateutil
 sniffio==1.3.1
     # via anyio
-sqlalchemy[asyncio]==2.0.29
+sqlalchemy[asyncio]==2.0.38
     # via
     #   -r /home/artem/financial_manager/docker/modules/requirements-common.in
     #   alembic
-    #   sqlalchemy
-starlette==0.27.0
+starlette==0.45.3
     # via fastapi
-tenacity==8.2.2
+tenacity==9.0.0
     # via -r /home/artem/financial_manager/docker/modules/web/requirements.in
 typing-extensions==4.12.2
     # via
@@ -127,15 +116,17 @@ typing-extensions==4.12.2
     #   pydantic
     #   pydantic-core
     #   sqlalchemy
+tzdata==2025.1
+    # via alembic
 tzlocal==5.2
     # via apscheduler
-uvicorn==0.22.0
+uvicorn==0.34.0
     # via -r requirements-dev.in
-watchdog==0.8.3
+watchdog==6.0.0
     # via
     #   dramatiq
     #   watchdog-gevent
-watchdog-gevent==0.1.0
+watchdog-gevent==0.2.1
     # via dramatiq
 yarl==1.18.3
     # via

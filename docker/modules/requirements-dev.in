@@ -1,10 +1,10 @@
 -r requirements-migrations.in
 -r requirements.in
-mypy==1.4.0
-pytest
-pytest-asyncio
-pytest-ordering
-pytest-cov
-factory_boy==3.3.0
-ruff==0.2.0
-uvicorn==0.22.0
+mypy==1.15.0
+pytest==8.3.4
+pytest-asyncio==0.25.3
+pytest-ordering==0.6
+pytest-cov==6.0.0
+factory_boy==3.3.3
+ruff==0.9.5
+uvicorn==0.34.0
