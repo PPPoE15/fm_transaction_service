@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Self
+from datetime import datetime
+from typing import Self
 from uuid import uuid4
 
 from pydantic import Field
 
+from modules import types
 from modules.utils.schemas import Base
-
-if TYPE_CHECKING:
-    from datetime import datetime
-
-    from modules import types
 
 
 class Transaction(Base):

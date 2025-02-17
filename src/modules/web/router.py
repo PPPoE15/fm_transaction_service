@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from modules.web.app.handlers.api.v1.user.endpoints import router as user_router
+from modules.web.app.handlers.api.v1.transaction.endpoints import router as user_router
 
 # from modules.web.app.handlers.api.v1.tasks import tasks_router
 

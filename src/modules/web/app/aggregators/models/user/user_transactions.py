@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
     from modules import types
 
-    from .user import User
+from .user import User
 
 
 class UserTransactions(Base):
@@ -21,7 +21,7 @@ class UserTransactions(Base):
     user: User = Field(description="Пользователь")
     transactions: list[Transaction] = Field(description="Транзакции пользователя.")
 
-    def create_transaction(
+    def create(
         self,
         transaction_date: datetime,
         category: types.CategoryName,
@@ -47,4 +47,4 @@ class UserTransactions(Base):
             transaction_type=transaction_type,
             description=description,
         )
-        self.categories.append(new_transaction)
+        self.transactions.append(new_transaction)
