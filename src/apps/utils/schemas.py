@@ -92,5 +92,5 @@ class NumberOfObjectsMixin(Base):
     total: int = Field(
         title="Общее количество элементов в БД",
         description="Общее количество элементов в БД",
-        example=100,
+        examples=[100],
     )

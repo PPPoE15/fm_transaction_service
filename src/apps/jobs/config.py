@@ -27,6 +27,7 @@ class AppSettings(BaseSettings):
         extra="ignore",
     )
 
+
 # class WorkerSettings(BaseSettings):
 #     """Конфигратор настроек для периодических задач"""
 

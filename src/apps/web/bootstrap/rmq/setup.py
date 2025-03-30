@@ -2,7 +2,6 @@ from apps.web.logger import get_logger
 
 from .connection import connect_rmq, disconnect_rmq
 from .consumers import add_service_consumer, stop_consumers
-from .rmq_cluster import build_rmq_cluster
 
 
 async def connect() -> None:
@@ -10,7 +9,7 @@ async def connect() -> None:
     logger = get_logger()
 
     await connect_rmq()
-    await build_rmq_cluster(logger=logger)
+    # await build_rmq_cluster(logger=logger)
     add_service_consumer(logger=logger)
 
 

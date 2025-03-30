@@ -2,7 +2,7 @@ from functools import wraps
 from typing import Callable, TypeVar
 
 # INFO: Без отключения проверок mypy ругается на "missing library stubs or py.typed marker"
-import dramatiq  # type: ignore  # noqa: PGH003
+import dramatiq
 from typing_extensions import ParamSpec
 
 from apps.jobs.logger import get_logger

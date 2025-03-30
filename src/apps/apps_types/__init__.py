@@ -12,12 +12,12 @@ from .transaction import TransactionType
 
 __all__ = [
     "CategoryName",
+    "CategoryUID",
     "Description",
     "Email",
-    "TransactionUID",
     "MoneySum",
-    "CategoryUID",
+    "TransactionType",
+    "TransactionUID",
     "UserName",
     "UserUID",
-    "TransactionType",
 ]

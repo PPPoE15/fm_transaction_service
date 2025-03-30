@@ -9,7 +9,7 @@ from starlette import status
 from starlette.exceptions import HTTPException
 from typing_extensions import Annotated
 
-from apps.web.app.aggregators import types
+from apps import apps_types
 
 _security_token = HTTPBearer(auto_error=False)
 
@@ -17,8 +17,8 @@ _security_token = HTTPBearer(auto_error=False)
 class UserInfo(BaseModel):
     """Информация о пользователе."""
 
-    uid: types.UserUID = Field(description="Идентификатор пользователя.", alias="sub")
-    login: types.UserLogin = Field(description="Логин пользователя.")
+    uid: apps_types.UserUID = Field(description="Идентификатор пользователя.", alias="sub")
+    login: apps_types.UserName = Field(description="Логин пользователя.")
 
 
 async def _get_token(

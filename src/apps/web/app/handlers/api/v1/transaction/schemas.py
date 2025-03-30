@@ -10,11 +10,6 @@ from apps.web.app.utils.datetime_tz import aware_now
 class CreateTransactionSchema(Base):
     """Схема данных для создания транзакции"""
 
-    user_uid: apps_types.UserUID = Field(
-        title="UID пользователя.",
-        description="UID пользователя.",
-        examples=["3a6aa712-fd55-40d6-87f0-512bad5752bc"],
-    )
     transaction_date: datetime = Field(
         title="Дата транзакции.",
         description="Дата транзакции.",

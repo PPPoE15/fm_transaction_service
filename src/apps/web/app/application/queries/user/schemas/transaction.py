@@ -42,9 +42,25 @@ class TransactionFilters:
     ] = None
 
     transaction_type: Annotated[
-        str | None,
+        apps_types.TransactionType | None,
         Query(
-            title="Название категории",
-            description="Поиск по совпадению символов в названиях категорий, без учета регистра",
+            title="Тип транзакции",
+            description="Поиск по типу транзакции.",
+        ),
+    ] = None
+
+    before: Annotated[
+        datetime | None,
+        Query(
+            title="Последняя дата совершения транзакции.",
+            description="Фильтрация транзакций по времени их совершения.",
+        ),
+    ] = None
+
+    after: Annotated[
+        datetime | None,
+        Query(
+            title="Первая дата совершения транзакции.",
+            description="Фильтрация транзакций по времени их совершения.",
         ),
     ] = None

@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from apps import db_models, apps_types
+from apps import apps_types, db_models
 from apps.web.app.aggregators.models.user.user_transactions import UserTransactions
 from apps.web.app.infrastructure.db.repos.base import BaseSqlAlchemyRepo
 

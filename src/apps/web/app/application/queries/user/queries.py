@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Sequence
 
 from sqlalchemy import Select, exists, func, select
 
+from apps import apps_types
 from apps import db_models as orm_models
 from apps.web.app.application.queries.base import BaseQueries
 
@@ -18,6 +19,7 @@ class TransactionQueries(BaseQueries):
 
     async def get_transactions(
         self,
+        user_uid: apps_types.UserUID,
         page_params: PageParams,
         filter_params: schemas.TransactionFilters,
     ) -> tuple[list[schemas.TransactionSchema], int]:
@@ -25,13 +27,14 @@ class TransactionQueries(BaseQueries):
         Получить список транзакций пользователя с учетом пагинации и фильтрации.
 
         Args:
+            user_uid: UID пользователя.
             page_params: Параметры пагинации.
             filter_params: Параметры фильтра.
 
         Returns:
             Список наборов возможностей; Общее количество записей в БД.
         """
-        base_stmt = select(orm_models.Transaction)
+        base_stmt = select(orm_models.Transaction).where(orm_models.Transaction.user_uid == user_uid)
         select_stmt = self._apply_filters(base_stmt, filter_params)
 
         count_stmt = select_stmt.with_only_columns(func.count(), maintain_column_froms=True)
@@ -59,6 +62,10 @@ class TransactionQueries(BaseQueries):
             stmt = stmt.filter(
                 exists().where(orm_models.Transaction.transaction_type == filter_params.transaction_type)
             )
+        if filter_params.before:
+            stmt = stmt.filter(exists().where(orm_models.Transaction.transaction_date <= filter_params.before))
+        if filter_params.after:
+            stmt = stmt.filter(exists().where(orm_models.Transaction.transaction_date >= filter_params.after))
         return stmt
 
     @classmethod

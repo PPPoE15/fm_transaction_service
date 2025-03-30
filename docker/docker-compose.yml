@@ -18,10 +18,10 @@ services:
     env_file:
       - docker.env
     volumes:
-      - ../src/modules:/opt/financial_manager/modules
+      - ../src/apps:/opt/financial_manager/apps
     ports:
       - 8000:8000
-    command: uvicorn modules.web.main:app --host "0.0.0.0" --port 8000 --reload
+    command: uvicorn apps.web.main:app --host "0.0.0.0" --port 8000 --reload
 
   # jobs:
   #   image: financial_manager:testing

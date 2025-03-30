@@ -148,7 +148,7 @@ class EventDispatcher:
         retries = 0
         if "x-death" in message.headers:
             # У mypy не получается разобрать тип FieldValue поля headers
-            retries = message.headers["x-death"][0]["count"] # type: ignore[index, call-overload]
+            retries = message.headers["x-death"][0]["count"]  # type: ignore[index, call-overload]
         if self._retry_limit:
             return retries > self._retry_limit
         return False

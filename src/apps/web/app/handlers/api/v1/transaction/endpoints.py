@@ -1,12 +1,11 @@
-from typing import Dict
-
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends
 from typing_extensions import Annotated
 
 from apps.utils.schemas import PageParams
 from apps.web.app.application.queries.user import schemas as q_schemas
-from apps.web.app.handlers.api.schemas import BaseListResponseSchema, BaseResponseSchema
+from apps.web.app.handlers.api.schemas import BaseListResponseSchema
 from apps.web.app.handlers.deps import async_session_factory
+from apps.web.security import UserInfo, get_user_info
 
 from . import deps, schemas
 
@@ -18,9 +17,10 @@ router = APIRouter(tags=["Пользователь"])
     summary="Получение списка транзакций пользователя",
     description="Получить список транзакций пользователя",
 )
-async def create_user_transactions(
-    page_params: PageParams = Depends(),
-    filter_params: q_schemas.TransactionFilters = Depends(),
+async def get_transactions(
+    page_params: Annotated[PageParams, Depends()],
+    user: Annotated[UserInfo, Depends(get_user_info)],
+    filter_params: Annotated[q_schemas.TransactionFilters, Depends()],
 ) -> BaseListResponseSchema[q_schemas.TransactionSchema]:
     """
     Список транзакций пользователя.
@@ -33,10 +33,12 @@ async def create_user_transactions(
     async with async_session_factory() as session:
         transactions_queries = deps.build_queries(session)
         transactions, total = await transactions_queries.get_transactions(
+            user_uid=user.uid,
             page_params=page_params,
             filter_params=filter_params,
         )
     return BaseListResponseSchema(total=total, content=transactions)
+
 
 @router.post(
     "/transactions",
@@ -45,7 +47,8 @@ async def create_user_transactions(
 )
 async def create_user_transaction(
     item_in: schemas.CreateTransactionSchema,
-    page_params: PageParams = Depends(),
+    user: Annotated[UserInfo, Depends(get_user_info)],
+    page_params: Annotated[PageParams, Depends()],
 ) -> BaseListResponseSchema[q_schemas.TransactionSchema]:
     """
     Создать транзакцию пользователя.
@@ -53,10 +56,11 @@ async def create_user_transaction(
     Args:
         page_params: Параметры пагинации.
         item_in: Информация о транзакции.
+        user: Информация об авторизованном пользователе.
     """
     command_handler = deps.build_transaction_create_command_handler()
     await command_handler.handle(
-        user_uid=item_in.user_uid,
+        user_uid=user.uid,
         transaction_date=item_in.transaction_date,
         category=item_in.category,
         money_sum=item_in.money_sum,
@@ -66,19 +70,9 @@ async def create_user_transaction(
     async with async_session_factory() as session:
         transactions_queries = deps.build_queries(session)
         transactions, total = await transactions_queries.get_transactions(
+            user_uid=user.uid,
             page_params=page_params,
-            filter_params=q_schemas.TransactionFilters(category=None,transaction_type=None),
+            filter_params=q_schemas.TransactionFilters(),
         )
     return BaseListResponseSchema(total=total, content=transactions)
 
-
-
-@router.post("/file/upload-bytes")
-def upload_file_bytes(file_bytes: Annotated[bytes, File()]) -> str:
-    return {"file_bytes": str(file_bytes)}
-
-
-@router.post("/file/upload-file")
-def upload_file(file: UploadFile) -> UploadFile:
-    print(file)
-    return file

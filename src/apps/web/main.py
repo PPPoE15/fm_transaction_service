@@ -3,7 +3,7 @@ from typing import Optional, Type
 
 from fastapi import FastAPI
 
-from apps.web.bootstrap import logger, metrics
+from apps.web.bootstrap import logger
 
 # from modules.web.bootstrap import dramatiq, logger, metrics, rmq
 from apps.web.config import app_settings
@@ -61,7 +61,7 @@ def build_app() -> FastAPI:
 
         fastapi_app.include_router(main_router)
 
-    metrics.setup(fastapi_app)
+    # metrics.setup(fastapi_app)
 
     return fastapi_app
 

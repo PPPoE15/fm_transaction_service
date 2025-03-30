@@ -27,7 +27,7 @@ class UserTransactions(Base):
         category: apps_types.CategoryName,
         money_sum: apps_types.MoneySum,
         transaction_type: apps_types.TransactionType,
-        description: apps_types.Description
+        description: apps_types.Description,
     ) -> None:
         """
         Создать новую категорию транзакций.
