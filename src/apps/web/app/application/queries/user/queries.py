@@ -57,15 +57,21 @@ class TransactionQueries(BaseQueries):
             filter_params: Параметры фильтрации.
         """
         if filter_params.category:
-            stmt = stmt.filter(exists().where(orm_models.Transaction.category == filter_params.category))
+            stmt = stmt.filter(
+                orm_models.Transaction.category == filter_params.category,
+            )
         if filter_params.transaction_type:
             stmt = stmt.filter(
-                exists().where(orm_models.Transaction.transaction_type == filter_params.transaction_type)
+                orm_models.Transaction.transaction_type == filter_params.transaction_type,
             )
         if filter_params.before:
-            stmt = stmt.filter(exists().where(orm_models.Transaction.transaction_date <= filter_params.before))
+            stmt = stmt.filter(
+                orm_models.Transaction.transaction_date <= filter_params.before,
+            )
         if filter_params.after:
-            stmt = stmt.filter(exists().where(orm_models.Transaction.transaction_date >= filter_params.after))
+            stmt = stmt.filter(
+                orm_models.Transaction.transaction_date >= filter_params.after,
+            )
         return stmt
 
     @classmethod
