@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Sequence
 
-from sqlalchemy import Select, exists, func, select
+from sqlalchemy import Select, func, select
 
 from apps import apps_types
 from apps import db_models as orm_models
