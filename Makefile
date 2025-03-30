@@ -1,6 +1,7 @@
 run_linters: ## Запуск линтеров
-	ruff src --no-cache || echo
-	mypy --cache-dir=/dev/null src || echo
+	ruff check src || echo
+	ruff format src --check || echo
+	mypy src || echo
 
 test_downgrade_migrations_compose:  ## Запуск проверки отката всех миграций через docker compose.
 	docker compose -f docker/docker-compose-dev-team.yaml -p financial_manager-tests up --force-recreate --abort-on-container-exit downgrade-migrations-tests || true

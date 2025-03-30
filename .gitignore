@@ -173,3 +173,5 @@ cython_debug/
 .pypirc
 
 docker/docker.env
+
+*.code-workspace

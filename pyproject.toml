@@ -3,7 +3,7 @@ name = "financial_manager"
 version = "0.0.1"
 description = "Manage your finance"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.11,<3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -20,8 +20,9 @@ lint.ignore = [
     "D104", # Проверяет наличие docstring в файле __init__
     "D407", # Проверяет заголовки разделов в строках документации, за которыми не следует подчеркивание. (конфликтует с D417)
     "FA100", # Missing `from __future__ import annotations`, but uses `typing.Optional
+    "FA102", # Missing `from __future__ import annotations`, but uses `typing.Optional
     "ANN101", # Проверка наличия аннотации для self
-    "ANN102", # Провекра наличия аннотации для cls
+    "ANN102", # Проверка наличия аннотации для cls
     "ERA001", # Найден закомментированный код
     "TD002", # Правила оформления ToDo
     "TD003", # Правила оформления TODO
@@ -132,7 +133,7 @@ warn_untyped_fields = true
 [tool.coverage.run]
 # в проверке покрытия учитываем код приложения
 source = [
-    "src/modules",
+    "src/apps",
 ]
 omit = [
     # исключаем из покрытия библиотеку брокера
