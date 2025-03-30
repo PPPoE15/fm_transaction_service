@@ -1,0 +1,37 @@
+import logging
+from typing import Optional
+
+from lib_message_broker import ConsumerPool
+
+from apps.web.app.handlers.events import handlers_mappers
+from apps.web.app.handlers.events.dispatcher import EventDispatcher
+from apps.web.config import mq_settings
+
+consumer_pool = ConsumerPool()
+
+
+def add_service_consumer(logger: Optional[logging.Logger] = None) -> None:
+    """
+    Подключиться к RMQ очереди сервисных сообщений для прослушивания.
+
+    Args:
+        logger: Логгер.
+    """
+    EventDispatcher(
+        handlers_mappers.EXAMPLE_HANDLERS_MAPPER,
+        dlx_retry_limit=mq_settings.RETRY_ATTEMPTS,
+        logger=logger,
+    )
+
+    # consumer = Consumer(
+    #     connection=rmq.rmq_connection,
+    #     queue_name=queue_name,
+    #     callback=event_dispatcher.dispatch,
+    #     logger=logger,
+    # )
+    # consumer_pool.add(consumer)
+
+
+def stop_consumers() -> None:
+    """Отключить всех слушателей."""
+    consumer_pool.stop()
