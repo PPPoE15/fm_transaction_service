@@ -1,4 +1,0 @@
--r ../requirements-common.in
-dramatiq[rabbitmq,watch]==1.17.1
-apscheduler==3.11.0
-psycopg==3.2.4

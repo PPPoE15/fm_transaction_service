@@ -7,24 +7,6 @@ ENV_FILES = ("dev.env", "prod.env")
 SECRETS_DIR = "/run/secrets"
 
 
-class DramatiqMQSettings(BaseSettings):
-    """Конфигуратор для Dramatiq."""
-
-    DEFAULT_USER: str = Field(description="Логин для RMQ.")
-    DEFAULT_PASS: str = Field(description="Пароль для RMQ.")
-    HOST: str = Field(description="Хост RMQ.")
-    PORT: int = Field(description="Порт RMQ.")
-    VHOST: str = Field(description="Виртаульный хост RMQ.")
-
-    model_config = SettingsConfigDict(
-        case_sensitive=True,
-        secrets_dir=SECRETS_DIR,
-        env_file=ENV_FILES,
-        env_prefix="DRAMATIQ_",
-        extra="ignore",
-    )
-
-
 class DBSettings(BaseSettings):
     """Конфигуратор настроек для БД."""
 
@@ -95,7 +77,7 @@ class LogConfig(BaseSettings):
     version: int = 1
     disable_existing_loggers: bool = False
 
-    @computed_field  # type: ignore[misc]
+    @computed_field
     @property
     def formatters(self) -> Dict:
         return {
@@ -105,7 +87,7 @@ class LogConfig(BaseSettings):
             },
         }
 
-    @computed_field  # type: ignore[misc]
+    @computed_field
     @property
     def handlers(self) -> Dict:
         return {
@@ -116,7 +98,7 @@ class LogConfig(BaseSettings):
             },
         }
 
-    @computed_field  # type: ignore[misc]
+    @computed_field
     @property
     def loggers(self) -> Dict:
         return {
@@ -129,5 +111,4 @@ class LogConfig(BaseSettings):
 
 
 db_settings = DBSettings()
-dramatiq_settings = DramatiqMQSettings()
 log_settings = LogConfig()

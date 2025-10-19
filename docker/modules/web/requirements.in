@@ -1,7 +1,0 @@
--r ../requirements-common.in
-fastapi==0.115.8
-aio-pika==9.5.4
-asyncpg==0.30.0
-tenacity==9.0.0
-pyjwt==2.10.1
-python-multipart==0.0.20

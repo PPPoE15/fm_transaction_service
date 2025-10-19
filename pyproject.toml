@@ -3,7 +3,7 @@ name = "financial_manager"
 version = "0.0.1"
 description = "Manage your finance"
 readme = "README.md"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -143,3 +143,19 @@ omit = [
     # исключаем из покрытия запросы
     "*/queries/*",
 ]
+[tool.poetry.group.common.dependencies]
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.44"}
+alembic = {extras = ["tz"], version = "^1.17.0"}
+pydantic = "^2.12.3"
+pydantic-settings = "^2.11.0"
+fastapi = "^0.119.0"
+asyncpg = "^0.30.0"
+pyjwt = "^2.10.1"
+uvicorn = "^0.37.0"
+
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.18.2"
+ruff = "^0.14.1"
+debugpy = "^1.8.17"
+
