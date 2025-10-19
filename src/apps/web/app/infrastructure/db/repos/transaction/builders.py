@@ -1,34 +1,31 @@
 from apps import db_models as orm_models
-from apps.web.app.aggregators.models.transaction.transaction import Transaction
+from apps.web.app.aggregators.models.transaction import Transaction
 from apps.web.app.aggregators.models.user.user import User
 from apps.web.app.aggregators.models.user.user_transactions import UserTransactions
 
 
-def build_orm(user_transactions_agg: UserTransactions) -> orm_models.User:
+def build_orm(transactions_agg: Transaction) -> orm_models.Transaction:
     """
     Конвертировать агрегатор в orm-модель.
 
     Args:
-       user_transactions_agg : Агрегатор пользователя с транзакциями.
+       transactions_agg : Агрегатор транзакции.
     """
-    return orm_models.User(
-        **user_transactions_agg.user.to_dict(exclude=["transactions"]),
-        transactions=[
-            orm_models.Transaction(
-                uid=transaction.uid,
-                user_uid=transaction.user_uid,
-                transaction_date=transaction.transaction_date,
-                category=transaction.category,
-                money_sum=transaction.money_sum,
-                transaction_type=transaction.transaction_type,
-                description=transaction.description,
-            )
-            for transaction in user_transactions_agg.transactions
-        ],
+    # return orm_models.Transaction(
+    #     uid=transactions_agg.uid,
+    #     user_uid=transactions_agg.user_uid,
+    #     transaction_date=transactions_agg.transaction_date,
+    #     category=transactions_agg.category,
+    #     money_sum=transactions_agg.money_sum,
+    #     transaction_type=transactions_agg.transaction_type,
+    #     description=transactions_agg.description,
+    # )
+    return orm_models.Transaction(
+        **transactions_agg.model_dump()
     )
 
 
-def build_agg(orm_user_transactions: orm_models.User) -> UserTransactions:
+def build_agg(orm_transactions: orm_models.Transaction) -> Transaction:
     """
     Конвертировать orm-модель в агрегатор.
 
@@ -36,9 +33,9 @@ def build_agg(orm_user_transactions: orm_models.User) -> UserTransactions:
         orm_user_transactions: orm-модель пользователя с транзакциями.
     """
     user = User(
-        uid=orm_user_transactions.uid,
-        name=orm_user_transactions.name,
-        email=orm_user_transactions.email,
+        uid=orm_transactions.uid,
+        name=orm_transactions.name,
+        email=orm_transactions.email,
     )
     transactions = [
         Transaction(
@@ -50,9 +47,6 @@ def build_agg(orm_user_transactions: orm_models.User) -> UserTransactions:
             transaction_type=transaction.transaction_type,
             description=transaction.description,
         )
-        for transaction in orm_user_transactions.transactions
+        for transaction in orm_transactions.transactions
     ]
-    return UserTransactions(
-        user=user,
-        transactions=transactions,
-    )
+

@@ -30,7 +30,7 @@ class UserTransactions(Base):
         description: apps_types.Description,
     ) -> None:
         """
-        Создать новую категорию транзакций.
+        Создать новую транзакцию.
 
         Args:
             transaction_date: Дата транзакции.

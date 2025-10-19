@@ -42,7 +42,7 @@ class CreateTransactionCommandHandler:
             description: Описание.
 
         Raises:
-            exceptions.RepositoryAlreadyExistsError: Конфигурация репозитория уже существует.
+            exceptions.UserNotFoundError: Если пользователь не существует.
         """
         async with self._uow as uow:
             user_transactions_agg = await uow.user_transactions_repo.get_by_user_uid(user_uid)

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from typing_extensions import Annotated
 
+from apps import apps_types
 from apps.utils.schemas import PageParams
 from apps.web.app.application.queries.user import schemas as q_schemas
 from apps.web.app.handlers.api.schemas import BaseListResponseSchema
@@ -45,7 +46,7 @@ async def get_transactions(
     summary="Создание транзакции пользователя",
     description="Создать транзакцию пользователя",
 )
-async def create_user_transaction(
+async def create_transaction(
     item_in: schemas.CreateTransactionSchema,
     user: Annotated[UserInfo, Depends(get_user_info)],
     page_params: Annotated[PageParams, Depends()],
@@ -76,3 +77,36 @@ async def create_user_transaction(
         )
     return BaseListResponseSchema(total=total, content=transactions)
 
+@router.delete(
+    "/transactions{transaction_uid}",
+    summary="Удаление транзакции пользователя",
+    description="Удалить транзакцию пользователя",
+)
+async def delete_transaction(
+    transaction_uid: apps_types.TransactionUID,
+    user: Annotated[UserInfo, Depends(get_user_info)],
+) -> None:
+    """
+    Удалить транзакцию пользователя.
+
+    Args:
+        transaction_uid: UID транзакции.
+        user: Информация об авторизованном пользователе.
+    """
+    command_handler = deps.build_transaction_create_command_handler()
+    await command_handler.handle(
+        user_uid=user.uid,
+        transaction_date=item_in.transaction_date,
+        category=item_in.category,
+        money_sum=item_in.money_sum,
+        transaction_type=item_in.transaction_type,
+        description=item_in.description,
+    )
+    async with async_session_factory() as session:
+        transactions_queries = deps.build_queries(session)
+        transactions, total = await transactions_queries.get_transactions(
+            user_uid=user.uid,
+            page_params=page_params,
+            filter_params=q_schemas.TransactionFilters(),
+        )
+    return BaseListResponseSchema(total=total, content=transactions)

@@ -1,7 +1,7 @@
 from typing import Any, Self
 
 from apps.web.app.application.commands.unit_of_work import AbstractSQLAlchemyUnitOfWork, AbstractUnitOfWork
-from apps.web.app.infrastructure.db.repos.transaction import AbstractUserTransactionRepo, UserTransactionRepo
+from apps.web.app.infrastructure.db.repos.user_transaction import AbstractUserTransactionRepo, UserTransactionRepo
 
 
 class AbstractTransactionUnitOfWork(AbstractUnitOfWork):
