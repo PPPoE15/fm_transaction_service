@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from typing import Self
+from typing import TYPE_CHECKING, Self
 from uuid import uuid4
 
 from pydantic import Field
 
-from apps import apps_types
 from apps.utils.schemas import Base
+
+if TYPE_CHECKING:
+    from apps import apps_types
 
 
 class User(Base):

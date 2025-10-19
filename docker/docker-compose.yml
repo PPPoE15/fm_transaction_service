@@ -64,14 +64,13 @@ services:
 
   db:
     image: postgres:16.0
-    user: postgres
     healthcheck:
       test: ["CMD", "pg_isready"]
       timeout: 0.5s
       interval: 0.5s
       retries: 100
     environment:
-      - POSTGRES_USER=user
+      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=financial_manager
     ports:

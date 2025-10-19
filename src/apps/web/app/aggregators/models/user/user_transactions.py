@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
     from apps import apps_types
 
-from .user import User
+    from .user import User
 
 
 class UserTransactions(Base):

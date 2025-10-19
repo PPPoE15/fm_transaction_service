@@ -1,5 +1,6 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
-from typing_extensions import Annotated
 
 from apps.utils.schemas import PageParams
 from apps.web.app.application.queries.user import schemas as q_schemas

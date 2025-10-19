@@ -7,7 +7,7 @@ from sqlalchemy.types import UUID, Integer, String
 
 from apps import apps_types
 from apps.db_models.base import AsyncBase
-from apps.db_models.utils.types import TZDateTime
+from apps.db_models.utils.tz_type import TZDateTime
 
 if TYPE_CHECKING:
     from .users import User

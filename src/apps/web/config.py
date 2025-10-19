@@ -9,6 +9,7 @@ class AppSettings(BaseSettings):
     """Конфигуратор настроек для FastAPI."""
 
     SERVICE_NAME: str = Field(description="Наименование сервиса.")
+    HEALTHCHECK_MODE: bool = Field(False, description="Для проверки сборки.")
 
     model_config = SettingsConfigDict(
         env_prefix="WEB_",

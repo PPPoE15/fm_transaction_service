@@ -3,7 +3,7 @@ import datetime as dt
 
 def aware_now() -> dt.datetime:
     """Получить текущую "безопасную" дату со временем по UTC с явно указанной временной зоной UTC."""
-    return dt.datetime.now(tz=dt.timezone.utc)
+    return dt.datetime.now(tz=dt.UTC)
 
 
 def init_utc_tz(d: dt.datetime) -> dt.datetime:
@@ -14,5 +14,5 @@ def init_utc_tz(d: dt.datetime) -> dt.datetime:
         d: Дата и время.
     """
     if d.tzinfo is None:
-        return d.replace(tzinfo=dt.timezone.utc)
+        return d.replace(tzinfo=dt.UTC)
     return d

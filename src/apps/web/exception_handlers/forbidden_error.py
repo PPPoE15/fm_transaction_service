@@ -32,13 +32,13 @@ class ForbiddenErrorResponseSchema(base.BaseErrorResponseSchema):
     )
     detail: str = Field(
         title="Информация",
-        description="Интернациолизируемое описание ошибки",
+        description="Интернационализируемое описание ошибки",
         examples=["Доступ запрещен"],
         default="Доступ запрещен",
     )
     code: str = Field(
         title="Внутренний код ошибки",
-        description="Числобуквенный код ошибки в рамках продута",
+        description="Числобуквенный код ошибки в рамках продукта",
         examples=["FM-403000"],
         default="FM-403000",
     )

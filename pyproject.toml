@@ -20,9 +20,6 @@ lint.ignore = [
     "D104", # Проверяет наличие docstring в файле __init__
     "D407", # Проверяет заголовки разделов в строках документации, за которыми не следует подчеркивание. (конфликтует с D417)
     "FA100", # Missing `from __future__ import annotations`, but uses `typing.Optional
-    "FA102", # Missing `from __future__ import annotations`, but uses `typing.Optional
-    "ANN101", # Проверка наличия аннотации для self
-    "ANN102", # Проверка наличия аннотации для cls
     "ERA001", # Найден закомментированный код
     "TD002", # Правила оформления ToDo
     "TD003", # Правила оформления TODO
@@ -59,8 +56,6 @@ exclude = [
 lint.dummy-variable-rgx = "(?x)(^env/ | ^env\\.py$)"
 show-fixes = true
 output-format = "full"
-# Версия Python
-target-version = "py37"
 
 
 [tool.ruff.lint.pep8-naming]
@@ -110,11 +105,11 @@ warn_unused_configs = true
 exclude = [
     '(?x)(^env/ | ^env\.py$)',
 ]
-disable_error_code = ["assignment", "attr-defined", "type-arg", "no-any-return", "name-defined"]
+disable_error_code = ["assignment", "type-arg", "no-any-return", "name-defined"]
 
 plugins = ["pydantic.mypy"]
 
-follow_imports = "silent"
+follow_imports = "normal"
 warn_redundant_casts = true
 warn_unused_ignores = true
 disallow_any_generics = true
@@ -123,6 +118,7 @@ no_implicit_reexport = true
 
 # for strict mypy: (this is the tricky one :-))
 disallow_untyped_defs = true
+ignore_missing_imports = false
 
 [tool.pydantic-mypy]
 init_forbid_extra = true
@@ -130,19 +126,6 @@ init_typed = true
 warn_required_dynamic_aliases = true
 warn_untyped_fields = true
 
-[tool.coverage.run]
-# в проверке покрытия учитываем код приложения
-source = [
-    "src/apps",
-]
-omit = [
-    # исключаем из покрытия библиотеку брокера
-    "*/message_broker/*",
-    # исключаем из покрытия хэндлеры
-    "*/handlers/*",
-    # исключаем из покрытия запросы
-    "*/queries/*",
-]
 [tool.poetry.group.common.dependencies]
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.44"}
 alembic = {extras = ["tz"], version = "^1.17.0"}
