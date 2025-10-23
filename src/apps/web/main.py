@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from apps.web.bootstrap import logger
 
-# from modules.web.bootstrap import dramatiq, logger, metrics, rmq
+from fastapi.middleware.cors import CORSMiddleware
 from apps.web.config import app_settings
 
 
@@ -54,6 +54,18 @@ def build_app() -> FastAPI:
         from apps.web.router import main_router
 
         fastapi_app.include_router(main_router)
+        fastapi_app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     return fastapi_app
 
