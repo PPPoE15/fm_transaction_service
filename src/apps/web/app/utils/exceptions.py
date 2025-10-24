@@ -1,12 +1,9 @@
-from typing import Optional
-
-
 class BaseError(Exception):
     """Базовая ошибка."""
 
     msg: str = ""
 
-    def __init__(self, msg: Optional[str] = None) -> None:
+    def __init__(self, msg: str | None = None) -> None:
         """
         Конструктор базовой ошибки.
 
@@ -23,3 +20,7 @@ class BaseCustomValidationError(BaseError):
 
 class BaseNotFoundError(BaseError):
     """Базовая ошибка не найденного ресурса (код 404)."""
+
+
+class BaseForbiddenError(BaseError):
+    """Базовая ошибка доступа (код 403)."""

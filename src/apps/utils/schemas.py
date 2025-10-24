@@ -1,5 +1,6 @@
 import datetime as dt
-from typing import Any, Collection, Dict, Optional
+from collections.abc import Collection
+from typing import Any
 
 from fastapi import Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -14,7 +15,7 @@ class Base(BaseModel):
         populate_by_name=True,  # model_validate будет заполнять не по alias, а по имени аттрибута
     )
 
-    def to_dict(self, exclude: Optional[Collection[str]] = None) -> Dict[str, Any]:
+    def to_dict(self, exclude: Collection[str] | None = None) -> dict[str, Any]:
         """
         Не рекурсивное преобразование модели в словарь.
 
@@ -56,14 +57,14 @@ class PageParams(Base):
 class CreatingMixin:
     """Миксин, добавляющий стандартные поля с информацией о создании записи."""
 
-    created_date: Optional[dt.datetime] = Field(
+    created_date: dt.datetime | None = Field(
         title="Created Date",
         description="Дата создания записи пользователем",
         examples=["2023-08-02T08:25:20.918267"],
         default=None,
         alias="creation_date",
     )
-    created_by: Optional[str] = Field(
+    created_by: str | None = Field(
         title="Created By",
         description="Автор записи",
         default=None,
@@ -73,13 +74,13 @@ class CreatingMixin:
 class UpdatingMixin(Base):
     """Миксин, добавляющий стандартные поля с информацией о последнем обновлении записи."""
 
-    last_modified_date: Optional[dt.datetime] = Field(
+    last_modified_date: dt.datetime | None = Field(
         title="Last Modified Date",
         description="Дата обновления записи пользователем",
         examples=["2023-08-02T08:25:20.962678"],
         default=None,
     )
-    last_modified_by: Optional[str] = Field(
+    last_modified_by: str | None = Field(
         title="Last Modified By",
         description="Автор последнего изменения записи",
         default=None,

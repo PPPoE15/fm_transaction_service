@@ -1,4 +1,4 @@
-from typing import Generic, List, TypeVar
+from typing import Generic, TypeVar
 
 from pydantic import Field
 
@@ -21,4 +21,4 @@ class BaseListResponseSchema(Base, Generic[DataT]):
         description="Общее количество элементов в БД",
         examples=[100],
     )
-    content: List[DataT]
+    content: list[DataT]

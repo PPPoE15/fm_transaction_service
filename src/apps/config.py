@@ -1,28 +1,10 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
-from pydantic import AliasChoices, Field, PostgresDsn, ValidationError, computed_field, validator
+from pydantic import AliasChoices, Field, PostgresDsn, ValidationError, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILES = ("dev.env", "prod.env")
 SECRETS_DIR = "/run/secrets"
-
-
-class DramatiqMQSettings(BaseSettings):
-    """Конфигуратор для Dramatiq."""
-
-    DEFAULT_USER: str = Field(description="Логин для RMQ.")
-    DEFAULT_PASS: str = Field(description="Пароль для RMQ.")
-    HOST: str = Field(description="Хост RMQ.")
-    PORT: int = Field(description="Порт RMQ.")
-    VHOST: str = Field(description="Виртаульный хост RMQ.")
-
-    model_config = SettingsConfigDict(
-        case_sensitive=True,
-        secrets_dir=SECRETS_DIR,
-        env_file=ENV_FILES,
-        env_prefix="DRAMATIQ_",
-        extra="ignore",
-    )
 
 
 class DBSettings(BaseSettings):
@@ -54,10 +36,10 @@ class DBSettings(BaseSettings):
         False,
         description="Нужно ли выводить диагностические сообщения",
     )
-    DSN: Optional[str] = None
+    DSN: str | None = None
 
     @validator("DSN", pre=True)
-    def assemble_postgres_dsn(cls, v: Optional[str], values: Dict[str, Any]) -> Optional[str]:
+    def assemble_postgres_dsn(cls, v: str | None, values: dict[str, Any]) -> str | None:
         if isinstance(v, str):
             return v
         try:
@@ -86,48 +68,29 @@ class DBSettings(BaseSettings):
 class LogConfig(BaseSettings):
     """Конфигуратор логера"""
 
-    LOG_FORMAT: str = (
-        "[service_name=%(service_name)s segment=%(segment_uid)s replica_uid=%(replica_uid)s trace_id=%(trace_id)s] "
-        "| %(levelname)s | %(asctime)s | %(name)s | %(lineno)s | %(message)s"
-    )
+    LOG_FORMAT: str = "%(levelname)s | %(asctime)s | %(pathname)s | %(lineno)s | %(message)s"
     LOG_LEVEL: str = "ERROR"
 
     version: int = 1
     disable_existing_loggers: bool = False
 
-    @computed_field  # type: ignore[misc]
-    @property
-    def formatters(self) -> Dict:
-        return {
-            "default": {
-                "format": self.LOG_FORMAT,
-                "datefmt": "%Y-%m-%d %H:%M:%S",
-            },
-        }
-
-    @computed_field  # type: ignore[misc]
-    @property
-    def handlers(self) -> Dict:
-        return {
-            "default": {
-                "formatter": "default",
-                "class": "logging.StreamHandler",
-                "stream": "ext://sys.stderr",
-            },
-        }
-
-    @computed_field  # type: ignore[misc]
-    @property
-    def loggers(self) -> Dict:
-        return {
-            "default": {
-                "handlers": ["default"],
-                "level": self.LOG_LEVEL,
-                "propagate": False,
-            },
-        }
+    formatters: dict = {
+        "default": {
+            "format": LOG_FORMAT,
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    }
+    handlers: dict = {
+        "default": {
+            "formatter": "default",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+        },
+    }
+    loggers: dict = {
+        "default": {"handlers": ["default"], "level": LOG_LEVEL},
+    }
 
 
 db_settings = DBSettings()
-dramatiq_settings = DramatiqMQSettings()
 log_settings = LogConfig()

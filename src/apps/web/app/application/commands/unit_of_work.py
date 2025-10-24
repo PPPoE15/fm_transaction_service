@@ -1,9 +1,8 @@
 import abc
 from types import TracebackType
-from typing import Optional, Type
+from typing import Self
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from typing_extensions import Self
 
 
 class AbstractUnitOfWork(abc.ABC):
@@ -21,9 +20,9 @@ class AbstractUnitOfWork(abc.ABC):
 
     async def __aexit__(
         self,
-        exctype: Optional[Type[BaseException]],
-        excinst: Optional[BaseException],
-        exctb: Optional[TracebackType],
+        exctype: type[BaseException] | None,
+        excinst: BaseException | None,
+        exctb: TracebackType | None,
     ) -> None:
         """
         Выйти из асинхронного контекстного менеджера.
@@ -60,9 +59,9 @@ class AbstractSQLAlchemyUnitOfWork(AbstractUnitOfWork):
 
     async def __aexit__(
         self,
-        exctype: Optional[Type[BaseException]],
-        excinst: Optional[BaseException],
-        exctb: Optional[TracebackType],
+        exctype: type[BaseException] | None,
+        excinst: BaseException | None,
+        exctb: TracebackType | None,
     ) -> None:
         """
         Выйти из асинхронного контекстного менеджера.

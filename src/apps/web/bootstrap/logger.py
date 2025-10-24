@@ -1,4 +1,4 @@
-import logging
+import logging.config
 from uuid import uuid4
 
 from apps import config as common_config
@@ -14,8 +14,7 @@ def setup() -> None:
 
     logger.addFilter(ReplicaIDFilter(replica_uid=str(uuid4())))
     logger.addFilter(SegmentUIDFilter(segment_uid="basic"))
-    logger.addFilter(ServiceNameFilter(service_name=app_settings.SERVER_NAME))
+    logger.addFilter(ServiceNameFilter(service_name=app_settings.SERVICE_NAME))
     logger.addFilter(TraceIDFilter())
 
-    if app_settings.DEBUG:
-        logger.setLevel(logging.DEBUG)
+    logger.setLevel(common_config.log_settings.LOG_LEVEL)

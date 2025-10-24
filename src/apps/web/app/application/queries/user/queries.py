@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Select, func, select
 
@@ -11,6 +11,8 @@ from apps.web.app.application.queries.base import BaseQueries
 from . import schemas
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from apps.utils.schemas import PageParams
 
 

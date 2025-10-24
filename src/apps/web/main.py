@@ -1,11 +1,10 @@
 from types import TracebackType
-from typing import Optional, Type
 
 from fastapi import FastAPI
 
 from apps.web.bootstrap import logger
 
-# from modules.web.bootstrap import dramatiq, logger, metrics, rmq
+from fastapi.middleware.cors import CORSMiddleware
 from apps.web.config import app_settings
 
 
@@ -25,13 +24,12 @@ class LifespanEvent:
         """Событие выполняющееся при starts up."""
         if not app_settings.HEALTHCHECK_MODE:
             logger.setup()
-            # await rmq.connect()
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
         """
         Событие выполняющееся при shutting down.
@@ -41,27 +39,33 @@ class LifespanEvent:
             exc_value: Объект ошибки.
             traceback: Объект трассировки ошибки.
         """
-        # if not app_settings.HEALTHCHECK_MODE:
-        #     await rmq.disconnect()
 
 
 def build_app() -> FastAPI:
     """Инициализировать и настроить FastAPI приложение."""
     fastapi_app = FastAPI(
-        title=app_settings.PROJECT_NAME,
+        title=app_settings.SERVICE_NAME,
         description="Сервис управления конфигурациями",
-        openapi_url=f"{app_settings.URL_PREFIX}/openapi.json",
+        openapi_url="/api/openapi.json",
         lifespan=LifespanEvent,
     )
 
     if not app_settings.HEALTHCHECK_MODE:
-        # dramatiq.setup()
-
         from apps.web.router import main_router
 
         fastapi_app.include_router(main_router)
-
-    # metrics.setup(fastapi_app)
+        fastapi_app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     return fastapi_app
 

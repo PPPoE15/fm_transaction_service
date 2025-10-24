@@ -175,3 +175,4 @@ cython_debug/
 docker/docker.env
 
 *.code-workspace
+.vscode

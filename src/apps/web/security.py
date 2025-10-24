@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Annotated
 
 import jwt
 from fastapi import Depends
@@ -7,7 +7,6 @@ from jwt.exceptions import DecodeError
 from pydantic import BaseModel, Field
 from starlette import status
 from starlette.exceptions import HTTPException
-from typing_extensions import Annotated
 
 from apps import apps_types
 
@@ -22,7 +21,7 @@ class UserInfo(BaseModel):
 
 
 async def _get_token(
-    token: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_security_token)],
+    token: Annotated[HTTPAuthorizationCredentials | None, Depends(_security_token)],
 ) -> HTTPAuthorizationCredentials:
     """
     Извлечь JWT-токен из запроса.
