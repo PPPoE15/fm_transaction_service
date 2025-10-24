@@ -1,4 +1,4 @@
-ARG SERVICE_NAME="financial_manager"
+ARG SERVICE_NAME="fm_transaction_service"
 ARG WORKING_DIR="/opt/${SERVICE_NAME}"
 
 ARG VIRTUAL_ENV="/opt/venv"
