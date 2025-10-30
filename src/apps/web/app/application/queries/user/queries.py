@@ -4,8 +4,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import Select, func, select
 
-from apps import apps_types
-from apps import db_models as orm_models
+from apps import apps_types, db_models
 from apps.web.app.application.queries.base import BaseQueries
 
 from . import schemas
@@ -36,7 +35,7 @@ class TransactionQueries(BaseQueries):
         Returns:
             Список наборов возможностей; Общее количество записей в БД.
         """
-        base_stmt = select(orm_models.Transaction).where(orm_models.Transaction.user_uid == user_uid)
+        base_stmt = select(db_models.Transaction).where(db_models.Transaction.user_uid == user_uid)
         select_stmt = self._apply_filters(base_stmt, filter_params)
 
         count_stmt = select_stmt.with_only_columns(func.count(), maintain_column_froms=True)
@@ -60,26 +59,26 @@ class TransactionQueries(BaseQueries):
         """
         if filter_params.category:
             stmt = stmt.filter(
-                orm_models.Transaction.category == filter_params.category,
+                db_models.Transaction.category == filter_params.category,
             )
         if filter_params.transaction_type:
             stmt = stmt.filter(
-                orm_models.Transaction.transaction_type == filter_params.transaction_type,
+                db_models.Transaction.transaction_type == filter_params.transaction_type,
             )
         if filter_params.before:
             stmt = stmt.filter(
-                orm_models.Transaction.transaction_date <= filter_params.before,
+                db_models.Transaction.transaction_date <= filter_params.before,
             )
         if filter_params.after:
             stmt = stmt.filter(
-                orm_models.Transaction.transaction_date >= filter_params.after,
+                db_models.Transaction.transaction_date >= filter_params.after,
             )
         return stmt
 
     @classmethod
     def build_list(
         cls,
-        orm_transactions: Sequence[orm_models.Transaction],
+        orm_transactions: Sequence[db_models.Transaction],
     ) -> list[schemas.TransactionSchema]:
         """
         Преобразовать orm-модель к схеме TransactionSchema.

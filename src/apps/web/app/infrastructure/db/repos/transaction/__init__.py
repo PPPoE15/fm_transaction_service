@@ -1,7 +1,7 @@
-from .interface import AbstractUserTransactionRepo
-from .repo import UserTransactionRepo
+from .interface import AbstractTransactionRepo
+from .repo import TransactionRepo
 
 __all__ = [
-    "AbstractUserTransactionRepo",
-    "UserTransactionRepo",
+    "AbstractTransactionRepo",
+    "TransactionRepo",
 ]

@@ -1,8 +1,8 @@
 from datetime import datetime
 
 from apps import apps_types
+from apps.web.app.aggregators.models.transaction.transaction import Transaction
 
-from . import exceptions
 from .uow import AbstractTransactionUnitOfWork
 
 
@@ -40,24 +40,16 @@ class CreateTransactionCommandHandler:
             transaction_type:Тип транзакции.
             category: Категория.
             description: Описание.
-
-        Raises:
-            exceptions.RepositoryAlreadyExistsError: Конфигурация репозитория уже существует.
         """
+        transactions_agg = Transaction.create(
+            user_uid=user_uid,
+            transaction_date=transaction_date,
+            category=category,
+            money_sum=money_sum,
+            transaction_type=transaction_type,
+            description=description,
+        )
         async with self._uow as uow:
-            user_transactions_agg = await uow.user_transactions_repo.get_by_user_uid(user_uid)
-            if not user_transactions_agg:
-                msg = f'Пользователь с UID "{user_uid}" не существует.'
-                raise exceptions.UserNotFoundError(msg)
-
-            user_transactions_agg.create(
-                transaction_date=transaction_date,
-                category=category,
-                money_sum=money_sum,
-                transaction_type=transaction_type,
-                description=description,
-            )
-
-            await uow.user_transactions_repo.update(user_transactions_agg)
+            await uow.transactions_repo.create(transactions_agg)
             await uow.commit()
-        return user_transactions_agg.transactions[-1].uid
+        return transactions_agg.uid

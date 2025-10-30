@@ -1,10 +1,9 @@
 from types import TracebackType
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from apps.web.bootstrap import logger
-
-from fastapi.middleware.cors import CORSMiddleware
 from apps.web.config import app_settings
 
 

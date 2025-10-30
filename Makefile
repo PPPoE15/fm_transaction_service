@@ -40,5 +40,4 @@ venv:
 	rm -rf .venv venv
 	python3 -m venv .venv
 	.venv/bin/pip install poetry==2.1
-	.venv/bin/poetry self add poetry-plugin-export
 	.venv/bin/poetry install --all-groups

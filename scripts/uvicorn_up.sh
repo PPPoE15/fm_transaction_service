@@ -8,7 +8,7 @@ UVICORN_PORT=${UVICORN_PORT:-80}
 if [[ $# -eq 0 ]] ; then
     echo 'No arguments given...This is the way!'
 
-    if [[ "${DO_MIGRATION,,}" == "true" || "${DO_MIGRATION,,}" == "yes" ]]; then
+    if [[ "${DO_MIGRATION,,}" == "true" || "${DO_MIGRATION,,}" == "1" ]]; then
 	    echo "Init migrations..."
 	    cd ./src
 	    dotenv --file ../dev.env run alembic upgrade head
