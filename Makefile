@@ -13,9 +13,6 @@ pytest_coverage:  ## Запуск pytest с coverage
 build: ## Собрать образ.
 	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml -p financial_manager build --no-cache
 
-gen_docker_env: ## Сгенерировать/обновить env-файл для запуска в docker
-	$(MAKE) -C docker gen_docker_env
-
 up_all:  ## Запуск сервиса.
 	docker-compose -f docker/docker-compose.yml -p financial_manager up --force-recreate -d web
 
@@ -27,14 +24,6 @@ migrate: ## Применить миграции для указанной в env
 
 generate_migration:  ## Сгенерировать миграцию
 	$(MAKE) -C src generate_migration
-
-install_poetry: ## Установить poetry
-	pip install poetry==2.1
-	poetry self add poetry-plugin-export
-
-gen_requirements: ## Сгенерировать/обновить файлы requirements.txt
-	poetry export --only dev --without-hashes --format requirements.txt --output requirements-ci.txt
-	poetry export --only common --without-hashes --format requirements.txt --output requirements.txt
 
 venv:
 	rm -rf .venv venv

@@ -4,7 +4,6 @@ from pydantic import Field
 
 from apps import apps_types
 from apps.utils.schemas import Base
-from apps.web.app.utils.datetime_tz import aware_now
 
 
 class CreateTransactionSchema(Base):
@@ -13,7 +12,7 @@ class CreateTransactionSchema(Base):
     transaction_date: datetime = Field(
         title="Дата транзакции.",
         description="Дата транзакции.",
-        examples=[aware_now()],
+        examples=["2025-11-07T16:52:48.249989"],
     )
     category: apps_types.CategoryName = Field(
         title="Категория.",
