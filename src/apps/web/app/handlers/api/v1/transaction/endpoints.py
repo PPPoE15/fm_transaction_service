@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
+from apps import apps_types
 from apps.utils.schemas import PageParams
 from apps.web.app.application.queries.user import schemas as q_schemas
 from apps.web.app.handlers.api.schemas import BaseListResponseSchema
@@ -59,7 +60,7 @@ async def create_user_transaction(
         item_in: Информация о транзакции.
         user: Информация об авторизованном пользователе.
     """
-    command_handler = deps.build_transaction_create_command_handler()
+    command_handler = deps.build_create_transaction_command_handler()
     await command_handler.handle(
         user_uid=user.uid,
         transaction_date=item_in.transaction_date,
@@ -76,3 +77,26 @@ async def create_user_transaction(
             filter_params=q_schemas.TransactionFilters(),
         )
     return BaseListResponseSchema(total=total, content=transactions)
+
+
+@router.delete(
+    "/transactions",
+    summary="Удаление транзакции пользователя",
+    description="Удалить транзакцию пользователя",
+)
+async def delete_user_transaction(
+    transaction_uid: apps_types.TransactionUID,
+    user: Annotated[UserInfo, Depends(get_user_info)],
+) -> None:
+    """
+    Удалить транзакцию пользователя.
+
+    Args:
+        transaction_uid: UID транзакции
+        user: Информация об авторизованном пользователе.
+    """
+    command_handler = deps.build_delete_transaction_command_handler()
+    await command_handler.handle(
+        user_uid=user.uid,
+        transaction_uid=transaction_uid,
+    )

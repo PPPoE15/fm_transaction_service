@@ -22,7 +22,25 @@ class AbstractTransactionRepo(abc.ABC):
         Обновить транзакции пользователя.
 
         Args:
-            transaction_agg: Агрегатор пользователя и его транзакций.
+            transaction_agg: UID пользователя и его транзакций.
+        """
+
+    @abc.abstractmethod
+    async def delete(self, transaction_uid: apps_types.TransactionUID) -> None:
+        """
+        Удалить транзакцию пользователя.
+
+        Args:
+            transaction_uid: UID пользователя и его транзакций.
+        """
+
+    @abc.abstractmethod
+    async def get_by_uid(self, transaction_uid: apps_types.TransactionUID) -> Transaction | None:
+        """
+        Получить транзакцию по UID.
+
+        Args:
+            transaction_uid: UID транзакции.
         """
 
     @abc.abstractmethod
