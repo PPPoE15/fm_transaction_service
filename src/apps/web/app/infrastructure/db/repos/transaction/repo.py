@@ -25,3 +25,11 @@ class TransactionRepo(AbstractTransactionRepo, BaseSqlAlchemyRepo):
         )
         transactions = (await self._session.scalars(stmt)).all()
         return builders.build_list(transactions)
+
+    async def delete(self, transaction_uid: apps_types.TransactionUID) -> None:
+        transaction = await self._session.get(db_models.Transaction, transaction_uid)
+        await self._session.delete(transaction)
+
+    async def get_by_uid(self, transaction_uid: apps_types.TransactionUID) -> Transaction | None:
+        transaction = await self._session.get(db_models.Transaction, transaction_uid)
+        return builders.build(transaction) if transaction else None

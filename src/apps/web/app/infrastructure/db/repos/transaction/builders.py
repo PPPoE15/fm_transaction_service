@@ -41,3 +41,21 @@ def build_list(transactions: Sequence[db_models.Transaction]) -> list[Transactio
         )
         for transaction in transactions
     ]
+
+
+def build(transaction: db_models.Transaction) -> Transaction:
+    """
+    Конвертировать orm-модель в агрегатор.
+
+    Args:
+        transaction: Результаты запроса.
+    """
+    return Transaction(
+        uid=transaction.uid,
+        user_uid=transaction.user_uid,
+        transaction_date=transaction.transaction_date,
+        category=transaction.category,
+        money_sum=transaction.money_sum,
+        transaction_type=transaction.transaction_type,
+        description=transaction.description,
+    )
