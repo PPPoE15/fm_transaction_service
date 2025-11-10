@@ -1,6 +1,7 @@
 from apps import apps_types
 
 from .exceptions import ForbiddenError
+from .exceptions import TransactionNotFoundError
 from .uow import AbstractTransactionUnitOfWork
 
 
@@ -34,7 +35,9 @@ class DeleteTransactionCommandHandler:
         async with self._uow as uow:
             transaction = await uow.transactions_repo.get_by_uid(transaction_uid)
             if not transaction:
-                return
+                msg = "Транзакция с данным UID не найдена"
+                raise TransactionNotFoundError(msg)
+            
             if transaction.user_uid != user_uid:
                 msg = "Запрещено удалять запись, которая вам не принадлежит"
                 raise ForbiddenError(msg)
