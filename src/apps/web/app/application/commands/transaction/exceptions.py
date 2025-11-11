@@ -10,5 +10,5 @@ class ForbiddenError(BaseNotFoundError):
 
 
 class TransactionNotFoundError(BaseNotFoundError):
-    """Запрет на удаление"""
+    """Транзакция не найдена"""
 

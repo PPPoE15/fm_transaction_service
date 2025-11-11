@@ -36,7 +36,7 @@ class CreateTransactionSchema(Base):
     )
 
 
-class PatchTransactionSchema(Base):
+class UpdateTransactionSchema(Base):
     """Схема данных для обновления транзакции"""
 
     transaction_date: datetime = Field(

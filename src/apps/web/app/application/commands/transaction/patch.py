@@ -8,7 +8,7 @@ from .exceptions import TransactionNotFoundError
 from .uow import AbstractTransactionUnitOfWork
 
 
-class PatchTransactionCommandHandler:
+class UpdateTransactionCommandHandler:
     """Класс обработчика команды изменения транзакции."""
 
     def __init__(

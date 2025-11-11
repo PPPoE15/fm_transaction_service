@@ -107,9 +107,9 @@ async def delete_user_transaction(
     summary="Изменение транзакции пользователя",
     description="Изменить транзакцию пользователя",
 )
-async def patch_user_transaction(
+async def update_user_transaction(
     transaction_uid: apps_types.TransactionUID,
-    item_in: schemas.PatchTransactionSchema,
+    item_in: schemas.UpdateTransactionSchema,
     user: Annotated[UserInfo, Depends(get_user_info)],
     page_params: Annotated[PageParams, Depends()],
 ) -> BaseListResponseSchema[q_schemas.TransactionSchema]:
@@ -121,7 +121,7 @@ async def patch_user_transaction(
         item_in: Измененная информация о транзакции
         user: Информация об авторизованном пользователе.
     """
-    command_handler = deps.build_patch_transaction_command_handler()
+    command_handler = deps.build_update_transaction_command_handler()
     await command_handler.handle(
         user_uid=user.uid,
         transaction_uid = transaction_uid,
