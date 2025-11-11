@@ -91,6 +91,7 @@ class TransactionQueries(BaseQueries):
         """
         return [
             schemas.TransactionSchema(
+                uid=transaction.uid,
                 transaction_date=transaction.transaction_date,
                 category=transaction.category,
                 money_sum=transaction.money_sum,
