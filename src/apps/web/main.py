@@ -50,7 +50,7 @@ def build_app() -> FastAPI:
     )
 
     if not app_settings.HEALTHCHECK_MODE:
-        from apps.web.router import main_router
+        from apps.web.router import main_router  # noqa: PLC0415
 
         fastapi_app.include_router(main_router, prefix="/transaction")
         fastapi_app.add_middleware(

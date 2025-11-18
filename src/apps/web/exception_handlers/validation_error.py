@@ -95,7 +95,7 @@ def setup_validation_exception_handlers(app: FastAPI) -> None:
         error_validation = [
             ValidationField(
                 message=err["msg"],
-                field=".".join(cast(Iterable[str], err["loc"][1:]))
+                field=".".join(cast(Iterable[str], err["loc"][1:]))  # noqa: TC006
                 if isinstance(exc.body, str)
                 else str(err["loc"][1]),
                 rejectedValue=base.get_body_info(exc.body, err["loc"][1:]),
