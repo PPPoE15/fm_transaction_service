@@ -64,3 +64,27 @@ class Transaction(Base):
             transaction_type=transaction_type,
             description=description,
         )
+
+    def update(
+        self,
+        transaction_date: datetime,
+        category: apps_types.CategoryName,
+        money_sum: apps_types.MoneySum,
+        transaction_type: apps_types.TransactionType,
+        description: apps_types.Description,
+    ) -> None:
+        """
+        Изменить транзакцию.
+
+        Args:
+            transaction_date: Дата транзакции.
+            money_sum: Денежная сумма по категории.
+            transaction_type:Тип транзакции.
+            category: Категория.
+            description: Описание.
+        """
+        self.transaction_date = transaction_date if transaction_date else self.transaction_date
+        self.category = category if category else self.category
+        self.money_sum = money_sum if money_sum else self.money_sum
+        self.transaction_type = transaction_type if transaction_type else self.transaction_type
+        self.description = description if description else self.description

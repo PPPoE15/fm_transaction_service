@@ -100,3 +100,42 @@ async def delete_user_transaction(
         user_uid=user.uid,
         transaction_uid=transaction_uid,
     )
+
+
+@router.patch(
+    "/transactions",
+    summary="Изменение транзакции пользователя",
+    description="Изменить транзакцию пользователя",
+)
+async def update_user_transaction(
+    transaction_uid: apps_types.TransactionUID,
+    item_in: schemas.UpdateTransactionSchema,
+    user: Annotated[UserInfo, Depends(get_user_info)],
+    page_params: Annotated[PageParams, Depends()],
+) -> BaseListResponseSchema[q_schemas.TransactionSchema]:
+    """
+    Изменить транзакцию пользователя.
+
+    Args:
+        transaction_uid: UID транзакции
+        item_in: Измененная информация о транзакции
+        user: Информация об авторизованном пользователе.
+    """
+    command_handler = deps.build_update_transaction_command_handler()
+    await command_handler.handle(
+        user_uid=user.uid,
+        transaction_uid = transaction_uid,
+        transaction_date=item_in.transaction_date,
+        category=item_in.category,
+        money_sum=item_in.money_sum,
+        transaction_type=item_in.transaction_type,
+        description=item_in.description,
+    )
+    async with async_session_factory() as session:
+        transactions_queries = deps.build_queries(session)
+        transactions, total = await transactions_queries.get_transactions(
+            user_uid=user.uid,
+            page_params=page_params,
+            filter_params=q_schemas.TransactionFilters(),
+        )
+    return BaseListResponseSchema(total=total, content=transactions)

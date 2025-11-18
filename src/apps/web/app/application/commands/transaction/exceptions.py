@@ -7,3 +7,8 @@ class UserNotFoundError(BaseNotFoundError):
 
 class ForbiddenError(BaseNotFoundError):
     """Запрет на удаление"""
+
+
+class TransactionNotFoundError(BaseNotFoundError):
+    """Транзакция не найдена"""
+
