@@ -12,7 +12,7 @@ ENV_FILE=${ENV_FILE:-dev.env}
 cp template.env ${ENV_FILE}
 
 # Run app
-START_CMD="uvicorn --host 0.0.0.0 --port ${UVICORN_PORT} src.main:app --log-level warning"
+START_CMD="uvicorn --app-dir src --host 0.0.0.0 --port ${UVICORN_PORT} apps.web.main:app"
 if [[ "$DEBUGPY_ENABLE" == "1" ]]; then
     START_CMD="debugpy --listen 0.0.0.0:5678 -m ${START_CMD} --reload"
 fi
