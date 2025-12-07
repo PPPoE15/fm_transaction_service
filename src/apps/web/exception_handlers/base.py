@@ -4,8 +4,6 @@ import logging
 from typing import Any
 
 from fastapi.responses import JSONResponse
-
-# ruff: noqa: N815
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.status import (
     HTTP_400_BAD_REQUEST,

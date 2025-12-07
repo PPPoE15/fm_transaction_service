@@ -12,6 +12,9 @@ from apps.utils.schemas import Base
 class TransactionSchema(Base):
     """Список транзакций пользователя"""
 
+    uid: apps_types.TransactionUID = Field(
+        description="UID транзакции.",
+    )
     transaction_date: datetime = Field(
         description="Дата транзакции.",
     )

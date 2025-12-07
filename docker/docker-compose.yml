@@ -14,7 +14,7 @@ services:
       _init-migrations:
         condition: service_completed_successfully
     env_file:
-      - docker.env
+      - ../template.env
     volumes:
       - ../src/apps:/opt/financial_manager/apps
     ports:
@@ -31,7 +31,7 @@ services:
       _init-migrations:
         condition: service_completed_successfully
     env_file:
-      - docker.env
+      - ../template.env
     volumes:
       - ../src:/opt/financial_manager/
     command: alembic downgrade base
@@ -41,7 +41,7 @@ services:
   _init-migrations:
     image: financial_manager:testing
     env_file:
-      - docker.env
+      - ../template.env
     volumes:
       - ../src/:/opt/financial_manager
     depends_on:

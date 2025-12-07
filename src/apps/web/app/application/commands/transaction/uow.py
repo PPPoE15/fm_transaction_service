@@ -1,13 +1,13 @@
 from typing import Any, Self
 
 from apps.web.app.application.commands.unit_of_work import AbstractSQLAlchemyUnitOfWork, AbstractUnitOfWork
-from apps.web.app.infrastructure.db.repos.transaction import AbstractUserTransactionRepo, UserTransactionRepo
+from apps.web.app.infrastructure.db.repos.transaction import AbstractTransactionRepo, TransactionRepo
 
 
 class AbstractTransactionUnitOfWork(AbstractUnitOfWork):
     """Абстрактная единица работы для пользователя и его транзакций."""
 
-    user_transactions_repo: AbstractUserTransactionRepo
+    transactions_repo: AbstractTransactionRepo
 
 
 class TransactionUnitOfWork(AbstractTransactionUnitOfWork, AbstractSQLAlchemyUnitOfWork):
@@ -30,5 +30,5 @@ class TransactionUnitOfWork(AbstractTransactionUnitOfWork, AbstractSQLAlchemyUni
     async def __aenter__(self) -> Self:
         """Зайти в асинхронный контекстный менеджер."""
         self._session = self._session_factory()
-        self.user_transactions_repo = UserTransactionRepo(self._session)
+        self.transactions_repo = TransactionRepo(self._session)
         return self

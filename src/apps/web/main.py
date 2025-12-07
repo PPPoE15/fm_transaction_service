@@ -1,10 +1,9 @@
 from types import TracebackType
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from apps.web.bootstrap import logger
-
-from fastapi.middleware.cors import CORSMiddleware
 from apps.web.config import app_settings
 
 
@@ -53,7 +52,7 @@ def build_app() -> FastAPI:
     if not app_settings.HEALTHCHECK_MODE:
         from apps.web.router import main_router
 
-        fastapi_app.include_router(main_router)
+        fastapi_app.include_router(main_router, prefix="/transaction")
         fastapi_app.add_middleware(
             CORSMiddleware,
             allow_origins=[
