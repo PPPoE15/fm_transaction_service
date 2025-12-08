@@ -5,9 +5,6 @@ SERVICE_NAME=$(basename "$PWD")
 UVICORN_PORT=${UVICORN_PORT:-80}
 ENV_FILE=${ENV_FILE:-dev.env}
 
-# Create data directory
-# mkdir -p "/opt/acm/$SERVICE_NAME-data"
-
 # Generate env file
 cp template.env ${ENV_FILE}
 

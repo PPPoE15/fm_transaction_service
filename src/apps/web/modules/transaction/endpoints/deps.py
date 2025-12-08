@@ -1,11 +1,11 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from apps.web.app.application.commands.transaction.create import CreateTransactionCommandHandler
 from apps.web.app.application.commands.transaction.delete import DeleteTransactionCommandHandler
 from apps.web.app.application.commands.transaction.patch import UpdateTransactionCommandHandler
 from apps.web.app.application.commands.transaction.uow import TransactionUnitOfWork
 from apps.web.app.application.queries.user.queries import TransactionQueries
 from apps.web.app.handlers import deps as handlers_deps
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from apps.web.logger import get_logger
 
 

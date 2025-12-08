@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends
 
 from apps import apps_types
 from apps.utils.schemas import PageParams
-from apps.web.app.application.queries.user import schemas as q_schemas
-from apps.web.app.handlers.api.schemas import BaseListResponseSchema
-from apps.web.app.handlers.deps import async_session_factory
+from apps.web.core.deps import async_session_factory
+from apps.web.core.schemas import BaseListResponseSchema
+from apps.web.modules.transaction.application.queries import schemas as q_schemas
 from apps.web.security import UserInfo, get_user_info
 
 from . import deps, schemas

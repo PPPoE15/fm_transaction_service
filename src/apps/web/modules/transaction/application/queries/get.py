@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Select, func, select
 
 from apps import apps_types, db_models
-from apps.web.app.application.queries.base import BaseQueries
+from apps.web.core.base_query import BaseQueries
 
 from . import schemas
 
