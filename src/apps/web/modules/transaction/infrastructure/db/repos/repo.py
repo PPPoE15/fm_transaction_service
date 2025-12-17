@@ -1,14 +1,14 @@
 from sqlalchemy import select
 
 from apps import apps_types, db_models
-from apps.web.app.aggregators.models.transaction import Transaction
-from apps.web.app.infrastructure.db.repos.base import BaseSqlAlchemyRepo
+from apps.web.core.base import BaseSqlAlchemyRepo
+from apps.web.modules.transaction.aggregators import Transaction
 
 from . import builders
 from .interface import AbstractTransactionRepo
 
 
-class TransactionRepo(AbstractTransactionRepo, BaseSqlAlchemyRepo):
+class Repo(AbstractTransactionRepo, BaseSqlAlchemyRepo):
     """Репозиторий транзакций."""
 
     async def create(self, transaction: Transaction) -> None:
