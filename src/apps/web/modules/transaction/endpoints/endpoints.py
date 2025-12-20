@@ -7,6 +7,7 @@ from apps.utils.schemas import PageParams
 from apps.web.core.deps import async_session_factory
 from apps.web.core.schemas import BaseListResponseSchema
 from apps.web.modules.transaction.application.queries import schemas as q_schemas
+from apps.web.modules.transaction.application.queries.get import TransactionQueries
 from apps.web.security import UserInfo, get_user_info
 
 from . import deps, schemas
@@ -33,7 +34,7 @@ async def get_transactions(
         user: Информация об авторизованном пользователе.
     """
     async with async_session_factory() as session:
-        transactions_queries = deps.build_queries(session)
+        transactions_queries = TransactionQueries(session)
         transactions, total = await transactions_queries.get_transactions(
             user_uid=user.uid,
             page_params=page_params,
@@ -70,7 +71,7 @@ async def create_user_transaction(
         description=item_in.description,
     )
     async with async_session_factory() as session:
-        transactions_queries = deps.build_queries(session)
+        transactions_queries = TransactionQueries(session)
         transactions, total = await transactions_queries.get_transactions(
             user_uid=user.uid,
             page_params=page_params,
@@ -120,11 +121,12 @@ async def update_user_transaction(
         transaction_uid: UID транзакции
         item_in: Измененная информация о транзакции
         user: Информация об авторизованном пользователе.
+        page_params: Параметры пагинации
     """
     command_handler = deps.build_update_transaction_command_handler()
     await command_handler.handle(
         user_uid=user.uid,
-        transaction_uid = transaction_uid,
+        transaction_uid=transaction_uid,
         transaction_date=item_in.transaction_date,
         category=item_in.category,
         money_sum=item_in.money_sum,
@@ -132,7 +134,7 @@ async def update_user_transaction(
         description=item_in.description,
     )
     async with async_session_factory() as session:
-        transactions_queries = deps.build_queries(session)
+        transactions_queries = TransactionQueries(session)
         transactions, total = await transactions_queries.get_transactions(
             user_uid=user.uid,
             page_params=page_params,

@@ -9,6 +9,7 @@ from apps.web.core.schemas import BaseListResponseSchema
 from apps.web.modules.category.application.commands import CreateCommandHandler
 from apps.web.modules.category.application.commands.uow import UnitOfWork
 from apps.web.modules.category.application.queries import schemas as q_schemas
+from apps.web.modules.category.application.queries.list import ListCategories
 from apps.web.security import UserInfo, get_user_info
 
 from . import schemas
@@ -25,7 +26,7 @@ async def get_categories(
     page_params: Annotated[PageParams, Depends()],
     user: Annotated[UserInfo, Depends(get_user_info)],
     filter_params: Annotated[q_schemas.CategoryFilters, Depends()],
-) -> BaseListResponseSchema[q_schemas.TransactionSchema]:
+) -> BaseListResponseSchema[q_schemas.CategorySchema]:
     """
     Список категорий пользователя.
 
@@ -35,8 +36,8 @@ async def get_categories(
         user: Информация об авторизованном пользователе.
     """
     async with async_session_factory() as session:
-        categories_queries = deps.build_queries(session)
-        categories, total = await categories_queries.get_categories(
+        categories_queries = ListCategories(session)
+        categories, total = await categories_queries.execute(
             user_uid=user.uid,
             page_params=page_params,
             filter_params=filter_params,

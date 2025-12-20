@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from apps import apps_types
-from apps.web.app.aggregators.models.transaction.transaction import Transaction
+from apps.web.modules.transaction.aggregators import Transaction
 
 from .uow import AbstractTransactionUnitOfWork
 
@@ -25,7 +25,7 @@ class CreateTransactionCommandHandler:
         self,
         user_uid: apps_types.UserUID,
         transaction_date: datetime,
-        category: apps_types.CategoryName,
+        category: apps_types.CategoryUID,
         money_sum: apps_types.MoneySum,
         transaction_type: apps_types.TransactionType,
         description: apps_types.Description,

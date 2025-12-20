@@ -3,8 +3,9 @@ from types import TracebackType
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from apps.web.bootstrap import logger
+from apps.web.bootstrap import exception_handlers, logger
 from apps.web.config import app_settings
+from apps.web.router import main_router
 
 
 class LifespanEvent:
@@ -21,8 +22,7 @@ class LifespanEvent:
 
     async def __aenter__(self) -> None:
         """Событие выполняющееся при starts up."""
-        if not app_settings.HEALTHCHECK_MODE:
-            logger.setup()
+        logger.setup()
 
     async def __aexit__(
         self,
@@ -49,22 +49,20 @@ def build_app() -> FastAPI:
         lifespan=LifespanEvent,
     )
 
-    if not app_settings.HEALTHCHECK_MODE:
-        from apps.web.router import main_router
-
-        fastapi_app.include_router(main_router, prefix="/transaction")
-        fastapi_app.add_middleware(
-            CORSMiddleware,
-            allow_origins=[
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "http://localhost:5173",
-                "http://127.0.0.1:5173",
-            ],
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+    fastapi_app.include_router(main_router)
+    fastapi_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    exception_handlers.setup(fastapi_app)
 
     return fastapi_app
 

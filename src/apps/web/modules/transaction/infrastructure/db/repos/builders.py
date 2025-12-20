@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from apps import db_models
-from apps.web.app.aggregators.models.transaction.transaction import Transaction
+from apps.web.modules.transaction.aggregators import Transaction
 
 
 def build_orm(transaction_agg: Transaction) -> db_models.Transaction:

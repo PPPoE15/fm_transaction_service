@@ -1,5 +1,5 @@
 run_linters: ## Запуск линтеров
-	ruff check src || echo
+	ruff check src --fix || echo
 	ruff format src --check || echo
 	mypy src || echo
 

@@ -8,7 +8,7 @@ from apps import apps_types
 from apps.utils.schemas import Base
 
 
-class TransactionSchema(Base):
+class CategorySchema(Base):
     """Схема данных категории бюджета"""
 
     uid: apps_types.TransactionUID = Field(
@@ -32,7 +32,7 @@ class TransactionSchema(Base):
 class CategoryFilters:
     """Фильтр по категориям."""
 
-    category: Annotated[
+    name: Annotated[
         str | None,
         Query(
             title="Название категории.",

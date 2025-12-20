@@ -1,10 +1,8 @@
 from datetime import datetime
 
 from apps import apps_types
-from apps.web.app.aggregators.models.transaction.transaction import Transaction
 
-from .exceptions import ForbiddenError
-from .exceptions import TransactionNotFoundError
+from .exceptions import ForbiddenError, TransactionNotFoundError
 from .uow import AbstractTransactionUnitOfWork
 
 
@@ -28,7 +26,7 @@ class UpdateTransactionCommandHandler:
         user_uid: apps_types.UserUID,
         transaction_uid: apps_types.TransactionUID,
         transaction_date: datetime,
-        category: apps_types.CategoryName,
+        category: apps_types.CategoryUID,
         money_sum: apps_types.MoneySum,
         transaction_type: apps_types.TransactionType,
         description: apps_types.Description,
@@ -45,7 +43,6 @@ class UpdateTransactionCommandHandler:
             transaction_type:Тип транзакции.
             description: Описание.
         """
-
         async with self._uow as uow:
             transaction = await uow.transactions_repo.get_by_uid(transaction_uid)
             if not transaction:

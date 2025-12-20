@@ -1,4 +1,4 @@
-from apps.web.app.utils.exceptions import BaseNotFoundError
+from apps.web.utils.exceptions import BaseNotFoundError
 
 
 class UserNotFoundError(BaseNotFoundError):
@@ -11,4 +11,3 @@ class ForbiddenError(BaseNotFoundError):
 
 class TransactionNotFoundError(BaseNotFoundError):
     """Транзакция не найдена"""
-

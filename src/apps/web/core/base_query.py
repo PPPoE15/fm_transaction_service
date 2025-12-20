@@ -1,30 +1,24 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Select, inspect
 
-if TYPE_CHECKING:
-    import logging
+from apps.web.logger import get_logger
 
+if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from apps.db_models.base import AsyncBase
     from apps.utils.schemas import PageParams
 
-AccessControllerType = TypeVar("AccessControllerType")
 
-
-class BaseQueries(Generic[AccessControllerType]):
+class BaseQueries:
     """Базовый класс запросов."""
-
-    _access_controller: AccessControllerType
 
     def __init__(
         self,
         session: AsyncSession,
-        access_controller: AccessControllerType | None,
-        logger: logging.Logger,
     ) -> None:
         """
         Инициализация запросов к БД.
@@ -32,11 +26,9 @@ class BaseQueries(Generic[AccessControllerType]):
         Args:
             session: Сессия SQLAlchemy ORM.
             access_controller: Контроллер доступа.
-            logger: Логгер.
         """
         self._session = session
-        self._access_controller = access_controller
-        self._logger = logger
+        self._logger = get_logger()
 
     @staticmethod
     def _apply_pagination(stmt: Select, page_params: PageParams) -> Select:

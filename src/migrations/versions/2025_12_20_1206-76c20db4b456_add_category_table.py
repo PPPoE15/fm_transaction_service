@@ -31,8 +31,8 @@ def upgrade() -> None:
     op.alter_column(
         "transactions",
         "category",
-        existing_type=sa.VARCHAR(),
         type_=sa.UUID(),
+        postgresql_using="category::uuid",
         existing_nullable=False,
     )
 

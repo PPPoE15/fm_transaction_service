@@ -1,5 +1,3 @@
-from sqlalchemy import select
-
 from apps import apps_types, db_models
 from apps.web.core.base import BaseSqlAlchemyRepo
 from apps.web.modules.category.aggregators.category import Category
@@ -9,7 +7,7 @@ from .interface import AbstractCategoryRepo
 
 
 class Repo(AbstractCategoryRepo, BaseSqlAlchemyRepo):
-    """Репозиторий транзакций."""
+    """Репозиторий категорий."""
 
     async def create(self, category: Category) -> None:
         orm_category = builders.build_orm(category)

@@ -20,7 +20,7 @@ class Transaction(Base):
     transaction_date: datetime = Field(
         description="Дата транзакции.",
     )
-    category: apps_types.CategoryName = Field(
+    category: apps_types.CategoryUID = Field(
         description="Категория транзакции.",
     )
     money_sum: apps_types.MoneySum = Field(
@@ -38,7 +38,7 @@ class Transaction(Base):
         cls,
         user_uid: apps_types.UserUID,
         transaction_date: datetime,
-        category: apps_types.CategoryName,
+        category: apps_types.CategoryUID,
         money_sum: apps_types.MoneySum,
         transaction_type: apps_types.TransactionType,
         description: apps_types.Description,
@@ -68,7 +68,7 @@ class Transaction(Base):
     def update(
         self,
         transaction_date: datetime,
-        category: apps_types.CategoryName,
+        category: apps_types.CategoryUID,
         money_sum: apps_types.MoneySum,
         transaction_type: apps_types.TransactionType,
         description: apps_types.Description,

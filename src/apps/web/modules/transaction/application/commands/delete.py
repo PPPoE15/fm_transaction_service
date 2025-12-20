@@ -1,7 +1,6 @@
 from apps import apps_types
 
-from .exceptions import ForbiddenError
-from .exceptions import TransactionNotFoundError
+from .exceptions import ForbiddenError, TransactionNotFoundError
 from .uow import AbstractTransactionUnitOfWork
 
 
@@ -37,7 +36,7 @@ class DeleteTransactionCommandHandler:
             if not transaction:
                 msg = "Транзакция с данным UID не найдена"
                 raise TransactionNotFoundError(msg)
-            
+
             if transaction.user_uid != user_uid:
                 msg = "Запрещено удалять запись, которая вам не принадлежит"
                 raise ForbiddenError(msg)

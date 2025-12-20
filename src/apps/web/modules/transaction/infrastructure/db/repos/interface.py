@@ -1,7 +1,7 @@
 import abc
 
 from apps import apps_types
-from apps.web.app.aggregators.models.transaction.transaction import Transaction
+from apps.web.modules.transaction.aggregators.transaction import Transaction
 
 
 class AbstractTransactionRepo(abc.ABC):

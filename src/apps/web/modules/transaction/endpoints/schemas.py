@@ -14,7 +14,7 @@ class CreateTransactionSchema(Base):
         description="Дата транзакции.",
         examples=["2025-11-07T16:52:48.249989"],
     )
-    category: apps_types.CategoryName = Field(
+    category: apps_types.CategoryUID = Field(
         title="Категория.",
         description="Категория.",
         examples=[],
@@ -40,25 +40,21 @@ class UpdateTransactionSchema(Base):
     """Схема данных для обновления транзакции"""
 
     transaction_date: datetime = Field(
-        default=None,
         title="Дата транзакции.",
         description="Дата транзакции.",
         examples=["2025-11-07T16:52:48.249989"],
     )
-    category: apps_types.CategoryName = Field(
-        default=None,
+    category: apps_types.CategoryUID = Field(
         title="Категория.",
         description="Категория.",
         examples=[],
     )
     money_sum: apps_types.MoneySum = Field(
-        default=None,
         title="Денежная сумма по категории.",
         description="Денежная сумма по категории.",
         examples=[120, 4590],
     )
     transaction_type: apps_types.TransactionType = Field(
-        default=None,
         title="Тип транзакции",
         description="Тип транзакции",
         examples=["outcome", "income"],
