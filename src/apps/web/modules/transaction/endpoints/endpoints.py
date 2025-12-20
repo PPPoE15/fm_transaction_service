@@ -11,7 +11,7 @@ from apps.web.security import UserInfo, get_user_info
 
 from . import deps, schemas
 
-router = APIRouter(tags=["Пользователь"])
+router = APIRouter(tags=["Транзакции"])
 
 
 @router.get(

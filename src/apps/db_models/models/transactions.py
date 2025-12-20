@@ -26,8 +26,8 @@ class Transaction(AsyncBase):
         DateTime,
         doc="Дата транзакции.",
     )
-    category: Mapped[apps_types.CategoryName] = mapped_column(
-        String,
+    category: Mapped[apps_types.CategoryUID] = mapped_column(
+        UUID,
         doc="Категория транзакции.",
     )
     money_sum: Mapped[apps_types.MoneySum] = mapped_column(
