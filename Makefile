@@ -30,3 +30,8 @@ venv:
 	python3 -m venv .venv
 	.venv/bin/pip install poetry==2.1
 	.venv/bin/poetry install --all-groups
+
+build_and_push_dev:
+	docker build -t pppoe15/fm_transaction_service:dev .
+	docker login
+	docker push pppoe15/fm_transaction_service:dev
