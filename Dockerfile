@@ -40,9 +40,9 @@ WORKDIR ${WORKING_DIR}
 
 COPY poetry.lock ./
 COPY pyproject.toml ./
-COPY src ./
-COPY scripts ./
 COPY template.env ./
+COPY src ./src
+COPY scripts ./scripts
 
 RUN python3 -m venv "${VIRTUAL_ENV}"
 RUN python3 -m pip install --upgrade pip

@@ -17,7 +17,7 @@ class CreateTransactionSchema(Base):
     category: apps_types.CategoryUID = Field(
         title="Категория.",
         description="Категория.",
-        examples=[],
+        examples=["f171258a-1772-4ff3-b797-04bae1e0b3dc"],
     )
     money_sum: apps_types.MoneySum = Field(
         title="Денежная сумма по категории.",

@@ -32,6 +32,6 @@ venv:
 	.venv/bin/poetry install --all-groups
 
 build_and_push_dev:
-	docker build -t pppoe15/fm_transaction_service:dev .
+	docker build --target dev -t pppoe15/fm_transaction_service:dev .
 	docker login
 	docker push pppoe15/fm_transaction_service:dev
