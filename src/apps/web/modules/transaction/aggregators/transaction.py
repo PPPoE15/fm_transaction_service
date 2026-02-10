@@ -20,7 +20,7 @@ class Transaction(Base):
     transaction_date: datetime = Field(
         description="Дата транзакции.",
     )
-    category: apps_types.CategoryUID = Field(
+    category_uid: apps_types.CategoryUID = Field(
         description="Категория транзакции.",
     )
     money_sum: apps_types.MoneySum = Field(
@@ -38,7 +38,7 @@ class Transaction(Base):
         cls,
         user_uid: apps_types.UserUID,
         transaction_date: datetime,
-        category: apps_types.CategoryUID,
+        category_uid: apps_types.CategoryUID,
         money_sum: apps_types.MoneySum,
         transaction_type: apps_types.TransactionType,
         description: apps_types.Description,
@@ -51,7 +51,7 @@ class Transaction(Base):
             transaction_date: Дата транзакции.
             money_sum: Денежная сумма по категории.
             transaction_type:Тип транзакции.
-            category: Категория.
+            category_uid: UID Категории.
             description: Описание.
         """
         uid = uuid4()
@@ -59,7 +59,7 @@ class Transaction(Base):
             uid=uid,
             user_uid=user_uid,
             transaction_date=transaction_date,
-            category=category,
+            category_uid=category_uid,
             money_sum=money_sum,
             transaction_type=transaction_type,
             description=description,
@@ -68,7 +68,7 @@ class Transaction(Base):
     def update(
         self,
         transaction_date: datetime,
-        category: apps_types.CategoryUID,
+        category_uid: apps_types.CategoryUID,
         money_sum: apps_types.MoneySum,
         transaction_type: apps_types.TransactionType,
         description: apps_types.Description,
@@ -80,11 +80,11 @@ class Transaction(Base):
             transaction_date: Дата транзакции.
             money_sum: Денежная сумма по категории.
             transaction_type:Тип транзакции.
-            category: Категория.
+            category_uid: UID Категории.
             description: Описание.
         """
         self.transaction_date = transaction_date if transaction_date else self.transaction_date
-        self.category = category if category else self.category
+        self.category_uid = category_uid if category_uid else self.category_uid
         self.money_sum = money_sum if money_sum else self.money_sum
         self.transaction_type = transaction_type if transaction_type else self.transaction_type
         self.description = description if description else self.description

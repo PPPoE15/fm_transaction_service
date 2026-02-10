@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Select, func, select
+from sqlalchemy.orm import selectinload
 
 from apps import apps_types, db_models
 from apps.web.core.base_query import BaseQueries
@@ -35,7 +36,13 @@ class TransactionQueries(BaseQueries):
         Returns:
             Список наборов возможностей; Общее количество записей в БД.
         """
-        base_stmt = select(db_models.Transaction).where(db_models.Transaction.user_uid == user_uid)
+        base_stmt = (
+            select(db_models.Transaction)
+            .options(
+                selectinload(db_models.Transaction.category),
+            )
+            .where(db_models.Transaction.user_uid == user_uid)
+        )
         select_stmt = self._apply_filters(base_stmt, filter_params)
 
         count_stmt = select_stmt.with_only_columns(func.count(), maintain_column_froms=True)
@@ -93,7 +100,7 @@ class TransactionQueries(BaseQueries):
             schemas.TransactionSchema(
                 uid=transaction.uid,
                 transaction_date=transaction.transaction_date,
-                category=transaction.category,
+                category=transaction.category.name,
                 money_sum=transaction.money_sum,
                 transaction_type=transaction.transaction_type,
                 description=transaction.description,

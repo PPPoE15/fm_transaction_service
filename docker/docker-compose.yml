@@ -72,7 +72,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=financial_manager
+      - POSTGRES_DB=fm_transaction_service
     ports:
       - "5432:5432"
     volumes:

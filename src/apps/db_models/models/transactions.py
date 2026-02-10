@@ -1,11 +1,15 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import UUID, Integer, String
 
 from apps import apps_types
 from apps.db_models.base import AsyncBase
+
+if TYPE_CHECKING:
+    from apps.db_models.models.category import Category
 
 
 class Transaction(AsyncBase):
@@ -26,8 +30,9 @@ class Transaction(AsyncBase):
         DateTime,
         doc="Дата транзакции.",
     )
-    category: Mapped[apps_types.CategoryUID] = mapped_column(
+    category_uid: Mapped[apps_types.CategoryUID] = mapped_column(
         UUID,
+        ForeignKey("categories.uid"),
         doc="Категория транзакции.",
     )
     money_sum: Mapped[apps_types.MoneySum] = mapped_column(
@@ -41,4 +46,8 @@ class Transaction(AsyncBase):
     description: Mapped[apps_types.Description] = mapped_column(
         String,
         doc="Описание транзакции.",
+    )
+
+    category: Mapped["Category"] = relationship(
+        back_populates="transactions",
     )

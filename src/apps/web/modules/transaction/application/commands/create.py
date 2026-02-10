@@ -44,7 +44,7 @@ class CreateTransactionCommandHandler:
         transactions_agg = Transaction.create(
             user_uid=user_uid,
             transaction_date=transaction_date,
-            category=category,
+            category_uid=category,
             money_sum=money_sum,
             transaction_type=transaction_type,
             description=description,

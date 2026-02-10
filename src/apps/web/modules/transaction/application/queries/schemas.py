@@ -18,7 +18,7 @@ class TransactionSchema(Base):
     transaction_date: datetime = Field(
         description="Дата транзакции.",
     )
-    category: apps_types.CategoryUID = Field(
+    category: apps_types.CategoryName = Field(
         description="Категория транзакции.",
     )
     money_sum: apps_types.MoneySum = Field(

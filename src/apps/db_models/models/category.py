@@ -1,8 +1,13 @@
-from sqlalchemy.orm import Mapped, mapped_column
+from typing import TYPE_CHECKING
+
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import UUID, Integer, String
 
 from apps import apps_types
 from apps.db_models.base import AsyncBase
+
+if TYPE_CHECKING:
+    from apps.db_models.models.transactions import Transaction
 
 
 class Category(AsyncBase):
@@ -35,4 +40,9 @@ class Category(AsyncBase):
         String,
         nullable=True,
         doc="Описание категории.",
+    )
+
+    transactions: Mapped[list["Transaction"]] = relationship(
+        back_populates="category",
+        cascade="all, delete-orphan",
     )
