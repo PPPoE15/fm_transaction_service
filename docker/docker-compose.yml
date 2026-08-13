@@ -16,7 +16,7 @@ services:
     env_file:
       - ../template.env
     volumes:
-      - ../src/apps:/opt/financial_manager/apps
+      - ../src:/opt/financial_manager
     ports:
       - 8000:8000
       - 5678:5678  # для remote debug
@@ -72,7 +72,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=financial_manager
+      - POSTGRES_DB=fm_transaction_service
     ports:
       - "5432:5432"
     volumes:

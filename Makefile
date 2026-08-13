@@ -1,5 +1,5 @@
 run_linters: ## Запуск линтеров
-	ruff check src || echo
+	ruff check src --fix || echo
 	ruff format src --check || echo
 	mypy src || echo
 
@@ -30,3 +30,10 @@ venv:
 	python3 -m venv .venv
 	.venv/bin/pip install poetry==2.1
 	.venv/bin/poetry install --all-groups
+
+build_dev:
+	docker build --target dev -t pppoe15/fm_transaction_service:dev .
+
+push_dev:	
+	docker login
+	docker push pppoe15/fm_transaction_service:dev

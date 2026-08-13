@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import AliasChoices, Field, PostgresDsn, ValidationError, validator
+from pydantic import Field, PostgresDsn, ValidationError, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILES = ("dev.env", "prod.env")
@@ -15,23 +15,9 @@ class DBSettings(BaseSettings):
     DRIVERNAME: str = "postgresql+asyncpg"
     HOST: str = Field(description="Хост БД.")
     PORT: int = Field(description="Порт БД.")
-    DATABASE: str = Field(
-        validation_alias=AliasChoices(
-            f"{_db_env_prefix}NAME",
-            f"{_db_env_prefix}DATABASE",
-        ),
-    )
-    USERNAME: str = Field(
-        description="Логин для подключения к БД.",
-        validation_alias=AliasChoices(
-            f"{_db_env_prefix}USER",
-            f"{_db_env_prefix}USERNAME",
-        ),
-    )
-    PASSWORD: str = Field(
-        description="Пароль для подключения к БД.",
-        validation_alias=AliasChoices("POSTGRES_PASSWORD", f"{_db_env_prefix}PASSWORD"),
-    )
+    DATABASE: str = Field(description="Название БД")
+    USERNAME: str = Field(description="Логин для подключения к БД.")
+    PASSWORD: str = Field(description="Пароль для подключения к БД.")
     ECHO: bool = Field(
         False,
         description="Нужно ли выводить диагностические сообщения",

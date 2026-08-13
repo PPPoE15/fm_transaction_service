@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from pydantic import Field
 from starlette import status
 
-from apps.web.app.utils.exceptions import BaseForbiddenError
+from apps.web.utils.exceptions import BaseForbiddenError
 
 from . import base
 

@@ -21,9 +21,9 @@ class TZDateTime(TypeDecorator):
                 msg = "'tzinfo' is required."
                 raise TypeError(msg)
             value = value.astimezone(UTC).replace(tzinfo=None)
-        return value
+        return value  # type: ignore  # noqa: PGH003
 
     def process_result_value(self, value: Any | None, dialect: Dialect) -> datetime:  # noqa: ARG002, ANN401
         if value is not None:
             value = value.replace(tzinfo=UTC)
-        return value
+        return value  # type: ignore  # noqa: PGH003

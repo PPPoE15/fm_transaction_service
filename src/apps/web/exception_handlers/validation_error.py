@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
 from typing import TYPE_CHECKING, cast
 
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field
 from starlette import status
 
-from apps.web.app.utils.exceptions import BaseCustomValidationError
+from apps.web.utils.exceptions import BaseCustomValidationError
 
 from . import base
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
 
@@ -95,7 +96,7 @@ def setup_validation_exception_handlers(app: FastAPI) -> None:
         error_validation = [
             ValidationField(
                 message=err["msg"],
-                field=".".join(cast(Iterable[str], err["loc"][1:]))
+                field=".".join(cast("Iterable[str]", err["loc"][1:]))
                 if isinstance(exc.body, str)
                 else str(err["loc"][1]),
                 rejectedValue=base.get_body_info(exc.body, err["loc"][1:]),
