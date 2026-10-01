@@ -3,7 +3,7 @@ ARG WORKING_DIR="/opt/${SERVICE_NAME}"
 
 ARG VIRTUAL_ENV="/opt/venv"
 
-FROM python:3.13-bullseye AS common
+FROM python:3.13-bookworm AS common
 
 ARG VIRTUAL_ENV
 ENV LANG=C.UTF-8 \
