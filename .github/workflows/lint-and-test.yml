@@ -1,0 +1,40 @@
+name: Lint and Test
+
+on:
+  push:
+    branches: ["dev", "master"]
+  pull_request:
+    branches: ["dev", "master"]
+
+jobs:
+
+  lint-and-test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install Poetry
+      run: pip install poetry==2.1
+
+    - name: Install dependencies
+      run: poetry install --all-groups --no-interaction
+
+    - name: Ruff check
+      run: poetry run ruff check --config=pyproject.toml src/
+
+    - name: Ruff format check
+      run: poetry run ruff format --config=pyproject.toml src/ --check
+
+    - name: Mypy
+      run: poetry run mypy --config-file=pyproject.toml src/
+
+    - name: Pytest
+      run: poetry run pytest
+      env:
+        PYTHONPATH: src
