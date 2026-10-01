@@ -13,7 +13,9 @@ ENV LANG=C.UTF-8 \
     VIRTUAL_ENV=${VIRTUAL_ENV} \
     PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
-RUN apt-get update \
+RUN sed -i 's|deb.debian.org|archive.debian.org|g; s|security.debian.org|archive.debian.org|g' /etc/apt/sources.list \
+    && echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until \
+    && apt-get update \
     && apt-get install --no-install-recommends -y python3-pip python3-venv libpq5 gettext-base \
     && apt-get clean
 
