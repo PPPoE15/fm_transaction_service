@@ -20,8 +20,10 @@ make run_linters
 ruff check --config=pyproject.toml src/
 mypy --config-file=pyproject.toml src/
 
-# Run a single test (pytest is not yet declared in pyproject.toml — install it if missing)
-cd src && pytest tests/web/test_healthy.py -v
+# Tests (run from repo root; pytest config lives in pyproject.toml: pythonpath=src, asyncio_mode=auto)
+poetry run pytest                      # full run; tests marked `db` start postgres:16 via testcontainers (needs Docker)
+poetry run pytest -m "not db"          # quick run without Docker
+poetry run pytest src/tests/web/test_security.py -v
 
 # Coverage
 make pytest_coverage
@@ -41,6 +43,8 @@ make test_downgrade_migrations_compose
 
 Note: the root `docker-compose.yaml` and `Makefile`'s `build`/`up_all`/`down_all` targets reference `docker/docker-compose.yml`, which is the actual dev compose file (builds via `docker/Dockerfile`, target `development-env`). The root `Dockerfile` (targets `dev`/`master`) is what CI (`.github/workflows/docker-image-*.yml`) builds and pushes to Docker Hub as `fm_transaction_service:dev`/`:master`.
 
+Tests: `src/tests/__init__.py` sets up the test env (generates an RSA key pair, points `WEB_PUBLIC_KEY_PATH` at the public key, dummy `DB_*`) before any `apps` import, because settings are read at import time. `src/tests/conftest.py` has `make_token` (RS256 tokens like the auth service issues), `client` (httpx over the ASGI app) and the `db` fixtures: a session-scoped Postgres container with `alembic upgrade head`, and `db_engine`, which rebinds `async_session_factory` to it and truncates tables after each test. Without Docker the `db` tests fail with an explicit message rather than being skipped. Command handlers are unit-tested with plain in-memory fakes from `src/tests/fakes.py`.
+
 Config is loaded from `dev.env`/`prod.env` (see `ENV_FILES` in `src/apps/config.py` and `src/apps/web/config.py`) or `/run/secrets`; `template.env` is the template used to generate a local env file. Env vars are prefixed `DB_` (database) and `WEB_` (app settings).
 
 ## Architecture
@@ -48,7 +52,7 @@ Config is loaded from `dev.env`/`prod.env` (see `ENV_FILES` in `src/apps/config.
 ### Layout
 
 - `src/apps/` — shared, transport-agnostic code: `config.py` (DB/logging settings), `apps_types/` (domain-wide `Annotated` type aliases like `UserUID`, `MoneySum`, `TransactionType`), `db_models/` (SQLAlchemy ORM models + `AsyncBase` declarative base with an explicit constraint-naming convention), `utils/`.
-- `src/apps/web/` — the FastAPI application: `main.py` builds the app (CORS, exception handlers, lifespan), `router.py` aggregates module routers, `security.py` does JWT decoding (signature verification is currently disabled — `verify_signature: False`) to produce `UserInfo`, `config.py` holds `WEB_`-prefixed app settings, `core/` holds cross-module base classes (see below), `connectors/postgres.py` builds the async SQLAlchemy engine from `db_settings.DSN`.
+- `src/apps/web/` — the FastAPI application: `main.py` builds the app (CORS, exception handlers, lifespan), `router.py` aggregates module routers, `security.py` verifies the access token (RS256 signature with the auth service's public key from `WEB_PUBLIC_KEY_PATH`, default `/run/secrets/jwt_public_key`; `exp` and `sub` required; any failure → 401) and produces `UserInfo` (just `uid` from `sub`). The key is checked on startup (`validate_public_key` in `LifespanEvent`), so a missing/private/non-PEM key fails the app at boot. Every command checks ownership against `UserInfo.uid` (aggregate `belongs_to`); someone else's transaction or category is reported as not found (404), never 403. `config.py` holds `WEB_`-prefixed app settings, `core/` holds cross-module base classes (see below), `connectors/postgres.py` builds the async SQLAlchemy engine from `db_settings.DSN`.
 - `src/apps/web/modules/<module>/` — one directory per bounded context (currently `category`, `transaction`). Every module follows the same internal layering; use `transaction` as the reference implementation when adding a new module or endpoint.
 - `src/migrations/` — Alembic env (`env.py` runs migrations async via `run_sync`) and versioned migration scripts.
 - `src/tests/` — pytest tests, mirroring the `src/apps/...` layout (currently minimal).
