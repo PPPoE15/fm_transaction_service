@@ -3,6 +3,7 @@ from datetime import datetime
 from apps import apps_types
 from apps.web.modules.transaction.aggregators import Transaction
 
+from .guards import get_own_category
 from .uow import AbstractTransactionUnitOfWork
 
 
@@ -40,6 +41,9 @@ class CreateTransactionCommandHandler:
             transaction_type:Тип транзакции.
             category: Категория.
             description: Описание.
+
+        Raises:
+            CategoryNotFoundError: Если статьи нет или она принадлежит другому пользователю.
         """
         transactions_agg = Transaction.create(
             user_uid=user_uid,
@@ -50,6 +54,7 @@ class CreateTransactionCommandHandler:
             description=description,
         )
         async with self._uow as uow:
+            await get_own_category(uow, user_uid, category)
             await uow.transactions_repo.create(transactions_agg)
             await uow.commit()
         return transactions_agg.uid

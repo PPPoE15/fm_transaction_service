@@ -95,6 +95,14 @@ max-returns=6
 # Maximum number of statements in function / method body.
 max-statements=50
 
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["src/tests"]
+asyncio_mode = "auto"
+markers = [
+    "db: тест работает с настоящим Postgres (поднимается через testcontainers, нужен запущенный Docker)",
+]
+
 [tool.ruff.lint.per-file-ignores]
 "src/tests/*" = ["S101", "D100", "ARG", "FBT", "SLF001"]
 "src/migrations/*" = ["D103", "INP001", "D205"]
@@ -133,7 +141,7 @@ pydantic = "^2.12.3"
 pydantic-settings = "^2.11.0"
 fastapi = "^0.119.0"
 asyncpg = "^0.30.0"
-pyjwt = "^2.10.1"
+pyjwt = {version = "^2.10.1", extras = ["crypto"]}
 uvicorn = "^0.37.0"
 
 
@@ -143,6 +151,8 @@ ruff = "^0.14.1"
 debugpy = "^1.8.17"
 pytest = {extras = ["pytest-asyncio"], version = "^8.4.2"}
 pytest-asyncio = "^1.2.0"
+httpx = "^0.28"
+testcontainers = {version = "^4.13", extras = ["postgres"]}
 
 [tool.poetry]
 package-mode = false

@@ -7,6 +7,9 @@ services:
 
 # --- apps ---
 
+  # NOTE(FM-9): приложение проверяет при старте публичный ключ JWT (WEB_PUBLIC_KEY_PATH, по умолчанию
+  # /run/secrets/jwt_public_key) и без него падает. Для локального запуска смонтируйте публичный ключ
+  # сервиса авторизации, например volume ../secrets/jwt_public_key:/run/secrets/jwt_public_key:ro.
   web:
     image: financial_manager:testing
     platform: linux/amd64

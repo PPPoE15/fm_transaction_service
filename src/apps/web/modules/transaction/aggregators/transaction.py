@@ -83,8 +83,19 @@ class Transaction(Base):
             category_uid: UID Категории.
             description: Описание.
         """
+        # TODO(FM-9): «ложные» значения (money_sum=0, description="") молча игнорируются — PATCH отвечает 200
+        # без изменений. Исправить при переходе на частичный PATCH по контракту (description: null очищает поле).
         self.transaction_date = transaction_date if transaction_date else self.transaction_date
         self.category_uid = category_uid if category_uid else self.category_uid
         self.money_sum = money_sum if money_sum else self.money_sum
         self.transaction_type = transaction_type if transaction_type else self.transaction_type
         self.description = description if description else self.description
+
+    def belongs_to(self, user_uid: apps_types.UserUID) -> bool:
+        """
+        Проверить, что запись принадлежит пользователю.
+
+        Args:
+            user_uid: UID пользователя из токена.
+        """
+        return self.user_uid == user_uid

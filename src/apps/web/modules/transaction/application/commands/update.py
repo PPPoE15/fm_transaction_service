@@ -2,7 +2,7 @@ from datetime import datetime
 
 from apps import apps_types
 
-from .exceptions import ForbiddenError, TransactionNotFoundError
+from .guards import get_own_category, get_own_transaction
 from .uow import AbstractTransactionUnitOfWork
 
 
@@ -42,16 +42,14 @@ class UpdateTransactionCommandHandler:
             money_sum: Денежная сумма по категории.
             transaction_type:Тип транзакции.
             description: Описание.
+
+        Raises:
+            TransactionNotFoundError: Если транзакции нет или она принадлежит другому пользователю.
+            CategoryNotFoundError: Если новой статьи нет или она принадлежит другому пользователю.
         """
         async with self._uow as uow:
-            transaction = await uow.transactions_repo.get_by_uid(transaction_uid)
-            if not transaction:
-                msg = "Транзакция с данным UID не найдена"
-                raise TransactionNotFoundError(msg)
-
-            if transaction.user_uid != user_uid:
-                msg = "Запрещено изменять запись, которая вам не принадлежит"
-                raise ForbiddenError(msg)
+            transaction = await get_own_transaction(uow, user_uid, transaction_uid)
+            await get_own_category(uow, user_uid, category)
 
             transaction.update(
                 transaction_date=transaction_date,

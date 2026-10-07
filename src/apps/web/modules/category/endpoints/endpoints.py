@@ -6,7 +6,11 @@ from apps import apps_types
 from apps.utils.schemas import PageParams
 from apps.web.core.deps import async_session_factory
 from apps.web.core.schemas import BaseListResponseSchema
-from apps.web.modules.category.application.commands import CreateCommandHandler
+from apps.web.modules.category.application.commands import (
+    CreateCommandHandler,
+    DeleteCommandHandler,
+    UpdateCommandHandler,
+)
 from apps.web.modules.category.application.commands.uow import UnitOfWork
 from apps.web.modules.category.application.queries import schemas as q_schemas
 from apps.web.modules.category.application.queries.list import ListCategories
@@ -79,7 +83,7 @@ async def create_category(
     description="Удалить категорию пользователя",
 )
 async def delete_user_category(
-    category_uid: apps_types.TransactionUID,
+    category_uid: apps_types.CategoryUID,
     user: Annotated[UserInfo, Depends(get_user_info)],
 ) -> None:
     """
@@ -89,13 +93,13 @@ async def delete_user_category(
         category_uid: UID категории
         user: Информация об авторизованном пользователе.
     """
-    # command_handler = DeleteCommandHandler(
-    #     unit_of_work=UnitOfWork(async_session_factory),
-    # )
-    # await command_handler.handle(
-    #     user_uid=user.uid,
-    #     category_uid=category_uid,
-    # )
+    command_handler = DeleteCommandHandler(
+        unit_of_work=UnitOfWork(async_session_factory),
+    )
+    await command_handler.handle(
+        user_uid=user.uid,
+        category_uid=category_uid,
+    )
 
 
 @router.patch(
@@ -104,7 +108,7 @@ async def delete_user_category(
     description="Изменить категорию",
 )
 async def update_category(
-    category_uid: apps_types.TransactionUID,
+    category_uid: apps_types.CategoryUID,
     item_in: schemas.UpdateCategorySchema,
     user: Annotated[UserInfo, Depends(get_user_info)],
 ) -> None:
@@ -116,14 +120,14 @@ async def update_category(
         item_in: Измененная информация о категории
         user: Информация об авторизованном пользователе.
     """
-    # command_handler = UpdateCommandHandler(
-    #     unit_of_work=UnitOfWork(async_session_factory),
-    # )
-    # await command_handler.handle(
-    #     user_uid=user.uid,
-    #     category_uid=category_uid,
-    #     name=item_in.name,
-    #     money_plan=item_in.money_plan,
-    #     category_type=item_in.category_type,
-    #     description=item_in.description,
-    # )
+    command_handler = UpdateCommandHandler(
+        unit_of_work=UnitOfWork(async_session_factory),
+    )
+    await command_handler.handle(
+        user_uid=user.uid,
+        category_uid=category_uid,
+        name=item_in.name,
+        money_plan=item_in.money_plan,
+        category_type=item_in.category_type,
+        description=item_in.description,
+    )

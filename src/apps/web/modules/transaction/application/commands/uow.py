@@ -1,6 +1,8 @@
 from typing import Any, Self
 
 from apps.web.core.unit_of_work import AbstractSQLAlchemyUnitOfWork, AbstractUnitOfWork
+from apps.web.modules.category.infrastructure.db.repos import AbstractCategoryRepo
+from apps.web.modules.category.infrastructure.db.repos import Repo as CategoryRepo
 from apps.web.modules.transaction.infrastructure.db.repos import AbstractTransactionRepo, Repo
 
 
@@ -8,6 +10,8 @@ class AbstractTransactionUnitOfWork(AbstractUnitOfWork):
     """Абстрактная единица работы для пользователя и его транзакций."""
 
     transactions_repo: AbstractTransactionRepo
+    # Статьи нужны, чтобы проверить, что транзакция привязывается к статье того же пользователя.
+    categories_repo: AbstractCategoryRepo
 
 
 class TransactionUnitOfWork(AbstractTransactionUnitOfWork, AbstractSQLAlchemyUnitOfWork):
@@ -31,4 +35,5 @@ class TransactionUnitOfWork(AbstractTransactionUnitOfWork, AbstractSQLAlchemyUni
         """Зайти в асинхронный контекстный менеджер."""
         self._session = self._session_factory()
         self.transactions_repo = Repo(self._session)
+        self.categories_repo = CategoryRepo(self._session)
         return self
