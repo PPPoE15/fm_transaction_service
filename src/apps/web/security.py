@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 from starlette import status
 from starlette.exceptions import HTTPException
 
-from apps import apps_types
+from apps.shared import apps_types
 from apps.web.config import app_settings
 
 _security_token = HTTPBearer(auto_error=False)

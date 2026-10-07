@@ -14,8 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from testcontainers.postgres import PostgresContainer
 
 from apps.config import db_settings
-from apps.web.connectors.postgres import async_engine
-from apps.web.core.deps import async_session_factory
+from apps.shared.db.session import async_engine, async_session_factory
 from apps.web.main import app
 from tests import PRIVATE_KEY
 

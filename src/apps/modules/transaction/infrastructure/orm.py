@@ -1,0 +1,54 @@
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import DateTime, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import UUID, Integer, String
+
+from apps.shared import apps_types
+from apps.shared.db.base import AsyncBase
+
+if TYPE_CHECKING:
+    from apps.modules.category import CategoryORM
+
+
+class Transaction(AsyncBase):
+    """Сущность единицы транзакции."""
+
+    __tablename__ = "transactions"
+
+    uid: Mapped[apps_types.TransactionUID] = mapped_column(
+        UUID,
+        primary_key=True,
+        doc="Уникальный ID записи транзакции.",
+    )
+    user_uid: Mapped[apps_types.UserUID] = mapped_column(
+        UUID,
+        doc="Внешний ключ на uid пользователя.",
+    )
+    transaction_date: Mapped[datetime] = mapped_column(
+        DateTime,
+        doc="Дата транзакции.",
+    )
+    category_uid: Mapped[apps_types.CategoryUID] = mapped_column(
+        UUID,
+        ForeignKey("categories.uid"),
+        doc="Категория транзакции.",
+    )
+    money_sum: Mapped[apps_types.MoneySum] = mapped_column(
+        Integer,
+        doc="Сумма транзакции.",
+    )
+    transaction_type: Mapped[apps_types.TransactionType] = mapped_column(
+        String,
+        doc="Тип транзакции.",
+    )
+    description: Mapped[apps_types.Description] = mapped_column(
+        String,
+        doc="Описание транзакции.",
+    )
+
+    category: Mapped["CategoryORM"] = relationship(
+        "Category",
+        back_populates="transactions",
+    )

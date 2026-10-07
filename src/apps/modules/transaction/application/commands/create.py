@@ -1,0 +1,59 @@
+from datetime import datetime
+
+from apps.modules.transaction.application.guards import get_own_category
+from apps.modules.transaction.application.uow import AbstractTransactionUnitOfWork
+from apps.modules.transaction.domain import Transaction
+from apps.shared import apps_types
+
+
+class CreateTransactionCommandHandler:
+    """Класс обработчика команды создания транзакции."""
+
+    def __init__(
+        self,
+        unit_of_work: AbstractTransactionUnitOfWork,
+    ) -> None:
+        """
+        Конструктор обработчика команды создания транзакции.
+
+        Args:
+            unit_of_work: Объект шаблона Единица работы.
+        """
+        self._uow = unit_of_work
+
+    async def handle(
+        self,
+        user_uid: apps_types.UserUID,
+        transaction_date: datetime,
+        category: apps_types.CategoryUID,
+        money_sum: apps_types.MoneySum,
+        transaction_type: apps_types.TransactionType,
+        description: apps_types.Description,
+    ) -> apps_types.TransactionUID:
+        """
+        Создать транзакцию.
+
+        Args:
+            user_uid: UID пользователя.
+            transaction_date: Дата транзакции.
+            money_sum: Денежная сумма по категории.
+            transaction_type:Тип транзакции.
+            category: Категория.
+            description: Описание.
+
+        Raises:
+            CategoryNotFoundError: Если статьи нет или она принадлежит другому пользователю.
+        """
+        transactions_agg = Transaction.create(
+            user_uid=user_uid,
+            transaction_date=transaction_date,
+            category_uid=category,
+            money_sum=money_sum,
+            transaction_type=transaction_type,
+            description=description,
+        )
+        async with self._uow as uow:
+            await get_own_category(uow, user_uid, category)
+            await uow.transactions_repo.create(transactions_agg)
+            await uow.commit()
+        return transactions_agg.uid

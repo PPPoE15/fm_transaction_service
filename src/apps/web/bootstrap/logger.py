@@ -2,8 +2,8 @@ import logging.config
 from uuid import uuid4
 
 from apps import config as common_config
+from apps.shared.logger import get_logger
 from apps.web.config import app_settings
-from apps.web.logger import get_logger
 from apps.web.telemetry.logging_tools import ReplicaIDFilter, SegmentUIDFilter, ServiceNameFilter, TraceIDFilter
 
 

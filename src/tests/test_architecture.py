@@ -1,0 +1,220 @@
+"""
+Проверки модульной структуры сервиса (FM-30): «модули сверху, слои внутри».
+
+Импорты читаются статически (AST), поэтому учитываются и импорты под `TYPE_CHECKING`.
+"""
+
+import ast
+import importlib
+from collections.abc import Iterator
+from pathlib import Path
+
+import pytest
+
+APPS_DIR = Path(__file__).parents[1] / "apps"
+MODULES_DIR = APPS_DIR / "modules"
+LAYERS = {"domain", "application", "infrastructure", "api"}
+# Аутентификация — единственное, что модули берут из сборки приложения.
+ALLOWED_WEB_IMPORTS = {"apps.web.security"}
+
+OLD_LAYER_DIRS = [
+    "web/modules",
+    "web/core",
+    "web/utils",
+    "web/connectors",
+    "db_models/models",
+    "db_models/utils",
+    "apps_types",
+    "utils",
+]
+
+
+def _module_name(path: Path) -> str:
+    relative = path.relative_to(APPS_DIR.parent).with_suffix("")
+    parts = relative.parts[:-1] if relative.name == "__init__" else relative.parts
+    return ".".join(parts)
+
+
+def _imports(path: Path) -> Iterator[str]:
+    """Абсолютные имена всего, что импортирует файл (относительные импорты разрешаются)."""
+    package = _module_name(path) if path.name == "__init__.py" else _module_name(path).rpartition(".")[0]
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Import):
+            yield from (alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                base_parts = package.split(".")
+                base = ".".join(base_parts[: len(base_parts) - node.level + 1])
+                target = f"{base}.{node.module}" if node.module else base
+            else:
+                target = node.module or ""
+            yield target
+            # `from apps.modules import category` — тоже импорт пакета модуля.
+            yield from (f"{target}.{alias.name}" for alias in node.names)
+
+
+def _python_files(directory: Path) -> list[Path]:
+    return sorted(directory.rglob("*.py"))
+
+
+def _module_names() -> list[str]:
+    if not MODULES_DIR.is_dir():
+        return []
+    return sorted(p.name for p in MODULES_DIR.iterdir() if p.is_dir() and not p.name.startswith("__"))
+
+
+def _owner_module(name: str) -> str | None:
+    parts = name.split(".")
+    if parts[:2] == ["apps", "modules"] and len(parts) > 2:  # noqa: PLR2004
+        return parts[2]
+    return None
+
+
+def _module_dependencies() -> dict[str, set[str]]:
+    deps: dict[str, set[str]] = {module: set() for module in _module_names()}
+    for module, module_deps in deps.items():
+        for path in _python_files(MODULES_DIR / module):
+            for name in _imports(path):
+                target = _owner_module(name)
+                if target and target != module and target in deps:
+                    module_deps.add(target)
+    return deps
+
+
+@pytest.mark.parametrize("old_dir", OLD_LAYER_DIRS)
+def test_old_layer_directories_are_gone(old_dir: str) -> None:
+    """Каталогов старой раскладки «слои сверху» не осталось."""
+    assert not (APPS_DIR / old_dir).exists(), f"apps/{old_dir} остался после перехода на модули"
+
+
+def test_modules_exist() -> None:
+    """Модули сервиса — статьи и транзакции."""
+    assert _module_names() == ["category", "transaction"]
+
+
+@pytest.mark.parametrize("module", ["category", "transaction"])
+def test_module_contains_only_layers(module: str) -> None:
+    """Внутри модуля — только слои domain, application, infrastructure, api."""
+    module_dir = MODULES_DIR / module
+    assert (module_dir / "__init__.py").is_file()
+    entries = {p.name for p in module_dir.iterdir() if p.name not in {"__init__.py", "__pycache__"}}
+    assert entries == LAYERS
+
+
+def test_modules_import_each_other_only_through_public_api() -> None:
+    """Модуль берёт из другого модуля только имена из его `__init__.__all__`."""
+    violations = []
+    for module in _module_names():
+        for path in _python_files(MODULES_DIR / module):
+            for name in _imports(path):
+                target = _owner_module(name)
+                if not target or target == module:
+                    continue
+                # Допустимо `apps.modules.category` и имена из его `__all__` (`apps.modules.category.Category`).
+                rest = name.removeprefix(f"apps.modules.{target}").lstrip(".")
+                if rest and rest not in _public_names(target):
+                    violations.append(f"{path.relative_to(APPS_DIR)}: {name}")
+    assert violations == []
+
+
+def _public_names(module: str) -> set[str]:
+    init = MODULES_DIR / module / "__init__.py"
+    tree = ast.parse(init.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets
+        ):
+            return set(ast.literal_eval(node.value))
+    return set()
+
+
+def test_no_cycles_between_modules() -> None:
+    """Зависимости между модулями без циклов."""
+    deps = _module_dependencies()
+    visiting: set[str] = set()
+    done: set[str] = set()
+
+    def visit(module: str, path: list[str]) -> None:
+        if module in done:
+            return
+        assert module not in visiting, f"Цикл зависимостей модулей: {' -> '.join([*path, module])}"
+        visiting.add(module)
+        for dep in deps[module]:
+            visit(dep, [*path, module])
+        visiting.discard(module)
+        done.add(module)
+
+    for module in deps:
+        visit(module, [])
+
+
+def test_transaction_depends_on_category_not_vice_versa() -> None:
+    """Транзакции зависят от статей, статьи о транзакциях не знают."""
+    deps = _module_dependencies()
+    assert deps == {"category": set(), "transaction": {"category"}}
+
+
+def test_shared_does_not_import_modules_or_web() -> None:
+    """Общее ядро не зависит от модулей, реестра ORM и сборки приложения."""
+    violations = [
+        f"{path.relative_to(APPS_DIR)}: {name}"
+        for path in _python_files(APPS_DIR / "shared")
+        for name in _imports(path)
+        if name.startswith(("apps.modules", "apps.web", "apps.db_models"))
+    ]
+    assert _python_files(APPS_DIR / "shared")
+    assert violations == []
+
+
+def test_modules_import_from_web_only_security() -> None:
+    """Из сборки приложения модули берут только аутентификацию."""
+    violations = [
+        f"{path.relative_to(APPS_DIR)}: {name}"
+        for path in _python_files(MODULES_DIR)
+        for name in _imports(path)
+        if name.startswith("apps.web")
+        and name not in ALLOWED_WEB_IMPORTS
+        and name.rpartition(".")[0] not in ALLOWED_WEB_IMPORTS
+    ]
+    assert violations == []
+
+
+@pytest.mark.parametrize("module", ["category", "transaction"])
+def test_domain_does_not_depend_on_other_layers(module: str) -> None:
+    """Домен не зависит от других слоёв модуля, БД и HTTP."""
+    other_layers = tuple(f"apps.modules.{module}.{layer}" for layer in LAYERS - {"domain"})
+    violations = [
+        f"{path.relative_to(APPS_DIR)}: {name}"
+        for path in _python_files(MODULES_DIR / module / "domain")
+        for name in _imports(path)
+        if name.startswith(other_layers) or name.startswith(("sqlalchemy", "fastapi"))
+    ]
+    assert violations == []
+
+
+def test_api_is_imported_only_by_web() -> None:
+    """HTTP-слой модуля подключает только сборка приложения."""
+    violations = [
+        f"{path.relative_to(APPS_DIR)}: {name}"
+        for path in _python_files(APPS_DIR)
+        if not path.is_relative_to(APPS_DIR / "web")
+        for name in _imports(path)
+        if (module := _owner_module(name))
+        and name.startswith(f"apps.modules.{module}.api")
+        and not path.is_relative_to(MODULES_DIR / module / "api")
+    ]
+    assert violations == []
+
+
+@pytest.mark.parametrize("module", ["category", "transaction"])
+def test_repo_interfaces_live_in_application_ports(module: str) -> None:
+    """Интерфейсы репозиториев — в `application/ports.py`, реализации — в инфраструктуре."""
+    module_dir = MODULES_DIR / module
+    assert (module_dir / "infrastructure" / "repo.py").is_file()
+    assert (module_dir / "application" / "ports.py").is_file()
+
+
+def test_db_models_registry_registers_all_tables() -> None:
+    """Реестр ORM регистрирует таблицы всех модулей (на нём держится autogenerate Alembic)."""
+    db_models = importlib.import_module("apps.db_models")
+    assert {"categories", "transactions"} <= set(db_models.AsyncBase.metadata.tables)
