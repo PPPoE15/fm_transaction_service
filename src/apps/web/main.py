@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from apps.web.bootstrap import exception_handlers, logger
 from apps.web.config import app_settings
 from apps.web.router import main_router
+from apps.web.security import validate_public_key
 
 
 class LifespanEvent:
@@ -23,6 +24,7 @@ class LifespanEvent:
     async def __aenter__(self) -> None:
         """Событие выполняющееся при starts up."""
         logger.setup()
+        validate_public_key()
 
     async def __aexit__(
         self,
