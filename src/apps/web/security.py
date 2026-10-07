@@ -39,6 +39,8 @@ def _read_key(path: str) -> bytes:
     Raises:
         PublicKeyError: Если файла нет.
     """
+    # TODO(FM-9): PermissionError/IsADirectoryError (secret с чужими правами, путь на каталог) тоже
+    # переводить в PublicKeyError — сейчас старт падает с сырым исключением без пояснения.
     try:
         return Path(path).read_bytes()
     except FileNotFoundError:
@@ -106,6 +108,8 @@ async def get_user_info(token: Annotated[HTTPAuthorizationCredentials, Depends(_
     Raises:
         HTTPException: Если подпись неверна, токен истёк или некорректен.
     """
+    # TODO(FM-9): PEM разбирается на каждом запросе — кэшировать подготовленный ключ. load_public_key внутри
+    # try ловится не здесь: без lifespan (тесты на ASGITransport) отсутствие ключа даёт 500, а не понятную ошибку.
     try:
         payload = jwt.decode(
             token.credentials,
