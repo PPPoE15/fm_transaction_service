@@ -88,3 +88,12 @@ class Transaction(Base):
         self.money_sum = money_sum if money_sum else self.money_sum
         self.transaction_type = transaction_type if transaction_type else self.transaction_type
         self.description = description if description else self.description
+
+    def belongs_to(self, user_uid: apps_types.UserUID) -> bool:
+        """
+        Проверить, что запись принадлежит пользователю.
+
+        Args:
+            user_uid: UID пользователя из токена.
+        """
+        return self.user_uid == user_uid

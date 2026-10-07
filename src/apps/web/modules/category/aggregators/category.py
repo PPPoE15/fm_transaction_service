@@ -60,6 +60,36 @@ class Category(Base):
             description=description,
         )
 
+    def update(
+        self,
+        name: apps_types.CategoryName,
+        money_plan: apps_types.MoneySum,
+        category_type: apps_types.TransactionType,
+        description: apps_types.Description,
+    ) -> None:
+        """
+        Изменить статью (полная замена изменяемых полей).
+
+        Args:
+            name: Имя категории.
+            money_plan: Денежная сумма по категории.
+            category_type: Тип категории (доход или расход).
+            description: Описание категории.
+        """
+        self.name = name
+        self.money_plan = money_plan
+        self.category_type = category_type
+        self.description = description
+
+    def belongs_to(self, user_uid: apps_types.UserUID) -> bool:
+        """
+        Проверить, что запись принадлежит пользователю.
+
+        Args:
+            user_uid: UID пользователя из токена.
+        """
+        return self.user_uid == user_uid
+
     def is_in_the_budget(self, money_sum: apps_types.MoneySum) -> bool:
         """
         Проверить укладывается ли сумма в бюджет.
