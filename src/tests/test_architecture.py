@@ -5,7 +5,10 @@
 """
 
 import ast
-import importlib
+import json
+import os
+import subprocess
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -214,7 +217,36 @@ def test_repo_interfaces_live_in_application_ports(module: str) -> None:
     assert (module_dir / "application" / "ports.py").is_file()
 
 
+def _orm_tables() -> set[str]:
+    """Имена таблиц (`__tablename__`) из `infrastructure/orm.py` всех модулей."""
+    tables: set[str] = set()
+    for orm in sorted(MODULES_DIR.glob("*/infrastructure/orm.py")):
+        for node in ast.walk(ast.parse(orm.read_text(encoding="utf-8"))):
+            if (
+                isinstance(node, ast.Assign)
+                and any(isinstance(target, ast.Name) and target.id == "__tablename__" for target in node.targets)
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)
+            ):
+                tables.add(node.value.value)
+    return tables
+
+
 def test_db_models_registry_registers_all_tables() -> None:
-    """Реестр ORM регистрирует таблицы всех модулей (на нём держится autogenerate Alembic)."""
-    db_models = importlib.import_module("apps.db_models")
-    assert {"categories", "transactions"} <= set(db_models.AsyncBase.metadata.tables)
+    """
+    Реестр ORM регистрирует таблицы всех модулей (на нём держится autogenerate Alembic).
+
+    Проверяется в отдельном процессе: в процессе тестов модели уже загружены через `apps.web.main` (conftest),
+    и пропущенный в реестре модуль там не заметен.
+    """
+    code = "import json; from apps.db_models import AsyncBase; print(json.dumps(sorted(AsyncBase.metadata.tables)))"
+    result = subprocess.run(  # noqa: S603 — фиксированная команда, без пользовательского ввода
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=APPS_DIR.parent,
+        env={**os.environ, "PYTHONPATH": str(APPS_DIR.parent)},
+    )
+    assert _orm_tables() >= {"categories", "transactions"}
+    assert set(json.loads(result.stdout)) == _orm_tables()
