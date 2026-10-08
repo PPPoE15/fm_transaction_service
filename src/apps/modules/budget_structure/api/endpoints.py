@@ -35,6 +35,9 @@ async def get_budget_structure(
         user: Информация об авторизованном пользователе.
         today: Текущая дата.
     """
+    # NOTE(FM-27): ответ — доменная модель отчёта (read model) без отдельной схемы в `queries/schemas.py`: поля
+    # совпадают с `BudgetStructure` контракта один в один. Изменение доменной модели меняет публичный контракт —
+    # при расхождении завести отдельную схему ответа.
     async with async_session_factory() as session:
         return await GetBudgetStructure(session).execute(
             user_uid=user.uid,

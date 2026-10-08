@@ -35,6 +35,11 @@ class GetBudgetStructure(BaseQueries):
             category_type: Тип статей.
             today: Текущая дата: по ней месяцы делятся на наступившие и будущие.
         """
+        # NOTE(FM-27): статьи и факты читаются двумя запросами в READ COMMITTED — статья, изменённая между ними,
+        # даст на один ответ несогласованную строку. Для отчёта это допустимо; если станет важно — один запрос
+        # с LEFT JOIN или транзакция REPEATABLE READ.
+        # TODO(FM-27): факты будущих месяцев домен отбрасывает — для будущего года запрос можно не выполнять,
+        # для текущего ограничить верхнюю границу началом следующего месяца.
         categories = await self._get_categories(user_uid, category_type)
         facts = await self._get_month_facts(user_uid, year, category_type)
         return BudgetStructure.build(
@@ -92,8 +97,14 @@ class GetBudgetStructure(BaseQueries):
             .where(
                 TransactionORM.user_uid == user_uid,
                 CategoryORM.user_uid == user_uid,
+                # NOTE(FM-27): факт отбирается по типу статьи, тип самой транзакции не сверяется. Пока создание
+                # транзакции не проверяет совпадение типов (FM-5, `FM-400202`), а тип статьи с транзакциями можно
+                # сменить (FM-4), чужой по типу транзакции попадёт в таблицу этого типа.
                 CategoryORM.category_type == category_type,
-                # Полуинтервал [1 января; 1 января следующего года): индекс по дате применим, в отличие от extract.
+                # Полуинтервал [1 января; 1 января следующего года), а не extract по году — чтобы индекс по дате
+                # мог применяться.
+                # TODO(FM-27): индекса на `transactions (user_uid, transaction_date)` пока нет — запрос сканирует
+                # таблицу транзакций всех пользователей; добавить миграцией отдельной задачей.
                 TransactionORM.transaction_date >= datetime(year, 1, 1),  # noqa: DTZ001 — даты транзакций без пояса
                 TransactionORM.transaction_date < datetime(year + 1, 1, 1),  # noqa: DTZ001
             )
