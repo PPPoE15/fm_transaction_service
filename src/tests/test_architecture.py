@@ -103,10 +103,30 @@ def _module_dependencies() -> dict[str, set[str]]:
     return deps
 
 
+def _is_gone(directory: Path) -> bool:
+    """В каталоге нет исходников (неотслеживаемый `__pycache__` не в счёт)."""
+    return not any(directory.rglob("*.py"))
+
+
 @pytest.mark.parametrize("old_dir", OLD_LAYER_DIRS)
 def test_old_layer_directories_are_gone(old_dir: str) -> None:
     """Каталогов старой раскладки «слои сверху» не осталось."""
-    assert not (APPS_DIR / old_dir).exists(), f"apps/{old_dir} остался после перехода на модули"
+    assert _is_gone(APPS_DIR / old_dir), f"apps/{old_dir} остался после перехода на модули"
+
+
+def test_directory_with_only_bytecode_cache_is_gone(tmp_path: Path) -> None:
+    """
+    Каталог, где остался только `__pycache__`, считается удалённым.
+
+    После переключения ветки git не удаляет неотслеживаемый кеш байткода в старых каталогах.
+    """
+    (tmp_path / "core" / "__pycache__").mkdir(parents=True)
+    (tmp_path / "core" / "__pycache__" / "deps.cpython-311.pyc").write_bytes(b"")
+    (tmp_path / "web" / "nested").mkdir(parents=True)
+    (tmp_path / "web" / "nested" / "deps.py").write_text("")
+    assert _is_gone(tmp_path / "core")
+    assert _is_gone(tmp_path / "missing")
+    assert not _is_gone(tmp_path / "web")
 
 
 def test_modules_exist() -> None:
