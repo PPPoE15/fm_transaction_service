@@ -41,7 +41,11 @@ def _module_name(path: Path) -> str:
 def _imports(path: Path) -> Iterator[str]:
     """Абсолютные имена всего, что импортирует файл (относительные импорты разрешаются)."""
     package = _module_name(path) if path.name == "__init__.py" else _module_name(path).rpartition(".")[0]
-    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+    return _imports_from_source(path.read_text(encoding="utf-8"), package)
+
+
+def _imports_from_source(source: str, package: str) -> Iterator[str]:
+    for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.Import):
             yield from (alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
@@ -51,9 +55,24 @@ def _imports(path: Path) -> Iterator[str]:
                 target = f"{base}.{node.module}" if node.module else base
             else:
                 target = node.module or ""
-            yield target
-            # `from apps.modules import category` — тоже импорт пакета модуля.
+            # Импортируются имена из пакета, а не сам пакет: `from apps.web import security` -> `apps.web.security`,
+            # `from apps.modules import category` -> `apps.modules.category`.
             yield from (f"{target}.{alias.name}" for alias in node.names)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("from apps.web import security", ["apps.web.security"]),
+        ("from apps.web.security import UserInfo", ["apps.web.security.UserInfo"]),
+        ("from . import schemas", ["apps.modules.category.api.schemas"]),
+        ("from apps.modules import category", ["apps.modules.category"]),
+        ("import sqlalchemy", ["sqlalchemy"]),
+    ],
+)
+def test_imports_from_source_names_imported_objects(source: str, expected: list[str]) -> None:
+    """`from X import y` даёт `X.y`, а не голый пакет `X` (иначе `from apps.web import security` — нарушение)."""
+    assert list(_imports_from_source(source, "apps.modules.category.api")) == expected
 
 
 def _python_files(directory: Path) -> list[Path]:
