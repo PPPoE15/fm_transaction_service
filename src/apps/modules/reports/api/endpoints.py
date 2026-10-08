@@ -3,9 +3,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from apps.modules.budget_structure.application.queries import schemas as q_schemas
-from apps.modules.budget_structure.application.queries.get import GetBudgetStructure
-from apps.modules.budget_structure.domain import BudgetStructure
+from apps.modules.reports.application.queries import schemas as q_schemas
+from apps.modules.reports.application.queries.budget_structure import GetBudgetStructure
+from apps.modules.reports.domain import BudgetStructure
 from apps.shared.db.session import async_session_factory
 from apps.web.security import UserInfo, get_user_info
 

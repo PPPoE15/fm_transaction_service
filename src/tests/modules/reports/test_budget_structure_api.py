@@ -10,8 +10,8 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette import status
 
-from apps.modules.budget_structure.api.deps import get_today
 from apps.modules.category.infrastructure.orm import Category
+from apps.modules.reports.api.deps import get_today
 from apps.modules.transaction.infrastructure.orm import Transaction
 from apps.shared import apps_types
 from apps.shared.db.session import async_session_factory

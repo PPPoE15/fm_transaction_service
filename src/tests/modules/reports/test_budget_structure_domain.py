@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from apps.modules.budget_structure.domain import BudgetCategory, BudgetStructure
+from apps.modules.reports.domain import BudgetCategory, BudgetStructure
 from apps.shared import apps_types
 
 OUTCOME = apps_types.TransactionType.OUTCOME

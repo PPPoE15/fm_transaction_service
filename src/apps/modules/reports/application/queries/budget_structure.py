@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, Integer, cast, extract, func, select
 
-from apps.modules.budget_structure.domain import BudgetCategory, BudgetStructure
 from apps.modules.category import CategoryORM
+from apps.modules.reports.domain import BudgetCategory, BudgetStructure
 from apps.modules.transaction import TransactionORM
 from apps.shared.db.base_query import BaseQueries
 
