@@ -170,6 +170,7 @@ def _public_names(module: str) -> set[str]:
 
 def _all_names(source: str) -> set[str]:
     """Имена из `__all__` модуля."""
+    # NOTE(FM-30): читается только присваивание `__all__ = [...]` / `__all__: list[str] = [...]`, не `__all__ += [...]`.
     for node in ast.parse(source).body:
         if isinstance(node, ast.Assign):
             targets, value = node.targets, node.value
@@ -303,6 +304,8 @@ def test_db_models_registry_registers_all_tables() -> None:
     Проверяется в отдельном процессе: в процессе тестов модели уже загружены через `apps.web.main` (conftest),
     и пропущенный в реестре модуль там не заметен.
     """
+    # TODO(FM-30): при падении подпроцесса `check=True` теряет его stderr — выводить его в сообщении; вызывать
+    # в подпроцессе `configure_mappers()`, чтобы заодно проверять разрешение строковых связей через реестр.
     code = "import json; from apps.db_models import AsyncBase; print(json.dumps(sorted(AsyncBase.metadata.tables)))"
     result = subprocess.run(  # noqa: S603 — фиксированная команда, без пользовательского ввода
         [sys.executable, "-c", code],
