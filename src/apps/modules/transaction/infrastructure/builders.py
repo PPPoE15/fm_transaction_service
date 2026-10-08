@@ -1,0 +1,61 @@
+from collections.abc import Sequence
+
+from apps.modules.transaction.domain import Transaction
+from apps.modules.transaction.infrastructure import orm
+
+
+def build_orm(transaction_agg: Transaction) -> orm.Transaction:
+    """
+    Конвертировать агрегатор в orm-модель.
+
+    Args:
+       transaction_agg : Агрегатор пользователя с транзакциями.
+    """
+    return orm.Transaction(
+        uid=transaction_agg.uid,
+        user_uid=transaction_agg.user_uid,
+        transaction_date=transaction_agg.transaction_date,
+        category_uid=transaction_agg.category_uid,
+        money_sum=transaction_agg.money_sum,
+        transaction_type=transaction_agg.transaction_type,
+        description=transaction_agg.description,
+    )
+
+
+def build_list(transactions: Sequence[orm.Transaction]) -> list[Transaction]:
+    """
+    Конвертировать orm-модель в агрегатор.
+
+    Args:
+        transactions: Результаты запроса.
+    """
+    return [
+        Transaction(
+            uid=transaction.uid,
+            user_uid=transaction.user_uid,
+            transaction_date=transaction.transaction_date,
+            category_uid=transaction.category_uid,
+            money_sum=transaction.money_sum,
+            transaction_type=transaction.transaction_type,
+            description=transaction.description,
+        )
+        for transaction in transactions
+    ]
+
+
+def build(transaction: orm.Transaction) -> Transaction:
+    """
+    Конвертировать orm-модель в агрегатор.
+
+    Args:
+        transaction: Результаты запроса.
+    """
+    return Transaction(
+        uid=transaction.uid,
+        user_uid=transaction.user_uid,
+        transaction_date=transaction.transaction_date,
+        category_uid=transaction.category_uid,
+        money_sum=transaction.money_sum,
+        transaction_type=transaction.transaction_type,
+        description=transaction.description,
+    )
