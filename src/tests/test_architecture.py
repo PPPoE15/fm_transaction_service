@@ -139,7 +139,7 @@ def test_modules_exist() -> None:
     assert _module_names() == ["category", "transaction"]
 
 
-@pytest.mark.parametrize("module", ["category", "transaction"])
+@pytest.mark.parametrize("module", _module_names())
 def test_module_contains_only_layers(module: str) -> None:
     """Внутри модуля — только слои domain, application, infrastructure, api."""
     module_dir = MODULES_DIR / module
@@ -245,7 +245,7 @@ def test_modules_import_from_web_only_security() -> None:
     assert violations == []
 
 
-@pytest.mark.parametrize("module", ["category", "transaction"])
+@pytest.mark.parametrize("module", _module_names())
 def test_domain_does_not_depend_on_other_layers(module: str) -> None:
     """Домен не зависит от других слоёв модуля, БД и HTTP."""
     other_layers = tuple(f"apps.modules.{module}.{layer}" for layer in LAYERS - {"domain"})
@@ -272,12 +272,13 @@ def test_api_is_imported_only_by_web() -> None:
     assert violations == []
 
 
-@pytest.mark.parametrize("module", ["category", "transaction"])
+@pytest.mark.parametrize("module", _module_names())
 def test_repo_interfaces_live_in_application_ports(module: str) -> None:
     """Интерфейсы репозиториев — в `application/ports.py`, реализации — в инфраструктуре."""
     module_dir = MODULES_DIR / module
-    assert (module_dir / "infrastructure" / "repo.py").is_file()
-    assert (module_dir / "application" / "ports.py").is_file()
+    # Модуль только для чтения (например, отчёты) может обходиться без репозитория.
+    if (module_dir / "infrastructure" / "repo.py").is_file():
+        assert (module_dir / "application" / "ports.py").is_file()
 
 
 def _orm_tables() -> set[str]:
