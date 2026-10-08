@@ -121,14 +121,33 @@ def test_modules_import_each_other_only_through_public_api() -> None:
 
 
 def _public_names(module: str) -> set[str]:
-    init = MODULES_DIR / module / "__init__.py"
-    tree = ast.parse(init.read_text(encoding="utf-8"))
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets
-        ):
-            return set(ast.literal_eval(node.value))
+    return _all_names((MODULES_DIR / module / "__init__.py").read_text(encoding="utf-8"))
+
+
+def _all_names(source: str) -> set[str]:
+    """Имена из `__all__` модуля."""
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            targets, value = [node.target], node.value
+        else:
+            continue
+        if any(isinstance(target, ast.Name) and target.id == "__all__" for target in targets):
+            return set(ast.literal_eval(value))
     return set()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "__all__ = ['Category', 'CategoryRepo']",
+        "__all__: list[str] = ['Category', 'CategoryRepo']",
+    ],
+)
+def test_all_names_reads_plain_and_annotated_all(source: str) -> None:
+    """`__all__` читается и в обычном, и в аннотированном присваивании."""
+    assert _all_names(source) == {"Category", "CategoryRepo"}
 
 
 def test_no_cycles_between_modules() -> None:
