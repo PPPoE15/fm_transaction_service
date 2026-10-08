@@ -136,6 +136,8 @@ def test_directory_with_only_bytecode_cache_is_gone(tmp_path: Path) -> None:
 
 def test_modules_exist() -> None:
     """Модули сервиса — статьи и транзакции."""
+    # NOTE(FM-30): состав модулей и граф зависимостей (ниже) зафиксированы намеренно: новый модуль (FM-27) должен
+    # явно дописать себя сюда и в ожидаемый граф, а не появиться незамеченным.
     assert _module_names() == ["category", "transaction"]
 
 
@@ -278,6 +280,8 @@ def test_repo_interfaces_live_in_application_ports(module: str) -> None:
     """Интерфейсы репозиториев — в `application/ports.py`, реализации — в инфраструктуре."""
     module_dir = MODULES_DIR / module
     # Модуль только для чтения (например, отчёты) может обходиться без репозитория.
+    # NOTE(FM-30): репозиторий узнаётся только по `infrastructure/repo.py`; реализация в другом файле
+    # (`repos.py`, подпакет) проверку обойдёт — при надобности искать наследников `BaseSqlAlchemyRepo` через AST.
     if (module_dir / "infrastructure" / "repo.py").is_file():
         assert (module_dir / "application" / "ports.py").is_file()
 
