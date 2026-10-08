@@ -1,5 +1,9 @@
 """Публичный API модуля статей: другие модули импортируют из `category` только отсюда."""
 
+# NOTE(FM-30): API смешивает домен/порты и инфраструктуру (`CategoryORM`, `CategoryRepo` — для ORM-связи и единицы
+# работы транзакций), поэтому импорт `AbstractCategoryRepo` из application транзакций загружает и ORM статей.
+# Если это начнёт мешать (тяжёлые импорты, тесты без БД), вынести инфраструктурные имена в отдельную точку входа.
+
 from apps.modules.category.application.exceptions import CategoryNotFoundError
 from apps.modules.category.application.guards import get_own_category
 from apps.modules.category.application.ports import AbstractCategoryRepo

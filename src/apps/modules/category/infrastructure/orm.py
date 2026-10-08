@@ -38,7 +38,11 @@ class Category(AsyncBase):
     )
 
     # NOTE(FM-30): единственная связь category -> transaction. Модуль статей не импортирует модуль транзакций:
-    # модель задаётся по имени класса и находится через реестр `apps.db_models`, а аннотация — общий `AsyncBase`.
+    # модель задаётся по имени класса, а аннотация — общий `AsyncBase` (тип элемента для mypy теряется).
+    # Имя разрешается, только когда модель транзакций уже загружена: в приложении это делает `web/router.py`
+    # (подключает api обоих модулей), в Alembic — реестр `apps.db_models`. Код вне приложения (скрипт, воркер,
+    # тест модуля без `apps.web.main`), работающий с ORM статей, должен сначала импортировать `apps.db_models`,
+    # иначе SQLAlchemy разрешит "Transaction" в свой `sqlalchemy.engine.Transaction` (UnmappedClassError).
     # Каскад нужен только для удаления статьи вместе с транзакциями и уйдёт вместе с ним (TODO(FM-4)).
     transactions: Mapped[list[AsyncBase]] = relationship(
         "Transaction",
