@@ -9,4 +9,6 @@ UserName = Annotated[str, ...]
 Email = Annotated[str, ...]
 CategoryName = Annotated[str, ...]
 MoneySum = Annotated[int, ...]
+# Агрегат по многим операциям (итог, среднее) — может превышать лимит одной суммы и int32.
+MoneyTotal = Annotated[int, ...]
 Description = Annotated[str | None, ...]

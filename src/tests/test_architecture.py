@@ -135,10 +135,10 @@ def test_directory_with_only_bytecode_cache_is_gone(tmp_path: Path) -> None:
 
 
 def test_modules_exist() -> None:
-    """Модули сервиса — статьи и транзакции."""
-    # NOTE(FM-30): состав модулей и граф зависимостей (ниже) зафиксированы намеренно: новый модуль (FM-27) должен
+    """Модули сервиса — структура бюджета, статьи и транзакции."""
+    # NOTE(FM-30): состав модулей и граф зависимостей (ниже) зафиксированы намеренно: новый модуль должен
     # явно дописать себя сюда и в ожидаемый граф, а не появиться незамеченным.
-    assert _module_names() == ["category", "transaction"]
+    assert _module_names() == ["budget_structure", "category", "transaction"]
 
 
 @pytest.mark.parametrize("module", _module_names())
@@ -217,10 +217,18 @@ def test_no_cycles_between_modules() -> None:
         visit(module, [])
 
 
-def test_transaction_depends_on_category_not_vice_versa() -> None:
-    """Транзакции зависят от статей, статьи о транзакциях не знают."""
+def test_module_dependency_graph() -> None:
+    """
+    Транзакции зависят от статей, статьи о транзакциях не знают.
+
+    Структура бюджета (только чтение) читает статьи и транзакции, от неё не зависит никто.
+    """
     deps = _module_dependencies()
-    assert deps == {"category": set(), "transaction": {"category"}}
+    assert deps == {
+        "budget_structure": {"category", "transaction"},
+        "category": set(),
+        "transaction": {"category"},
+    }
 
 
 def test_shared_does_not_import_modules_or_web() -> None:
