@@ -69,6 +69,8 @@ class GetBudgetStructure(BaseQueries):
                 CategoryORM.category_type == category_type,
             )
             # UID — для стабильного порядка статей с одинаковым названием.
+            # NOTE(FM-27): порядок названий задаёт collation БД. В образе postgres:16 это en_US.utf8 (кириллица
+            # и регистр сортируются по-человечески); в кластере с C/POSIX «Транспорт» окажется раньше «аренда».
             .order_by(CategoryORM.name, CategoryORM.uid)
         )
         rows = (await self._session.execute(stmt)).all()
