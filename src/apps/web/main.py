@@ -53,7 +53,7 @@ def build_app() -> FastAPI:
 
     # Префикс задаёт сам сервис (как /auth у сервиса авторизации), обратный прокси передаёт путь как есть
     fastapi_app.include_router(main_router, prefix="/transaction")
-    # TODO(FM-31): переходный режим — пути без префикса для старого nginx UI, который срезает /transaction.
+    # TODO(FM-35): переходный режим — пути без префикса для старого nginx UI, который срезает /transaction.
     # Убрать после выкатки PPPoE15/financial_manager_ui#5 (и в dev, и в master); тогда порядок мёржа и откат
     # одного из образов не ломают стек. В схему OpenAPI не попадают.
     fastapi_app.include_router(main_router, include_in_schema=False)

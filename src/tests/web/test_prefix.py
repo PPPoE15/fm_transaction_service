@@ -34,7 +34,7 @@ async def test_endpoints_are_under_prefix(root_client: AsyncClient, path: str) -
     assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.text
 
 
-# TODO(FM-31): после выкатки UI с nginx без срезания /transaction (PPPoE15/financial_manager_ui#5) пути без
+# TODO(FM-35): после выкатки UI с nginx без срезания /transaction (PPPoE15/financial_manager_ui#5) пути без
 # префикса убираются из main.py — тест меняется на 404.
 @pytest.mark.parametrize("path", ["/categories", "/transactions"])
 async def test_endpoints_without_prefix_work_during_transition(root_client: AsyncClient, path: str) -> None:
