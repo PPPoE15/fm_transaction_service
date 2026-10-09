@@ -16,6 +16,8 @@ from apps.web.main import app
 pytestmark = pytest.mark.asyncio
 
 
+# TODO(FM-31): фикстура повторяет `client` из conftest, а литерал /transaction — main.py; вынести префикс
+# в константу и фабрику клиента, чтобы при его смене тесты не разошлись с кодом
 @pytest.fixture
 async def root_client() -> AsyncIterator[AsyncClient]:
     """Клиент от корня приложения, без префикса API."""
@@ -46,6 +48,7 @@ async def test_openapi_paths_have_prefix(root_client: AsyncClient) -> None:
     """Схема OpenAPI описывает пути с префиксом — как `servers: /transaction` в контракте."""
     response = await root_client.get("/api/openapi.json")
 
+    # NOTE(FM-31): статус ответа не проверяется — при переезде схемы тест упадёт на KeyError/JSONDecodeError
     paths = response.json()["paths"]
     assert paths
     assert all(path.startswith("/transaction/") for path in paths), sorted(paths)
