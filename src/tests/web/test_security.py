@@ -24,6 +24,7 @@ ENDPOINTS = [
     ("POST", "/category"),
     ("PATCH", "/category"),
     ("DELETE", "/category"),
+    ("GET", "/budget-structure"),
 ]
 
 _HMAC_SECRET = "hmac-secret-long-enough-for-sha256"  # noqa: S105 — тестовый секрет для подмены алгоритма
