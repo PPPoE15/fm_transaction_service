@@ -51,7 +51,8 @@ def build_app() -> FastAPI:
         lifespan=LifespanEvent,
     )
 
-    fastapi_app.include_router(main_router)
+    # Префикс задаёт сам сервис (как /auth у сервиса авторизации), обратный прокси передаёт путь как есть
+    fastapi_app.include_router(main_router, prefix="/transaction")
     fastapi_app.add_middleware(
         CORSMiddleware,
         allow_origins=[

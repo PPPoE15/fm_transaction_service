@@ -48,9 +48,13 @@ def make_token() -> TokenFactory:
 
 @pytest.fixture
 async def client() -> AsyncIterator[AsyncClient]:
-    """HTTP-клиент приложения. Ошибки приложения возвращаются ответом 500, а не исключением в тесте."""
+    """
+    HTTP-клиент API приложения: пути в тестах задаются без префикса `/transaction`, его добавляет `base_url`.
+
+    Ошибки приложения возвращаются ответом 500, а не исключением в тесте.
+    """
     transport = ASGITransport(app=app, raise_app_exceptions=False)
-    async with AsyncClient(transport=transport, base_url="http://test") as http_client:
+    async with AsyncClient(transport=transport, base_url="http://test/transaction") as http_client:
         yield http_client
 
 
