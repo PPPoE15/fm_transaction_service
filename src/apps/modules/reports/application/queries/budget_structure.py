@@ -38,7 +38,7 @@ class GetBudgetStructure(BaseQueries):
         # NOTE(FM-27): статьи и факты читаются двумя запросами в READ COMMITTED — статья, изменённая между ними,
         # даст на один ответ несогласованную строку. Для отчёта это допустимо; если станет важно — один запрос
         # с LEFT JOIN или транзакция REPEATABLE READ.
-        # TODO(FM-27): факты будущих месяцев домен отбрасывает — для будущего года запрос можно не выполнять,
+        # TODO(FM-33): факты будущих месяцев домен отбрасывает — для будущего года запрос можно не выполнять,
         # для текущего ограничить верхнюю границу началом следующего месяца.
         categories = await self._get_categories(user_uid, category_type)
         facts = await self._get_month_facts(user_uid, year, category_type)
@@ -105,7 +105,7 @@ class GetBudgetStructure(BaseQueries):
                 CategoryORM.category_type == category_type,
                 # Полуинтервал [1 января; 1 января следующего года), а не extract по году — чтобы индекс по дате
                 # мог применяться.
-                # TODO(FM-27): индекса на `transactions (user_uid, transaction_date)` пока нет — запрос сканирует
+                # TODO(FM-33): индекса на `transactions (user_uid, transaction_date)` пока нет — запрос сканирует
                 # таблицу транзакций всех пользователей; добавить миграцией отдельной задачей.
                 TransactionORM.transaction_date >= datetime(year, 1, 1),  # noqa: DTZ001 — даты транзакций без пояса
                 TransactionORM.transaction_date < datetime(year + 1, 1, 1),  # noqa: DTZ001
