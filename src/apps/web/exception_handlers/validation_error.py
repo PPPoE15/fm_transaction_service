@@ -97,6 +97,8 @@ def _field(body: object, loc: tuple) -> str:
 
 def _rejected_value(body: object, loc: tuple) -> str | None:
     """Отклонённое значение строкой: числа, bool и объекты из тела попадают в `rejectedValue`, а не роняют ответ."""
+    # TODO(FM-37): для ошибки на всё тело (`loc` без пути) `get_body_info` при теле-массиве пишет в лог трейсбек
+    # IndexError, а без тела отдаёт "" вместо null — при пустом пути возвращать None.
     # TODO(FM-37): не строки отдаются как Python repr (`True`, `{'a': 1}`); отдавать JSON (`json.dumps`),
     # и поправить аннотацию `get_body_info` — она возвращает сырые объекты, а не `str | None`.
     value = base.get_body_info(body, loc)
@@ -143,6 +145,8 @@ def setup_validation_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(BaseUnprocessableError)
     async def unprocessable_exception_handler(request: Request, exc: BaseUnprocessableError) -> JSONResponse:
+        # NOTE(FM-37): `rejectedValue` — null: ошибка домена не знает исходного значения поля (а дата могла быть
+        # подставлена по умолчанию, и клиент её не передавал). Контракт null допускает.
         validation = (
             [ValidationField(message=exc.msg, field=exc.field, rejectedValue=None, rule="value_error")]
             if exc.field

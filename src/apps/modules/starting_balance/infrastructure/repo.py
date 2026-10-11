@@ -12,6 +12,9 @@ from . import builders
 _PRIMARY_KEY_CONSTRAINT = "pk_starting_balances"
 
 
+# TODO(FM-37): имя ограничения берётся из `__cause__` — внутренности адаптера asyncpg в SQLAlchemy; при смене драйвера
+# гонка двух POST даст 500 вместо 409 (ловит `test_repo_translates_primary_key_violation`). Надёжнее сначала проверять
+# SQLSTATE 23505 (`exc.orig.sqlstate`).
 def _constraint_name(exc: IntegrityError) -> str | None:
     """Имя нарушенного ограничения из исходной ошибки asyncpg (адаптер SQLAlchemy хранит её в `__cause__`)."""
     return getattr(exc.orig.__cause__, "constraint_name", None) if exc.orig else None
