@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field
 from starlette import status
 
-from apps.shared.exceptions import BaseCustomValidationError
+from apps.shared.exceptions import BaseCustomValidationError, BaseUnprocessableError
 
 from . import base
 
@@ -83,6 +83,12 @@ class ValidationErrorResponseSchema(base.BaseErrorResponseSchema):
     )
 
 
+def _rejected_value(body: object, loc: tuple) -> str | None:
+    """Отклонённое значение строкой: числа, bool и объекты из тела попадают в `rejectedValue`, а не роняют ответ."""
+    value = base.get_body_info(body, loc)
+    return None if value is None else str(value)
+
+
 def setup_validation_exception_handlers(app: FastAPI) -> None:
     """
     Настройка обработчиков ошибок валидации.
@@ -99,7 +105,7 @@ def setup_validation_exception_handlers(app: FastAPI) -> None:
                 field=".".join(cast("Iterable[str]", err["loc"][1:]))
                 if isinstance(exc.body, str)
                 else str(err["loc"][1]),
-                rejectedValue=base.get_body_info(exc.body, err["loc"][1:]),
+                rejectedValue=_rejected_value(exc.body, err["loc"][1:]),
                 rule=err["type"],
             )
             for err in exc.errors()
@@ -120,3 +126,12 @@ def setup_validation_exception_handlers(app: FastAPI) -> None:
             detail=exc.msg,
             validation=[],
         ).json_response()
+
+    @app.exception_handler(BaseUnprocessableError)
+    async def unprocessable_exception_handler(request: Request, exc: BaseUnprocessableError) -> JSONResponse:
+        validation = (
+            [ValidationField(message=exc.msg, field=exc.field, rejectedValue=None, rule="value_error")]
+            if exc.field
+            else []
+        )
+        return ValidationErrorResponseSchema.from_error(request, exc, validation=validation).json_response()
