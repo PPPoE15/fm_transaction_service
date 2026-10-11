@@ -97,6 +97,8 @@ def _field(body: object, loc: tuple) -> str:
 
 def _rejected_value(body: object, loc: tuple) -> str | None:
     """Отклонённое значение строкой: числа, bool и объекты из тела попадают в `rejectedValue`, а не роняют ответ."""
+    # TODO(FM-37): не строки отдаются как Python repr (`True`, `{'a': 1}`); отдавать JSON (`json.dumps`),
+    # и поправить аннотацию `get_body_info` — она возвращает сырые объекты, а не `str | None`.
     value = base.get_body_info(body, loc)
     return None if value is None else str(value)
 
@@ -127,6 +129,8 @@ def setup_validation_exception_handlers(app: FastAPI) -> None:
 
         return error_correct_form.json_response()
 
+    # TODO(FM-37): обработчик игнорирует `exc.code` (и forbidden_error тоже) — перевести на `from_error`,
+    # когда появится первый подкласс с собственным кодом.
     @app.exception_handler(BaseCustomValidationError)
     async def custom_validation_exception_handler(request: Request, exc: BaseCustomValidationError) -> JSONResponse:
         instance = request.url.path

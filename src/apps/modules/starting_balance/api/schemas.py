@@ -8,6 +8,8 @@ from apps.shared.schemas import Base
 
 MIN_AMOUNT = -1_000_000_000
 MAX_AMOUNT = 1_000_000_000
+# TODO(FM-37): `\d` совпадает и с не-ASCII цифрами («２０２６-01-01» проходит формат, его отклоняет уже pydantic,
+# тоже 422 `FM-422000`, но с другим сообщением) — заменить на `[0-9]`.
 # Только `YYYY-MM-DD`: без проверки pydantic принял бы и `2026-03-01T00:00:00`, и число (unix-время).
 _DATE_FORMAT = re.compile(r"\d{4}-\d{2}-\d{2}")
 
@@ -25,6 +27,8 @@ class StartingBalanceCreateSchema(Base):
         strict=True,  # только целое число JSON: без строк "100", 1.0 и true
         examples=[120000],
     )
+    # NOTE(FM-37): в OpenAPI-схеме сервиса поле выглядит допускающим null (`date | None`), но валидатор null
+    # отклоняет (422) — так требует контракт. Клиент, сгенерированный по /openapi.json, должен не передавать поле.
     balance_date: date | None = Field(
         default=None,
         title="Дата остатка",
