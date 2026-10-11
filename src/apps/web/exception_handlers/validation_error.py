@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field
@@ -11,8 +11,6 @@ from apps.shared.exceptions import BaseCustomValidationError, BaseUnprocessableE
 from . import base
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
 
@@ -83,6 +81,20 @@ class ValidationErrorResponseSchema(base.BaseErrorResponseSchema):
     )
 
 
+def _field(body: object, loc: tuple) -> str:
+    """
+    Поле ошибки по её `loc`.
+
+    `("body",)` — тела нет или оно не объект; при невалидном JSON (тело — строка) в `loc` позиция ошибки разбора.
+    """
+    path = loc[1:]
+    if not path:
+        return str(loc[0])
+    if isinstance(body, str):
+        return ".".join(str(part) for part in path)
+    return str(path[0])
+
+
 def _rejected_value(body: object, loc: tuple) -> str | None:
     """Отклонённое значение строкой: числа, bool и объекты из тела попадают в `rejectedValue`, а не роняют ответ."""
     value = base.get_body_info(body, loc)
@@ -102,9 +114,7 @@ def setup_validation_exception_handlers(app: FastAPI) -> None:
         error_validation = [
             ValidationField(
                 message=err["msg"],
-                field=".".join(cast("Iterable[str]", err["loc"][1:]))
-                if isinstance(exc.body, str)
-                else str(err["loc"][1]),
+                field=_field(exc.body, err["loc"]),
                 rejectedValue=_rejected_value(exc.body, err["loc"][1:]),
                 rule=err["type"],
             )

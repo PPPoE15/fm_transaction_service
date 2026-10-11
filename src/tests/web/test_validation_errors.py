@@ -28,3 +28,28 @@ async def test_non_string_rejected_value(
     body = response.json()
     assert body["code"] == "FM-422000"
     assert [(item["field"], item["rejected_value"]) for item in body["validation"]] == [("money_sum", rejected)]
+
+
+@pytest.mark.parametrize(
+    ("content", "field"),
+    [
+        (b"", "body"),  # тела нет
+        (b"[]", "body"),  # тело — не объект
+        (b"1", "body"),
+        (b"{bad", "1"),  # невалидный JSON: поле — позиция ошибки разбора
+    ],
+)
+async def test_missing_or_malformed_body(
+    client: AsyncClient, make_token: TokenFactory, content: bytes, field: str
+) -> None:
+    """Пустое, не объект или невалидный JSON — 422 `FM-422000`, а не 500."""
+    response = await client.post(
+        "/starting-balance",
+        headers={"Authorization": f"Bearer {make_token()}", "Content-Type": "application/json"},
+        content=content,
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT, response.text
+    body = response.json()
+    assert body["code"] == "FM-422000"
+    assert [item["field"] for item in body["validation"]] == [field]
