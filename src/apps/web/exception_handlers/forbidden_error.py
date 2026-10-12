@@ -52,6 +52,7 @@ def setup_forbidden_exception_handlers(app: FastAPI) -> None:
         app: Приложение FastAPI.
     """
 
+    # TODO(FM-37): собственный `exc.code` не учитывается — перевести на `from_error`, как not_found/conflict.
     @app.exception_handler(BaseForbiddenError)
     async def forbidden_exception_handler(request: Request, exc: BaseForbiddenError) -> JSONResponse:
         instance = request.url.path

@@ -54,5 +54,4 @@ def setup_not_found_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(BaseNotFoundError)
     async def not_found_exception_handler(request: Request, exc: BaseNotFoundError) -> JSONResponse:
-        instance = request.url.path
-        return NotFoundErrorResponseSchema(instance=instance, detail=exc.msg).json_response()
+        return NotFoundErrorResponseSchema.from_error(request, exc).json_response()
