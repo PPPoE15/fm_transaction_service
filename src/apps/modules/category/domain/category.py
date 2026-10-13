@@ -75,7 +75,7 @@ class Category(Base):
 
         Args:
             name: Имя категории.
-            money_plan: Денежная сумма по категории.
+            money_plan: Плановая сумма за месяц; `None` — план не задан.
             category_type: Тип категории (доход или расход).
             description: Описание категории.
         """

@@ -17,6 +17,8 @@ _UNIQUE_VIOLATION = "23505"
 _USER_CATEGORIES_LOCK_NAMESPACE = 41
 
 
+# TODO(FM-41): тот же разбор `exc.orig.__cause__` (внутренности адаптера asyncpg), что и в `starting_balance/…/repo.py`
+# — две копии, которые придётся менять вместе при смене драйвера; вынести общий хелпер в `apps/shared/db`.
 def _is_unique_name_violation(exc: IntegrityError) -> bool:
     """Нарушено ли ограничение уникальности названия статьи (SQLSTATE и имя ограничения из исходной ошибки asyncpg)."""
     cause = exc.orig.__cause__ if exc.orig else None
@@ -66,6 +68,11 @@ class Repo(AbstractCategoryRepo, BaseSqlAlchemyRepo):
         category = (await self._session.scalars(stmt)).one_or_none()
         return builders.build(category) if category else None
 
+    # TODO(FM-4): уникальное ограничение названия (FM-41) действует и на изменение статьи, но ни
+    # `UpdateCommandHandler`, ни `update` (merge, ошибка всплывает на commit) дубликат не проверяют и `IntegrityError`
+    # не переводят: старый `PATCH /category` с названием и типом другой статьи пользователя даёт 500. В
+    # `PATCH /categories/{uid}` проверять дубликат в команде (под `lock_user_categories`) и переводить нарушение
+    # в 409 `FM-409101`, как в `create`.
     async def update(self, category_agg: Category) -> None:
         orm_category = builders.build_orm(category_agg=category_agg)
         await self._session.merge(orm_category)

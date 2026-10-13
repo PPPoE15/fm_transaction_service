@@ -56,6 +56,8 @@ class CreateCategorySchema(Base):
         return value or None
 
 
+# TODO(FM-4): схема изменения не проверяет поля по контракту, как `CreateCategorySchema` (обрезка и длина названия,
+# управляющие символы, диапазон плана): через `PATCH /category` можно записать «Еда » рядом с «Еда».
 class UpdateCategorySchema(Base):
     """Схема данных для обновления категории"""
 

@@ -50,6 +50,8 @@ class CreateCommandHandler:
         )
         async with self._uow as uow:
             await uow.repo.lock_user_categories(user_uid)
+            # NOTE(FM-41): дубликат — точное совпадение с учётом регистра («Еда» и «еда» — разные статьи), как и
+            # уникальное ограничение в БД. Контракт регистр не уточняет; без учёта регистра — менять оба места вместе.
             if await uow.repo.get_by_name(user_uid, name, category_type) is not None:
                 raise CategoryAlreadyExistsError
             if await uow.repo.count_by_user(user_uid) >= MAX_CATEGORIES_PER_USER:
