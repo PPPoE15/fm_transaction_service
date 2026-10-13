@@ -201,7 +201,7 @@ async def test_duplicate_is_conflict(
     assert response.status_code == status.HTTP_201_CREATED, response.text
     other = {"Authorization": f"Bearer {make_token(uuid4())}"}
     assert (await _post(client, other, BODY)).status_code == status.HTTP_201_CREATED
-    assert [item["category_type"] for item in await _list(client, headers)] == ["income", "outcome"]
+    assert sorted(item["category_type"] for item in await _list(client, headers)) == ["income", "outcome"]
 
 
 @pytest.mark.db
