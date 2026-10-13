@@ -47,7 +47,7 @@ async def _add_category(
     user_uid: UUID,
     name: str,
     category_type: apps_types.TransactionType = OUTCOME,
-    money_plan: int = 1000,
+    money_plan: int | None = 1000,
 ) -> UUID:
     category = Category(
         uid=uuid4(),
@@ -165,6 +165,26 @@ async def test_only_own_categories_of_requested_type_sorted_by_name(
     assert _facts(body["rows"][1]["months"]) == [100, 0, 0] + [None] * 9
     assert _facts(body["total"]["months"]) == [100, 0, 0] + [None] * 9
     assert body["total"]["money_plan"] == 2 * 1000
+
+
+@pytest.mark.db
+async def test_category_without_plan(
+    db_engine: AsyncEngine, client: AsyncClient, headers: dict[str, str], owner: UUID
+) -> None:
+    """Статья без плана (FM-41): в строке план `null`, в итог плана она не входит; `0` — входит как ноль."""
+    plan = 700
+    await _add_category(owner, "без плана", money_plan=None)
+    await _add_category(owner, "нулевой план", money_plan=0)
+    await _add_category(owner, "с планом", money_plan=plan)
+
+    body = await _get(client, headers, year=2026)
+
+    assert [(row["category"]["name"], row["money_plan"]) for row in body["rows"]] == [
+        ("без плана", None),
+        ("нулевой план", 0),
+        ("с планом", plan),
+    ]
+    assert body["total"]["money_plan"] == plan
 
 
 @pytest.mark.db

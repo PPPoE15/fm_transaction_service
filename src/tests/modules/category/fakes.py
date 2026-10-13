@@ -13,9 +13,27 @@ class InMemoryCategoryRepo(AbstractCategoryRepo):
     def __init__(self) -> None:
         """Пустое хранилище."""
         self.items: dict[apps_types.CategoryUID, Category] = {}
+        self.locked_users: list[apps_types.UserUID] = []
 
     async def create(self, category: Category) -> None:
         self.items[category.uid] = category.model_copy()
+
+    async def lock_user_categories(self, user_uid: apps_types.UserUID) -> None:
+        self.locked_users.append(user_uid)
+
+    async def count_by_user(self, user_uid: apps_types.UserUID) -> int:
+        return sum(1 for category in self.items.values() if category.user_uid == user_uid)
+
+    async def get_by_name(
+        self,
+        user_uid: apps_types.UserUID,
+        name: apps_types.CategoryName,
+        category_type: apps_types.TransactionType,
+    ) -> Category | None:
+        for category in self.items.values():
+            if (category.user_uid, category.name, category.category_type) == (user_uid, name, category_type):
+                return category.model_copy()
+        return None
 
     async def update(self, category_agg: Category) -> None:
         self.items[category_agg.uid] = category_agg.model_copy()

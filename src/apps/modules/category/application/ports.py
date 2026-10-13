@@ -12,8 +12,48 @@ class AbstractCategoryRepo(abc.ABC):
         """
         Создать категорию пользователя.
 
+        Нарушение уникальности «пользователь + название + тип» (гонка, прошедшая проверку команды)
+        переводится в `CategoryAlreadyExistsError`.
+
         Args:
             category: Агрегатор пользователя и его транзакций.
+        """
+
+    @abc.abstractmethod
+    async def lock_user_categories(self, user_uid: apps_types.UserUID) -> None:
+        """
+        Заблокировать набор статей пользователя до конца транзакции единицы работы.
+
+        Нужна перед проверками, которые зависят от всех статей пользователя (дубликат, лимит): два параллельных
+        создания иначе оба пройдут проверку. Блокирует и пустой набор, поэтому строки статей не подходят.
+
+        Args:
+            user_uid: UID пользователя.
+        """
+
+    @abc.abstractmethod
+    async def count_by_user(self, user_uid: apps_types.UserUID) -> int:
+        """
+        Число статей пользователя.
+
+        Args:
+            user_uid: UID пользователя.
+        """
+
+    @abc.abstractmethod
+    async def get_by_name(
+        self,
+        user_uid: apps_types.UserUID,
+        name: apps_types.CategoryName,
+        category_type: apps_types.TransactionType,
+    ) -> Category | None:
+        """
+        Статья пользователя с точно таким названием и типом.
+
+        Args:
+            user_uid: UID пользователя.
+            name: Название статьи.
+            category_type: Тип статьи.
         """
 
     @abc.abstractmethod

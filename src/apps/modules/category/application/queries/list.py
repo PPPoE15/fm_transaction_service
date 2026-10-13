@@ -40,7 +40,8 @@ class ListCategories(BaseQueries):
         select_stmt = self._apply_filters(base_stmt, filter_params)
 
         count_stmt = select_stmt.with_only_columns(func.count(), maintain_column_froms=True)
-        select_stmt = self._apply_pagination(select_stmt, page_params)
+        # По контракту список отсортирован по названию; uid — чтобы порядок страниц был устойчивым.
+        select_stmt = self._apply_pagination(select_stmt.order_by(orm.Category.name, orm.Category.uid), page_params)
 
         orm_transactions = (await self._session.scalars(select_stmt)).all()
         total = (await self._session.scalars(count_stmt)).one()

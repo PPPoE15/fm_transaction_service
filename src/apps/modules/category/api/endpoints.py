@@ -1,6 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, Response
+from starlette import status
 
 from apps.modules.category.application.commands import (
     CreateCommandHandler,
@@ -50,31 +51,43 @@ async def get_categories(
 
 
 @router.post(
-    "/category",
-    summary="Создание категории",
-    description="Создать категорию",
+    "/categories",
+    status_code=status.HTTP_201_CREATED,
+    summary="Создание статьи",
+    description=(
+        "Создать статью дохода или расхода. 409 `FM-409101` — у пользователя уже есть статья с таким названием "
+        "и типом; 409 `FM-409103` — достигнут лимит в 100 статей."
+    ),
 )
 async def create_category(
     item_in: schemas.CreateCategorySchema,
     user: Annotated[UserInfo, Depends(get_user_info)],
-) -> None:
+    request: Request,
+    response: Response,
+) -> q_schemas.CategorySchema:
     """
-    Создать категорию.
+    Создать статью.
 
     Args:
-        item_in: Информация о категории.
+        item_in: Информация о статье.
         user: Информация об авторизованном пользователе.
+        request: Запрос: от его пути строится `Location` созданной статьи.
+        response: Ответ: в него добавляется `Location`.
     """
     command_handler = CreateCommandHandler(
         unit_of_work=UnitOfWork(async_session_factory),
     )
-    await command_handler.handle(
+    category = await command_handler.handle(
         user_uid=user.uid,
         name=item_in.name,
         money_plan=item_in.money_plan,
         category_type=item_in.category_type,
         description=item_in.description,
     )
+    # От пути запроса, а не фиксированный: так префикс `/transaction` (и переходный путь без него) сохраняется.
+    response.headers["Location"] = f"{request.url.path.rstrip('/')}/{category.uid}"
+    # Все отдаваемые поля есть в агрегате, только что сохранённом командой, — повторно читать из БД не нужно.
+    return q_schemas.CategorySchema.model_validate(category)
 
 
 @router.delete(

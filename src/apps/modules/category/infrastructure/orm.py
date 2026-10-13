@@ -1,3 +1,4 @@
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import UUID, Integer, String
 
@@ -9,6 +10,9 @@ class Category(AsyncBase):
     """Сущность статьи (категории) бюджета."""
 
     __tablename__ = "categories"
+    # Название статьи уникально в пределах пользователя и типа (`FM-409101`); индекс по `user_uid` первым
+    # служит и выборкам статей пользователя (список, подсчёт для лимита).
+    __table_args__ = (UniqueConstraint("user_uid", "category_type", "name"),)
 
     uid: Mapped[apps_types.CategoryUID] = mapped_column(
         UUID,
@@ -23,9 +27,10 @@ class Category(AsyncBase):
         String,
         doc="Категория.",
     )
-    money_plan: Mapped[apps_types.MoneySum] = mapped_column(
+    money_plan: Mapped[apps_types.MoneySum | None] = mapped_column(
         Integer,
-        doc="Минимум/максимум транзакции по категории.",
+        nullable=True,
+        doc="Плановая сумма за месяц; NULL — план не задан (не то же самое, что 0).",
     )
     category_type: Mapped[apps_types.TransactionType] = mapped_column(
         String,

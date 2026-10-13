@@ -21,7 +21,7 @@ ENDPOINTS = [
     ("PATCH", "/transactions"),
     ("DELETE", "/transactions"),
     ("GET", "/categories"),
-    ("POST", "/category"),
+    ("POST", "/categories"),
     ("PATCH", "/category"),
     ("DELETE", "/category"),
     ("GET", "/budget-structure"),

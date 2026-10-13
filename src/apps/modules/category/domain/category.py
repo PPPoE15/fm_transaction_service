@@ -8,6 +8,9 @@ from pydantic import Field
 from apps.shared import apps_types
 from apps.shared.schemas import Base
 
+# Лимит статей на пользователя: таблица «Структура бюджета» отдаётся без пагинации (контракт, `FM-409103`).
+MAX_CATEGORIES_PER_USER = 100
+
 
 class Category(Base):
     """Агрегатор категории."""
@@ -21,8 +24,8 @@ class Category(Base):
     name: apps_types.CategoryName = Field(
         description="Категория.",
     )
-    money_plan: apps_types.MoneySum = Field(
-        description="Минимум/максимум транзакции по категории.",
+    money_plan: apps_types.MoneySum | None = Field(
+        description="Плановая сумма за месяц; `None` — план не задан (не то же самое, что 0).",
     )
     category_type: apps_types.TransactionType = Field(
         description="Тип категории (доход или расход)",
@@ -36,7 +39,7 @@ class Category(Base):
         cls,
         name: apps_types.CategoryName,
         user_uid: apps_types.UserUID,
-        money_plan: apps_types.MoneySum,
+        money_plan: apps_types.MoneySum | None,
         category_type: apps_types.TransactionType,
         description: apps_types.Description,
     ) -> Self:
@@ -46,7 +49,7 @@ class Category(Base):
         Args:
             name: Имя категории.
             user_uid: UID пользователя.
-            money_plan: Денежная сумма по категории.
+            money_plan: Плановая сумма за месяц; `None` — план не задан.
             category_type: Тип категории (доход или расход).
             description: Описание категории.
         """
@@ -63,7 +66,7 @@ class Category(Base):
     def update(
         self,
         name: apps_types.CategoryName,
-        money_plan: apps_types.MoneySum,
+        money_plan: apps_types.MoneySum | None,
         category_type: apps_types.TransactionType,
         description: apps_types.Description,
     ) -> None:
@@ -94,11 +97,14 @@ class Category(Base):
         """
         Проверить укладывается ли сумма в бюджет.
 
-        True - если сумма больше чем запланированный доход или меньше чем запланированный расход.
+        True - если сумма больше чем запланированный доход или меньше чем запланированный расход,
+        а также если плана нет: выходить за него нечем.
 
         Args:
             money_sum: Потраченная/полученная сумма.
         """
+        if self.money_plan is None:
+            return True
         if self.category_type == apps_types.TransactionType.INCOME:
             return money_sum > self.money_plan
         return money_sum < self.money_plan

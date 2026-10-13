@@ -23,7 +23,7 @@ class UpdateCommandHandler:
         user_uid: apps_types.UserUID,
         category_uid: apps_types.CategoryUID,
         name: apps_types.CategoryName,
-        money_plan: apps_types.MoneySum,
+        money_plan: apps_types.MoneySum | None,
         category_type: apps_types.TransactionType,
         description: apps_types.Description,
     ) -> None:
