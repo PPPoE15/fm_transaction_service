@@ -23,7 +23,7 @@ class UpdateCommandHandler:
         user_uid: apps_types.UserUID,
         category_uid: apps_types.CategoryUID,
         name: apps_types.CategoryName,
-        money_plan: apps_types.MoneySum,
+        money_plan: apps_types.MoneySum | None,
         category_type: apps_types.TransactionType,
         description: apps_types.Description,
     ) -> None:
@@ -34,7 +34,7 @@ class UpdateCommandHandler:
             user_uid: UID пользователя.
             category_uid: UID категории.
             name: Имя категории.
-            money_plan: Денежная сумма по категории.
+            money_plan: Плановая сумма за месяц; `None` — план не задан.
             category_type: Тип категории (доход или расход).
             description: Описание категории.
 

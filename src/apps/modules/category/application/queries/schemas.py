@@ -11,14 +11,14 @@ from apps.shared.schemas import Base
 class CategorySchema(Base):
     """Схема данных категории бюджета"""
 
-    uid: apps_types.TransactionUID = Field(
-        description="UID транзакции.",
+    uid: apps_types.CategoryUID = Field(
+        description="UID статьи.",
     )
     name: apps_types.CategoryName = Field(
         description="Категория.",
     )
-    money_plan: apps_types.MoneySum = Field(
-        description="Минимум/максимум транзакции по категории.",
+    money_plan: apps_types.MoneySum | None = Field(
+        description="Плановая сумма за месяц; `null` — план не задан (не то же самое, что 0).",
     )
     category_type: apps_types.TransactionType = Field(
         description="Тип категории (доход или расход)",

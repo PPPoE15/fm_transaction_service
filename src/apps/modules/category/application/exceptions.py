@@ -1,4 +1,4 @@
-from apps.shared.exceptions import BaseNotFoundError
+from apps.shared.exceptions import BaseConflictError, BaseNotFoundError
 
 
 class CategoryNotFoundError(BaseNotFoundError):
@@ -9,3 +9,17 @@ class CategoryNotFoundError(BaseNotFoundError):
     """
 
     msg = "Статья с данным UID не найдена"
+
+
+class CategoryAlreadyExistsError(BaseConflictError):
+    """У пользователя уже есть статья с таким названием и типом."""
+
+    msg = "Статья с таким названием и типом уже есть"
+    code = "FM-409101"
+
+
+class CategoryLimitExceededError(BaseConflictError):
+    """Достигнут лимит статей на пользователя."""
+
+    msg = "Достигнут лимит статей: не больше 100 на пользователя"
+    code = "FM-409103"

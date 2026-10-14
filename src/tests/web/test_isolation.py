@@ -53,12 +53,13 @@ def user_b(make_token: TokenFactory) -> User:
 
 async def _create_category(client: AsyncClient, user: User, name: str) -> str:
     response = await client.post(
-        "/category",
+        "/categories",
         headers=user.headers,
         json={"name": name, "money_plan": 1000, "category_type": "outcome", "description": None},
     )
-    assert response.status_code == status.HTTP_200_OK, response.text
+    assert response.status_code == status.HTTP_201_CREATED, response.text
     [category] = [item for item in (await _categories(client, user)) if item["name"] == name]
+    assert category == response.json()
     return str(category["uid"])
 
 
@@ -217,7 +218,7 @@ async def test_delete_foreign_category(client: AsyncClient, seed: Seed, user_a: 
 async def test_create_category_is_visible_only_to_creator(
     client: AsyncClient, seed: Seed, user_a: User, user_b: User
 ) -> None:
-    """POST /category: статья B видна только B."""
+    """POST /categories: статья B видна только B."""
     b_category = await _create_category(client, user_b, "Своя статья B")
 
     assert [item["uid"] for item in await _categories(client, user_b)] == [b_category]
