@@ -44,7 +44,7 @@ class UpdateTransactionCommandHandler:
 
         Raises:
             TransactionNotFoundError: Если транзакции нет или она принадлежит другому пользователю.
-            CategoryNotFoundError: Если новой статьи нет или она принадлежит другому пользователю.
+            TransactionCategoryNotFoundError: Если новой статьи нет или она принадлежит другому пользователю.
         """
         async with self._uow as uow:
             transaction = await get_own_transaction(uow, user_uid, transaction_uid)

@@ -18,6 +18,9 @@ class InMemoryTransactionRepo(AbstractTransactionRepo):
     async def create(self, transaction: Transaction) -> None:
         self.items[transaction.uid] = transaction.model_copy()
 
+    async def count_by_user_for_update(self, user_uid: apps_types.UserUID) -> int:
+        return sum(1 for item in self.items.values() if item.user_uid == user_uid)
+
     async def update(self, transaction_agg: Transaction) -> None:
         self.items[transaction_agg.uid] = transaction_agg.model_copy()
 

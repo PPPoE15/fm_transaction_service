@@ -7,6 +7,9 @@ from pydantic import Field
 from apps.shared import apps_types
 from apps.shared.schemas import Base
 
+# Лимит транзакций на пользователя (контракт, «Объёмы», `FM-409202`).
+MAX_TRANSACTIONS_PER_USER = 100_000
+
 
 class Transaction(Base):
     """Агрегатор транзакции пользователя"""

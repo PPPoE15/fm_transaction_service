@@ -52,6 +52,9 @@ class InMemoryCategoryRepo(AbstractCategoryRepo):
     async def delete(self, category_uid: apps_types.CategoryUID) -> None:
         self.items.pop(category_uid)
 
+    async def get_by_uid_for_key_share(self, category_uid: apps_types.CategoryUID) -> Category | None:
+        return await self.get_by_uid(category_uid)
+
     async def get_by_uid(self, category_uid: apps_types.CategoryUID) -> Category | None:
         category = self.items.get(category_uid)
         return category.model_copy() if category else None

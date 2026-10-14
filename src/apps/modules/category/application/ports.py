@@ -99,6 +99,19 @@ class AbstractCategoryRepo(abc.ABC):
         """
 
     @abc.abstractmethod
+    async def get_by_uid_for_key_share(self, category_uid: apps_types.CategoryUID) -> Category | None:
+        """
+        Получить статью и до конца транзакции единицы работы не дать её удалить или сменить её тип.
+
+        Нужна при привязке к статье транзакции: проверка «тип транзакции совпадает с типом статьи» верна до commit.
+        Смена типа берёт на строке статьи `FOR UPDATE` (`lock_category`) и ждёт; если она успела первой, чтение
+        ждёт её commit и видит уже новый тип. Другие чтения и привязки транзакций к той же статье не блокируются.
+
+        Args:
+            category_uid: UID статьи.
+        """
+
+    @abc.abstractmethod
     async def get_by_uid(self, category_uid: apps_types.CategoryUID) -> Category | None:
         """
         Получить категорию по UID.

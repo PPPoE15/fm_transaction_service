@@ -1,29 +1,14 @@
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import Query
-from pydantic import BeforeValidator, Field
+from pydantic import Field
 
 from apps.modules.transaction.application.exceptions import InvalidDateRangeError
 from apps.shared import apps_types
+from apps.shared.api_types import LocalDateTimeIn
 from apps.shared.schemas import Base, PageParams
-
-LOCAL_DATETIME_PATTERN = (
-    r"20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\.[0-9]{1,6})?"
-)
-
-
-def validate_local_datetime(value: object) -> datetime:
-    """Проверить точный локальный формат даты из контракта."""
-    if not isinstance(value, str) or re.fullmatch(LOCAL_DATETIME_PATTERN, value) is None:
-        message = "Ожидается локальная дата YYYY-MM-DDTHH:MM:SS[.ffffff], годы 2000–2099"
-        raise ValueError(message)
-    return datetime.fromisoformat(value)
-
-
-LocalDateTime = Annotated[datetime, BeforeValidator(validate_local_datetime)]
 
 
 class TransactionPageParams(PageParams):
@@ -34,23 +19,31 @@ class TransactionPageParams(PageParams):
 
 
 class CategoryRef(Base):
-    """Идентификатор и название статьи транзакции."""
+    """Статья транзакции в ответе: UID и название (`CategoryRef` контракта)."""
 
-    uid: apps_types.CategoryUID
-    name: apps_types.CategoryName
+    uid: apps_types.CategoryUID = Field(
+        description="UID статьи.",
+    )
+    name: apps_types.CategoryName = Field(
+        description="Название статьи.",
+    )
 
 
 class TransactionSchema(Base):
-    """Список транзакций пользователя"""
+    """
+    Транзакция в ответах API (`Transaction` контракта): элемент списка и ответ создания.
+
+    Одна схема на все ответы с транзакцией, чтобы список и создание не расходились.
+    """
 
     uid: apps_types.TransactionUID = Field(
         description="UID транзакции.",
     )
     transaction_date: datetime = Field(
-        description="Дата транзакции.",
+        description="Дата и время транзакции (локальные, без часового пояса).",
     )
     category: CategoryRef = Field(
-        description="Категория транзакции.",
+        description="Статья транзакции.",
     )
     money_sum: apps_types.MoneySum = Field(
         description="Сумма транзакции.",
@@ -84,7 +77,7 @@ class TransactionFilters:
     ] = None
 
     before: Annotated[
-        LocalDateTime | None,
+        LocalDateTimeIn | None,
         Query(
             title="Последняя дата совершения транзакции.",
             description="Фильтрация транзакций по времени их совершения.",
@@ -92,7 +85,7 @@ class TransactionFilters:
     ] = None
 
     after: Annotated[
-        LocalDateTime | None,
+        LocalDateTimeIn | None,
         Query(
             title="Первая дата совершения транзакции.",
             description="Фильтрация транзакций по времени их совершения.",

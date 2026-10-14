@@ -3,6 +3,7 @@ from typing import Annotated, Self
 from pydantic import ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 from apps.shared import apps_types
+from apps.shared.api_types import DescriptionIn
 from apps.shared.schemas import Base
 
 # Ограничения полей статьи — по контракту (`contracts/README.md`, «Валидация»).
@@ -12,12 +13,6 @@ MAX_MONEY_PLAN = 1_000_000_000
 CategoryNameIn = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=64, pattern=r"^[^\x00-\x1F\x7F]+$"),
-    Field(strict=True),
-]
-# Описание: до 500 символов, допустимы табуляция и переводы строк (\t \n \r), другие управляющие — нет.
-DescriptionIn = Annotated[
-    str,
-    StringConstraints(max_length=500, pattern=r"^[^\x00-\x08\x0B\x0C\x0E-\x1F\x7F]*$"),
     Field(strict=True),
 ]
 

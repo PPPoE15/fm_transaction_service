@@ -180,13 +180,13 @@ async def test_type_change_with_transactions_is_forbidden(
         headers=headers,
         json={
             "transaction_date": "2026-10-01T12:00:00",
-            "category": created["uid"],
+            "category_uid": created["uid"],
             "money_sum": 100,
             "transaction_type": "outcome",
             "description": "Обед",
         },
     )
-    assert response.status_code == status.HTTP_200_OK, response.text
+    assert response.status_code == status.HTTP_201_CREATED, response.text
 
     response = await _patch(client, headers, created["uid"], {"category_type": "income"})
 
