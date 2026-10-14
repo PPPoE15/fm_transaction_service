@@ -10,6 +10,7 @@ from apps.modules.category.application.commands import (
 )
 from apps.modules.category.application.queries import schemas as q_schemas
 from apps.modules.category.application.queries.list import ListCategories
+from apps.modules.category.domain import CategoryChanges
 from apps.modules.category.infrastructure.uow import UnitOfWork
 from apps.shared import apps_types
 from apps.shared.api_schemas import BaseListResponseSchema
@@ -116,31 +117,34 @@ async def delete_user_category(
 
 
 @router.patch(
-    "/category",
-    summary="Изменение категории",
-    description="Изменить категорию",
+    "/categories/{category_uid}",
+    summary="Изменение статьи",
+    description=(
+        "Частичное изменение: меняются только переданные поля, `null` очищает план и описание. "
+        "404 — статьи нет или она чужая; 409 `FM-409101` — у пользователя уже есть статья с таким названием и типом; "
+        "400 `FM-400101` — нельзя сменить тип статьи, по которой уже есть транзакции."
+    ),
 )
 async def update_category(
     category_uid: apps_types.CategoryUID,
     item_in: schemas.UpdateCategorySchema,
     user: Annotated[UserInfo, Depends(get_user_info)],
-) -> None:
+) -> q_schemas.CategorySchema:
     """
-    Изменить категорию.
+    Изменить статью.
 
     Args:
-        category_uid: UID категории
-        item_in: Измененная информация о категории
+        category_uid: UID статьи.
+        item_in: Новые значения переданных полей.
         user: Информация об авторизованном пользователе.
     """
     command_handler = UpdateCommandHandler(
         unit_of_work=UnitOfWork(async_session_factory),
     )
-    await command_handler.handle(
+    category = await command_handler.handle(
         user_uid=user.uid,
         category_uid=category_uid,
-        name=item_in.name,
-        money_plan=item_in.money_plan,
-        category_type=item_in.category_type,
-        description=item_in.description,
+        changes=CategoryChanges(**item_in.model_dump(exclude_unset=True)),
     )
+    # Статья после изменения — в агрегате, сохранённом командой: повторно читать из БД не нужно.
+    return q_schemas.CategorySchema.model_validate(category)

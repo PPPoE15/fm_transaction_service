@@ -12,6 +12,20 @@ from apps.shared.schemas import Base
 MAX_CATEGORIES_PER_USER = 100
 
 
+class CategoryChanges(Base):
+    """
+    Изменения статьи для частичного обновления.
+
+    Значимы только переданные поля (`model_fields_set`): поле, равное `None` по умолчанию, не меняется, а переданное
+    `None` очищает план или описание. Название и тип `None` не бывают — это отсекает схема запроса.
+    """
+
+    name: apps_types.CategoryName | None = None
+    money_plan: apps_types.MoneySum | None = None
+    category_type: apps_types.TransactionType | None = None
+    description: apps_types.Description | None = None
+
+
 class Category(Base):
     """Агрегатор категории."""
 
@@ -63,26 +77,18 @@ class Category(Base):
             description=description,
         )
 
-    def update(
-        self,
-        name: apps_types.CategoryName,
-        money_plan: apps_types.MoneySum | None,
-        category_type: apps_types.TransactionType,
-        description: apps_types.Description,
-    ) -> None:
+    # TODO(FM-45): правило «название и тип не бывают null» живёт только в схеме запроса (`not_null`) —
+    # `CategoryChanges(name=None)` из другого вызывающего запишет None, и БД ответит NOT NULL (500). Отклонять
+    # None для этих полей в `CategoryChanges`, а смену типа в команде проверять по `model_fields_set`.
+    def update(self, changes: CategoryChanges) -> None:
         """
-        Изменить статью (полная замена изменяемых полей).
+        Изменить статью: только поля, переданные в `changes` (частичное изменение).
 
         Args:
-            name: Имя категории.
-            money_plan: Плановая сумма за месяц; `None` — план не задан.
-            category_type: Тип категории (доход или расход).
-            description: Описание категории.
+            changes: Новые значения; непереданные поля не меняются, `None` в плане и описании очищает их.
         """
-        self.name = name
-        self.money_plan = money_plan
-        self.category_type = category_type
-        self.description = description
+        for field in changes.model_fields_set:
+            setattr(self, field, getattr(changes, field))
 
     def belongs_to(self, user_uid: apps_types.UserUID) -> bool:
         """

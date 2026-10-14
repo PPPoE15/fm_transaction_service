@@ -1,4 +1,4 @@
-from apps.shared.exceptions import BaseConflictError, BaseNotFoundError
+from apps.shared.exceptions import BaseConflictError, BaseCustomValidationError, BaseNotFoundError
 
 
 class CategoryNotFoundError(BaseNotFoundError):
@@ -23,3 +23,10 @@ class CategoryLimitExceededError(BaseConflictError):
 
     msg = "Достигнут лимит статей: не больше 100 на пользователя"
     code = "FM-409103"
+
+
+class CategoryTypeChangeForbiddenError(BaseCustomValidationError):
+    """Тип статьи, по которой уже есть транзакции, сменить нельзя: тип транзакций должен совпадать с типом статьи."""
+
+    msg = "Нельзя сменить тип статьи, по которой уже есть транзакции"
+    code = "FM-400101"
