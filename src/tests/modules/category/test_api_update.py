@@ -221,6 +221,9 @@ async def test_type_change_waits_for_uncommitted_transaction(
         )
         await session.flush()
         patch = asyncio.create_task(_patch(client, headers, created["uid"], {"category_type": "income"}))
+        # TODO(FM-45): фиксированная пауза ничего не доказывает (PATCH ждёт и без `lock_category` — на UPDATE типа),
+        # а на медленном CI он может не дойти до проверки до коммита, и тест ложно пройдёт. Ждать, пока бэкенд PATCH
+        # появится в `pg_locks` с `granted = false`.
         await asyncio.sleep(0.5)
         assert not patch.done(), "смена типа не ждёт незакоммиченную транзакцию"
         await session.commit()

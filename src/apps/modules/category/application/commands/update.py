@@ -48,6 +48,8 @@ class UpdateCommandHandler:
             await uow.repo.lock_user_categories(user_uid)
             category = await get_own_category(uow.repo, user_uid, category_uid)
             type_changed = changes.category_type is not None and changes.category_type != category.category_type
+            # NOTE(FM-45): смена типа проверяется раньше дубликата — смена типа статьи с транзакциями и одновременное
+            # совпадение названия дают 400, а не 409. Контракт порядок не задаёт, UI (FM-46) тип не меняет.
             if type_changed:
                 # Строка статьи блокируется до проверки: иначе параллельно вставляемая транзакция не видна, и обе
                 # операции проходят — расходная транзакция в статье дохода

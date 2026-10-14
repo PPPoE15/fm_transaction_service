@@ -22,6 +22,8 @@ ENDPOINTS = [
     ("DELETE", "/transactions"),
     ("GET", "/categories"),
     ("POST", "/categories"),
+    # TODO(FM-45): nil-UUID — не UUID4, путь сам по себе дал бы 422; 401 приходит лишь потому, что авторизация
+    # проверяется раньше пути. Подставить `uuid4()`.
     ("PATCH", "/categories/00000000-0000-0000-0000-000000000000"),
     ("DELETE", "/category"),
     ("GET", "/budget-structure"),

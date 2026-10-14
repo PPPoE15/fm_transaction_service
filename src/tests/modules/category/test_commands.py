@@ -339,6 +339,8 @@ async def test_update_type_locks_category_row_before_checking_transactions(
     )
 
     assert categories.calls == [f"lock_category {category.uid}", f"has_transactions {category.uid}"]
+    # TODO(FM-45): порядок «advisory, потом строка» не проверяется — `lock_user_categories` пишется в `locked_users`,
+    # а не в `calls`; перестановка блокировок (обратный порядок относительно `create`) тест не уронит.
 
 
 async def test_update_locks_user_categories(uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo) -> None:

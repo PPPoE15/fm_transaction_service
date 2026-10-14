@@ -35,6 +35,7 @@ class Repo(AbstractCategoryRepo, BaseSqlAlchemyRepo):
         orm_category = builders.build_orm(category)
         self._session.add(orm_category)
         # flush сразу, чтобы нарушение уникальности при гонке проявилось здесь, а не на commit.
+        # TODO(FM-45): блок дословно повторяет `create` — вынести в приватный `_flush_or_conflict()`.
         try:
             await self._session.flush()
         except IntegrityError as exc:
