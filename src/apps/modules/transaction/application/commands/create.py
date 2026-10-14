@@ -1,8 +1,12 @@
 from datetime import datetime
 
+from apps.modules.transaction.application.exceptions import (
+    TransactionLimitExceededError,
+    TransactionTypeMismatchError,
+)
 from apps.modules.transaction.application.guards import get_own_category
 from apps.modules.transaction.application.uow import AbstractTransactionUnitOfWork
-from apps.modules.transaction.domain import Transaction
+from apps.modules.transaction.domain import MAX_TRANSACTIONS_PER_USER, Transaction
 from apps.shared import apps_types
 
 
@@ -25,35 +29,49 @@ class CreateTransactionCommandHandler:
         self,
         user_uid: apps_types.UserUID,
         transaction_date: datetime,
-        category: apps_types.CategoryUID,
+        category_uid: apps_types.CategoryUID,
         money_sum: apps_types.MoneySum,
         transaction_type: apps_types.TransactionType,
         description: apps_types.Description,
-    ) -> apps_types.TransactionUID:
+    ) -> Transaction:
         """
         Создать транзакцию.
 
         Args:
             user_uid: UID пользователя.
             transaction_date: Дата транзакции.
-            money_sum: Денежная сумма по категории.
-            transaction_type:Тип транзакции.
-            category: Категория.
+            category_uid: UID статьи пользователя.
+            money_sum: Денежная сумма.
+            transaction_type: Тип транзакции; должен совпадать с типом статьи.
             description: Описание.
 
+        Returns:
+            Созданная транзакция.
+
         Raises:
-            CategoryNotFoundError: Если статьи нет или она принадлежит другому пользователю.
+            TransactionCategoryNotFoundError: Если статьи нет или она принадлежит другому пользователю.
+            TransactionTypeMismatchError: Если тип транзакции не совпадает с типом статьи.
+            TransactionLimitExceededError: Если у пользователя уже `MAX_TRANSACTIONS_PER_USER` транзакций.
         """
-        transactions_agg = Transaction.create(
+        transaction = Transaction.create(
             user_uid=user_uid,
             transaction_date=transaction_date,
-            category_uid=category,
+            category_uid=category_uid,
             money_sum=money_sum,
             transaction_type=transaction_type,
             description=description,
         )
         async with self._uow as uow:
-            await get_own_category(uow, user_uid, category)
-            await uow.transactions_repo.create(transactions_agg)
+            # NOTE(FM-52): блокировка и подсчёт идут раньше проверок статьи, хотя обратный порядок тоже без взаимных
+            # блокировок (KEY SHARE с KEY SHARE не конфликтуют, смена типа статьи advisory 52 не берёт). Из-за этого
+            # и запрос с чужой статьёй или неверным типом ждёт блокировку и считает транзакции пользователя; с индексом
+            # из TODO(FM-33) подсчёт дешёвый. Если начнёт мешать — сначала статья, потом `count_by_user_for_update`.
+            transactions_count = await uow.transactions_repo.count_by_user_for_update(user_uid)
+            category = await get_own_category(uow, user_uid, category_uid)
+            if category.category_type != transaction_type:
+                raise TransactionTypeMismatchError
+            if transactions_count >= MAX_TRANSACTIONS_PER_USER:
+                raise TransactionLimitExceededError
+            await uow.transactions_repo.create(transaction)
             await uow.commit()
-        return transactions_agg.uid
+        return transaction

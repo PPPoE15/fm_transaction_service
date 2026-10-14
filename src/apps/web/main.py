@@ -3,6 +3,7 @@ from types import TracebackType
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from apps.web.body_size import BodySizeLimitMiddleware
 from apps.web.bootstrap import exception_handlers, logger
 from apps.web.config import app_settings
 from apps.web.router import main_router
@@ -57,6 +58,8 @@ def build_app() -> FastAPI:
     # Убрать после выкатки PPPoE15/financial_manager_ui#5 (и в dev, и в master); тогда порядок мёржа и откат
     # одного из образов не ломают стек. В схему OpenAPI не попадают.
     fastapi_app.include_router(main_router, include_in_schema=False)
+    # До CORS: последний добавленный middleware — внешний, и ответ 413 тоже получает CORS-заголовки
+    fastapi_app.add_middleware(BodySizeLimitMiddleware)
     fastapi_app.add_middleware(
         CORSMiddleware,
         allow_origins=[

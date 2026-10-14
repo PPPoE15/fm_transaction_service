@@ -97,6 +97,13 @@ class Repo(AbstractCategoryRepo, BaseSqlAlchemyRepo):
         category = await self._session.get(orm.Category, category_uid)
         await self._session.delete(category)
 
+    async def get_by_uid_for_key_share(self, category_uid: apps_types.CategoryUID) -> Category | None:
+        # FOR KEY SHARE — та же блокировка, что берёт проверка внешнего ключа при вставке транзакции: конфликтует
+        # с FOR UPDATE и DELETE, но не с другими вставками транзакций в эту статью.
+        stmt = select(orm.Category).where(orm.Category.uid == category_uid).with_for_update(key_share=True)
+        category = (await self._session.scalars(stmt)).one_or_none()
+        return builders.build(category) if category else None
+
     async def get_by_uid(self, category_uid: apps_types.CategoryUID) -> Category | None:
         category = await self._session.get(orm.Category, category_uid)
         return builders.build(category) if category else None

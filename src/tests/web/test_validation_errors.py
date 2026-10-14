@@ -17,7 +17,7 @@ async def test_non_string_rejected_value(
         headers={"Authorization": f"Bearer {make_token()}"},
         json={
             "transaction_date": "2026-10-01T12:00:00",
-            "category": "f171258a-1772-4ff3-b797-04bae1e0b3dc",
+            "category_uid": "f171258a-1772-4ff3-b797-04bae1e0b3dc",
             "money_sum": money_sum,
             "transaction_type": "outcome",
             "description": None,

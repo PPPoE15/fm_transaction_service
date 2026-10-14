@@ -1,5 +1,8 @@
 from apps.modules import category as category_module
-from apps.modules.transaction.application.exceptions import TransactionNotFoundError
+from apps.modules.transaction.application.exceptions import (
+    TransactionCategoryNotFoundError,
+    TransactionNotFoundError,
+)
 from apps.modules.transaction.application.uow import AbstractTransactionUnitOfWork
 from apps.modules.transaction.domain import Transaction
 from apps.shared import apps_types
@@ -13,23 +16,24 @@ async def get_own_category(
     """
     Получить статью пользователя для привязки к ней транзакции.
 
-    Правило «статья своя» одно на оба модуля — `category.get_own_category`; обёртка оставлена ради сигнатуры
-    с единицей работы транзакций и TODO ниже, который относится именно к привязке транзакции.
+    Статья читается под блокировкой (`get_by_uid_for_key_share`): до конца единицы работы её не удалят и не сменят
+    её тип, поэтому проверки по статье остаются верными до commit, а вставка транзакции не падает на внешнем ключе.
 
     Args:
         uow: Открытая единица работы.
         user_uid: UID пользователя из токена.
-        category_uid: UID статьи.
+        category_uid: UID статьи из тела запроса.
 
     Raises:
-        CategoryNotFoundError: Если статьи нет или она принадлежит другому пользователю.
+        TransactionCategoryNotFoundError: Если статьи нет или она принадлежит другому пользователю (400 `FM-400201`).
     """
-    # TODO(FM-30): по контракту чужая/несуществующая статья в теле POST/PATCH /transactions — 400 FM-400201;
-    # сейчас отвечаем 404 FM-404000: коды ошибок задаются классом ответа, а не исключением. Привести вместе
-    # с остальными кодами контракта (замечено в FM-9, задача закрыта; отдельной задачи пока нет).
-    # Статья читается без блокировки: при параллельном удалении статьи её владельцем INSERT/UPDATE транзакции
-    # упадёт на FK (500 вместо 404) — изоляцию это не нарушает.
-    return await category_module.get_own_category(uow.categories_repo, user_uid, category_uid)
+    # NOTE(FM-52): старый `PATCH /transactions` тоже берёт здесь `FOR KEY SHARE` на статью, а каскадное удаление статьи
+    # (`DELETE /category`) блокирует сначала строки транзакций, потом статью — их гонка может кончиться deadlock
+    # (500 у одного из запросов). Оба эндпоинта старые, каскад уходит по TODO(FM-4) в `category/…/commands/delete.py`.
+    category = await uow.categories_repo.get_by_uid_for_key_share(category_uid)
+    if category is None or not category.belongs_to(user_uid):
+        raise TransactionCategoryNotFoundError
+    return category
 
 
 async def get_own_transaction(

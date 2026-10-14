@@ -8,6 +8,10 @@ from apps.web.exception_handlers.unauthorized_error import setup_unauthorized_ex
 from apps.web.exception_handlers.validation_error import setup_validation_exception_handlers
 
 
+# TODO(FM-52): обработчика `HTTPException` нет — ошибка разбора тела (невалидный UTF-8, число длиннее 4300 цифр)
+# отдаётся стандартным `400 {"detail": ...}` без `code` и не в RFC 7807, хотя по контракту формат — 422 `FM-422000`,
+# а 400 у `POST /transactions` — только `FM-400201`/`FM-400202`. Аналог для сервиса авторизации — FM-19; для этого
+# сервиса задачи нет (было до FM-52).
 def setup(app: FastAPI) -> None:
     """
     Настройка обработчиков внутренних ошибок.

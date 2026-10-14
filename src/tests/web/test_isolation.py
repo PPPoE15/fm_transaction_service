@@ -2,7 +2,8 @@
 Изоляция данных пользователей на всех эндпоинтах — на настоящем Postgres.
 
 Пользователь A заводит статью и транзакцию через API, пользователь B пытается их увидеть, изменить
-или удалить. Чужой объект для B выглядит как несуществующий (404), данные A не меняются.
+или удалить. Чужой объект для B выглядит как несуществующий (404; чужая статья в теле запроса транзакции — как
+несуществующая статья, 400 `FM-400201`), данные A не меняются.
 """
 
 from dataclasses import dataclass
@@ -69,15 +70,14 @@ async def _create_transaction(client: AsyncClient, user: User, category_uid: str
         headers=user.headers,
         json={
             "transaction_date": TRANSACTION_DATE,
-            "category": category_uid,
+            "category_uid": category_uid,
             "money_sum": 100,
             "transaction_type": "outcome",
             "description": description,
         },
     )
-    assert response.status_code == status.HTTP_200_OK, response.text
-    [transaction] = [item for item in response.json()["content"] if item["description"] == description]
-    return str(transaction["uid"])
+    assert response.status_code == status.HTTP_201_CREATED, response.text
+    return str(response.json()["uid"])
 
 
 async def _categories(client: AsyncClient, user: User) -> list[dict[str, Any]]:
@@ -116,6 +116,12 @@ async def seed(db_engine: AsyncEngine, client: AsyncClient, user_a: User) -> See
 def _assert_not_found(response: Any) -> None:  # noqa: ANN401
     assert response.status_code == status.HTTP_404_NOT_FOUND, response.text
     assert response.json()["code"] == "FM-404000"
+
+
+def _assert_foreign_category(response: Any) -> None:  # noqa: ANN401
+    """Чужая статья в теле запроса — 400 `FM-400201`: не найдено значение поля, а не ресурс из пути."""
+    assert response.status_code == status.HTTP_400_BAD_REQUEST, response.text
+    assert response.json()["code"] == "FM-400201"
 
 
 async def test_list_transactions_shows_only_own(client: AsyncClient, seed: Seed, user_a: User, user_b: User) -> None:
@@ -163,14 +169,12 @@ async def test_delete_foreign_transaction(client: AsyncClient, seed: Seed, user_
 async def test_create_transaction_in_foreign_category(
     client: AsyncClient, seed: Seed, user_a: User, user_b: User
 ) -> None:
-    """POST /transactions: в чужую статью — 404, транзакция не создаётся ни у кого."""
-    response = await client.post(
-        "/transactions",
-        headers=user_b.headers,
-        json={**_transaction_update(seed.category_uid), "description": "Чужая статья"},
-    )
+    """POST /transactions: в чужую статью — 400 `FM-400201`, как в несуществующую; транзакция не создаётся ни у кого."""
+    body = {**_transaction_update(seed.category_uid), "description": "Чужая статья"}
+    body["category_uid"] = body.pop("category")
+    response = await client.post("/transactions", headers=user_b.headers, json=body)
 
-    _assert_not_found(response)
+    _assert_foreign_category(response)
     assert await _transactions(client, user_b) == []
     assert [item["uid"] for item in await _transactions(client, user_a)] == [seed.transaction_uid]
 
@@ -178,7 +182,7 @@ async def test_create_transaction_in_foreign_category(
 async def test_move_own_transaction_to_foreign_category(
     client: AsyncClient, seed: Seed, user_a: User, user_b: User
 ) -> None:
-    """PATCH /transactions: свою транзакцию нельзя перенести в чужую статью."""
+    """PATCH /transactions: свою транзакцию нельзя перенести в чужую статью — 400 `FM-400201`, как при создании."""
     b_category = await _create_category(client, user_b, "Своя статья B")
     b_transaction = await _create_transaction(client, user_b, b_category, "Своя транзакция B")
     before = await _transactions(client, user_b)
@@ -190,7 +194,7 @@ async def test_move_own_transaction_to_foreign_category(
         json=_transaction_update(seed.category_uid),
     )
 
-    _assert_not_found(response)
+    _assert_foreign_category(response)
     assert await _transactions(client, user_b) == before
 
 

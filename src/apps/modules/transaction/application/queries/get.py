@@ -59,6 +59,29 @@ class TransactionQueries(BaseQueries):
         total = (await self._session.scalars(count_stmt)).one()
         return self.build_list(orm_transactions), total
 
+    async def get_transaction(
+        self,
+        user_uid: apps_types.UserUID,
+        transaction_uid: apps_types.TransactionUID,
+    ) -> schemas.TransactionSchema | None:
+        """
+        Получить транзакцию пользователя.
+
+        Args:
+            user_uid: UID пользователя.
+            transaction_uid: UID транзакции.
+
+        Returns:
+            Транзакция; `None` — если её нет или она принадлежит другому пользователю.
+        """
+        stmt = (
+            select(orm.Transaction)
+            .options(selectinload(orm.Transaction.category))
+            .where(orm.Transaction.uid == transaction_uid, orm.Transaction.user_uid == user_uid)
+        )
+        orm_transaction = (await self._session.scalars(stmt)).one_or_none()
+        return self.build(orm_transaction) if orm_transaction else None
+
     @staticmethod
     def _apply_filters(
         stmt: Select,
@@ -95,7 +118,7 @@ class TransactionQueries(BaseQueries):
         orm_transactions: Sequence[orm.Transaction],
     ) -> list[schemas.TransactionSchema]:
         """
-        Преобразовать orm-модель к схеме TransactionSchema.
+        Преобразовать orm-модели к схеме TransactionSchema.
 
         Args:
             orm_transactions: Orm-модели транзакций.
@@ -103,14 +126,21 @@ class TransactionQueries(BaseQueries):
         Returns:
             Список транзакций.
         """
-        return [
-            schemas.TransactionSchema(
-                uid=transaction.uid,
-                transaction_date=transaction.transaction_date,
-                category=schemas.CategoryRef(uid=transaction.category.uid, name=transaction.category.name),
-                money_sum=transaction.money_sum,
-                transaction_type=transaction.transaction_type,
-                description=transaction.description,
-            )
-            for transaction in orm_transactions
-        ]
+        return [cls.build(transaction) for transaction in orm_transactions]
+
+    @staticmethod
+    def build(transaction: orm.Transaction) -> schemas.TransactionSchema:
+        """
+        Преобразовать orm-модель к схеме TransactionSchema.
+
+        Args:
+            transaction: Orm-модель транзакции с загруженной статьёй.
+        """
+        return schemas.TransactionSchema(
+            uid=transaction.uid,
+            transaction_date=transaction.transaction_date,
+            category=schemas.CategoryRef(uid=transaction.category.uid, name=transaction.category.name),
+            money_sum=transaction.money_sum,
+            transaction_type=transaction.transaction_type,
+            description=transaction.description,
+        )

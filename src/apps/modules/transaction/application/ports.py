@@ -17,6 +17,18 @@ class AbstractTransactionRepo(abc.ABC):
         """
 
     @abc.abstractmethod
+    async def count_by_user_for_update(self, user_uid: apps_types.UserUID) -> int:
+        """
+        Число транзакций пользователя под блокировкой их набора до конца транзакции единицы работы.
+
+        Пока блокировка держится, другое создание транзакции того же пользователя ждёт её снятия, поэтому решение
+        «лимит не достигнут» команды остаётся верным до commit. Блокирует и пустой набор, поэтому строки не подходят.
+
+        Args:
+            user_uid: UID пользователя.
+        """
+
+    @abc.abstractmethod
     async def update(self, transaction_agg: Transaction) -> None:
         """
         Обновить транзакции пользователя.

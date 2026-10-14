@@ -1,5 +1,6 @@
-from .transaction import Transaction
+from .transaction import MAX_TRANSACTIONS_PER_USER, Transaction
 
 __all__ = [
+    "MAX_TRANSACTIONS_PER_USER",
     "Transaction",
 ]

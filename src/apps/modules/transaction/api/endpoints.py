@@ -1,7 +1,9 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, Response
+from starlette import status
 
+from apps.modules.transaction.application.exceptions import TransactionNotFoundError
 from apps.modules.transaction.application.queries import schemas as q_schemas
 from apps.modules.transaction.application.queries.get import TransactionQueries
 from apps.shared import apps_types
@@ -45,39 +47,50 @@ async def get_transactions(
 
 @router.post(
     "/transactions",
-    summary="Создание транзакции пользователя",
-    description="Создать транзакцию пользователя",
+    status_code=status.HTTP_201_CREATED,
+    summary="Создание транзакции",
+    description=(
+        "Создать транзакцию в статье пользователя. 400 `FM-400201` — статьи `category_uid` нет у пользователя; "
+        "400 `FM-400202` — тип транзакции не совпадает с типом статьи; 409 `FM-409202` — достигнут лимит "
+        "в 100 000 транзакций."
+    ),
 )
 async def create_user_transaction(
     item_in: schemas.CreateTransactionSchema,
     user: Annotated[UserInfo, Depends(get_user_info)],
-    page_params: Annotated[PageParams, Depends()],
-) -> BaseListResponseSchema[q_schemas.TransactionSchema]:
+    request: Request,
+    response: Response,
+) -> q_schemas.TransactionSchema:
     """
     Создать транзакцию пользователя.
 
     Args:
-        page_params: Параметры пагинации.
         item_in: Информация о транзакции.
         user: Информация об авторизованном пользователе.
+        request: Запрос: от его пути строится `Location` созданной транзакции.
+        response: Ответ: в него добавляется `Location`.
     """
     command_handler = deps.build_create_transaction_command_handler()
-    await command_handler.handle(
+    transaction = await command_handler.handle(
         user_uid=user.uid,
         transaction_date=item_in.transaction_date,
-        category=item_in.category,
+        category_uid=item_in.category_uid,
         money_sum=item_in.money_sum,
         transaction_type=item_in.transaction_type,
         description=item_in.description,
     )
+    # Название статьи для ответа — из той же выборки, что и у списка: ответ создания и элемент списка совпадают.
     async with async_session_factory() as session:
-        transactions_queries = TransactionQueries(session)
-        transactions, total = await transactions_queries.get_transactions(
-            user_uid=user.uid,
-            page_params=page_params,
-            filter_params=q_schemas.TransactionFilters(),
-        )
-    return BaseListResponseSchema(total=total, content=transactions)
+        created = await TransactionQueries(session).get_transaction(user_uid=user.uid, transaction_uid=transaction.uid)
+    # NOTE(FM-52): если транзакцию удалили между commit и чтением, успешное создание ответит 404 — клиент может
+    # повторить запрос и создать дубль. Окно узкое (параллельный DELETE того же пользователя); убрать можно, собирая
+    # ответ из агрегата и статьи, которую команда уже прочитала, но тогда ответ и элемент списка строятся разным кодом.
+    if created is None:
+        # Транзакцию удалили между commit команды и чтением (параллельный DELETE того же пользователя).
+        raise TransactionNotFoundError
+    # От пути запроса, а не фиксированный: так префикс `/transaction` (и переходный путь без него) сохраняется.
+    response.headers["Location"] = f"{request.url.path.rstrip('/')}/{transaction.uid}"
+    return created
 
 
 @router.delete(
