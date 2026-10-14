@@ -27,6 +27,9 @@ async def get_own_category(
     Raises:
         TransactionCategoryNotFoundError: Если статьи нет или она принадлежит другому пользователю (400 `FM-400201`).
     """
+    # NOTE(FM-52): старый `PATCH /transactions` тоже берёт здесь `FOR KEY SHARE` на статью, а каскадное удаление статьи
+    # (`DELETE /category`) блокирует сначала строки транзакций, потом статью — их гонка может кончиться deadlock
+    # (500 у одного из запросов). Оба эндпоинта старые, каскад уходит по TODO(FM-4) в `category/…/commands/delete.py`.
     category = await uow.categories_repo.get_by_uid_for_key_share(category_uid)
     if category is None or not category.belongs_to(user_uid):
         raise TransactionCategoryNotFoundError

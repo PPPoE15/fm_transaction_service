@@ -62,7 +62,10 @@ class CreateTransactionCommandHandler:
             description=description,
         )
         async with self._uow as uow:
-            # Сначала блокировка набора транзакций пользователя, потом строки статьи — один порядок для всех созданий.
+            # NOTE(FM-52): блокировка и подсчёт идут раньше проверок статьи, хотя обратный порядок тоже без взаимных
+            # блокировок (KEY SHARE с KEY SHARE не конфликтуют, смена типа статьи advisory 52 не берёт). Из-за этого
+            # и запрос с чужой статьёй или неверным типом ждёт блокировку и считает транзакции пользователя; с индексом
+            # из TODO(FM-33) подсчёт дешёвый. Если начнёт мешать — сначала статья, потом `count_by_user_for_update`.
             transactions_count = await uow.transactions_repo.count_by_user_for_update(user_uid)
             category = await get_own_category(uow, user_uid, category_uid)
             if category.category_type != transaction_type:

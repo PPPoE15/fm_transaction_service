@@ -41,6 +41,8 @@ class BodySizeLimitMiddleware:
         content_length = Headers(scope=scope).get("content-length")
         if content_length is not None:
             # Тело длиннее заявленного сервер (h11/httptools) приложению не передаст, поэтому заголовка достаточно.
+            # TODO(FM-52): `isdigit()` пропускает не-ASCII цифры (`int("²")` — ValueError и 500), а `+20000` обходит
+            # проверку. h11/httptools отклоняют такие заголовки сами, поэтому в проде недостижимо; проверять `[0-9]+`.
             if content_length.isdigit() and int(content_length) > self.max_body_size:
                 await self._reject(scope, receive, send)
                 return

@@ -82,6 +82,9 @@ async def create_user_transaction(
     # Название статьи для ответа — из той же выборки, что и у списка: ответ создания и элемент списка совпадают.
     async with async_session_factory() as session:
         created = await TransactionQueries(session).get_transaction(user_uid=user.uid, transaction_uid=transaction.uid)
+    # NOTE(FM-52): если транзакцию удалили между commit и чтением, успешное создание ответит 404 — клиент может
+    # повторить запрос и создать дубль. Окно узкое (параллельный DELETE того же пользователя); убрать можно, собирая
+    # ответ из агрегата и статьи, которую команда уже прочитала, но тогда ответ и элемент списка строятся разным кодом.
     if created is None:
         # Транзакцию удалили между commit команды и чтением (параллельный DELETE того же пользователя).
         raise TransactionNotFoundError

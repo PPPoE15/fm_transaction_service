@@ -51,6 +51,9 @@ class CreateTransactionSchema(Base):
         return value or None
 
 
+# TODO(FM-52): у старого PATCH нет ограничений полей из контракта (формат даты, границы суммы — 5 000 000 000 даёт 500
+# на int32, длина описания, `extra="forbid"`) и проверки `FM-400202`. Привести вместе с `PATCH /transactions/{uid}`
+# по контракту — отдельной задачи пока нет (было до FM-52).
 class UpdateTransactionSchema(Base):
     """Схема данных для обновления транзакции"""
 
