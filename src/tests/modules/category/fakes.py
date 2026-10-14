@@ -14,6 +14,8 @@ class InMemoryCategoryRepo(AbstractCategoryRepo):
         """Пустое хранилище."""
         self.items: dict[apps_types.CategoryUID, Category] = {}
         self.locked_users: list[apps_types.UserUID] = []
+        # Статьи, по которым есть транзакции: транзакции живут в другом модуле, фейку хватает их наличия
+        self.with_transactions: set[apps_types.CategoryUID] = set()
 
     async def create(self, category: Category) -> None:
         self.items[category.uid] = category.model_copy()
@@ -34,6 +36,9 @@ class InMemoryCategoryRepo(AbstractCategoryRepo):
             if (category.user_uid, category.name, category.category_type) == (user_uid, name, category_type):
                 return category.model_copy()
         return None
+
+    async def has_transactions(self, category_uid: apps_types.CategoryUID) -> bool:
+        return category_uid in self.with_transactions
 
     async def update(self, category_agg: Category) -> None:
         self.items[category_agg.uid] = category_agg.model_copy()

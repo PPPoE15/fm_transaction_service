@@ -11,8 +11,9 @@ from apps.modules.category.application.exceptions import (
     CategoryAlreadyExistsError,
     CategoryLimitExceededError,
     CategoryNotFoundError,
+    CategoryTypeChangeForbiddenError,
 )
-from apps.modules.category.domain import MAX_CATEGORIES_PER_USER, Category
+from apps.modules.category.domain import MAX_CATEGORIES_PER_USER, Category, CategoryChanges
 from apps.shared import apps_types
 from tests.modules.category.fakes import FakeCategoryUnitOfWork, InMemoryCategoryRepo
 
@@ -20,6 +21,7 @@ OWNER = uuid4()
 STRANGER = uuid4()
 INCOME = apps_types.TransactionType.INCOME
 OUTCOME = apps_types.TransactionType.OUTCOME
+NEW_PLAN = 5
 
 
 @pytest.fixture
@@ -158,23 +160,59 @@ async def test_create_locks_user_categories_before_checks(
     assert categories.locked_users == [OWNER]
 
 
-async def test_update_own_category(uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo) -> None:
-    """Свою статью можно изменить."""
-    category = await _add_category(categories, OWNER)
+async def _add(
+    categories: InMemoryCategoryRepo,
+    name: str,
+    category_type: apps_types.TransactionType = OUTCOME,
+    user_uid: apps_types.UserUID = OWNER,
+) -> Category:
+    category = Category.create(
+        name=name, user_uid=user_uid, money_plan=1000, category_type=category_type, description="Описание"
+    )
+    await categories.create(category)
+    return category
 
-    await UpdateCommandHandler(uow).handle(
-        user_uid=OWNER,
-        category_uid=category.uid,
-        name="Продукты",
-        money_plan=2000,
-        category_type=OUTCOME,
-        description="Магазин у дома",
+
+async def test_update_changes_only_given_fields(uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo) -> None:
+    """Частичное изменение: меняются только переданные поля, команда возвращает статью после изменения."""
+    category = await _add(categories, "Еда")
+
+    updated = await UpdateCommandHandler(uow).handle(
+        user_uid=OWNER, category_uid=category.uid, changes=CategoryChanges(name="Продукты")
     )
 
-    updated = categories.items[category.uid]
-    assert (updated.name, updated.money_plan, updated.description) == ("Продукты", 2000, "Магазин у дома")
-    assert updated.user_uid == OWNER
+    assert updated == category.model_copy(update={"name": "Продукты"})
+    assert categories.items[category.uid] == updated
     assert uow.committed
+
+
+@pytest.mark.parametrize(
+    ("changes", "expected"),
+    [
+        ({"money_plan": None}, {"money_plan": None}),
+        ({"money_plan": 0}, {"money_plan": 0}),
+        ({"description": None}, {"description": None}),
+        (
+            {"name": "Кафе", "money_plan": 300, "description": "Обеды"},
+            {"name": "Кафе", "money_plan": 300, "description": "Обеды"},
+        ),
+    ],
+    ids=["план очищен", "план 0 — не null", "описание очищено", "несколько полей"],
+)
+async def test_update_null_clears_and_zero_is_kept(
+    uow: FakeCategoryUnitOfWork,
+    categories: InMemoryCategoryRepo,
+    changes: dict[str, object],
+    expected: dict[str, object],
+) -> None:
+    """`null` очищает план и описание, `0` в плане остаётся нулём."""
+    category = await _add(categories, "Еда")
+
+    await UpdateCommandHandler(uow).handle(
+        user_uid=OWNER, category_uid=category.uid, changes=CategoryChanges.model_validate(changes)
+    )
+
+    assert categories.items[category.uid] == category.model_copy(update=expected)
 
 
 @pytest.mark.parametrize("category_owner", [STRANGER, None], ids=["чужая статья", "несуществующая статья"])
@@ -182,24 +220,123 @@ async def test_update_foreign_or_missing_category_is_not_found(
     uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo, category_owner: apps_types.UserUID | None
 ) -> None:
     """Чужую статью изменить нельзя, ответ — как на несуществующую; данные не меняются."""
-    foreign = await _add_category(categories, category_owner) if category_owner else None
+    foreign = await _add(categories, "Еда", user_uid=category_owner) if category_owner else None
     category_uid = foreign.uid if foreign else uuid4()
 
     with pytest.raises(CategoryNotFoundError) as exc_info:
         await UpdateCommandHandler(uow).handle(
-            user_uid=OWNER,
-            category_uid=category_uid,
-            name="Взлом",
-            money_plan=0,
-            category_type=INCOME,
-            description=None,
+            user_uid=OWNER, category_uid=category_uid, changes=CategoryChanges(name="Взлом")
         )
 
     assert "не найдена" in exc_info.value.msg
-
     if foreign:
         assert categories.items[foreign.uid] == foreign
     assert not uow.committed
+
+
+async def test_update_to_name_of_other_category_is_conflict(
+    uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo
+) -> None:
+    """Переименование в название другой статьи того же типа — `CategoryAlreadyExistsError`, ничего не меняется."""
+    category = await _add(categories, "Еда")
+    await _add(categories, "Кафе")
+
+    with pytest.raises(CategoryAlreadyExistsError):
+        await UpdateCommandHandler(uow).handle(
+            user_uid=OWNER, category_uid=category.uid, changes=CategoryChanges(name="Кафе")
+        )
+
+    assert categories.items[category.uid] == category
+    assert not uow.committed
+
+
+async def test_update_type_into_existing_name_is_conflict(
+    uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo
+) -> None:
+    """Смена типа, после которой название совпадёт со статьёй нового типа, — тоже дубликат."""
+    category = await _add(categories, "Бонус", OUTCOME)
+    await _add(categories, "Бонус", INCOME)
+
+    with pytest.raises(CategoryAlreadyExistsError):
+        await UpdateCommandHandler(uow).handle(
+            user_uid=OWNER, category_uid=category.uid, changes=CategoryChanges(category_type=INCOME)
+        )
+
+    assert not uow.committed
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [{"name": "Еда"}, {"name": "Кафе", "category_type": INCOME}],
+    ids=["своё же название", "название статьи другого типа"],
+)
+async def test_update_name_not_duplicate(
+    uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo, changes: dict[str, object]
+) -> None:
+    """Своё же название и название статьи другого типа — не дубликат; статьи другого пользователя не мешают."""
+    category = await _add(categories, "Еда")
+    await _add(categories, "Кафе", OUTCOME)
+    await _add(categories, "Кафе", INCOME, user_uid=STRANGER)
+
+    await UpdateCommandHandler(uow).handle(
+        user_uid=OWNER, category_uid=category.uid, changes=CategoryChanges.model_validate(changes)
+    )
+
+    assert categories.items[category.uid] == category.model_copy(update=changes)
+    assert uow.committed
+
+
+async def test_update_type_with_transactions_is_forbidden(
+    uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo
+) -> None:
+    """Тип статьи, по которой есть транзакции, сменить нельзя (`FM-400101`); статья не меняется."""
+    category = await _add(categories, "Еда")
+    categories.with_transactions.add(category.uid)
+
+    with pytest.raises(CategoryTypeChangeForbiddenError) as exc_info:
+        await UpdateCommandHandler(uow).handle(
+            user_uid=OWNER, category_uid=category.uid, changes=CategoryChanges(name="Зарплата", category_type=INCOME)
+        )
+
+    assert exc_info.value.code == "FM-400101"
+    assert categories.items[category.uid] == category
+    assert not uow.committed
+
+
+async def test_update_type_without_transactions(uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo) -> None:
+    """У статьи без транзакций тип меняется."""
+    category = await _add(categories, "Еда")
+
+    await UpdateCommandHandler(uow).handle(
+        user_uid=OWNER, category_uid=category.uid, changes=CategoryChanges(category_type=INCOME)
+    )
+
+    assert categories.items[category.uid].category_type == INCOME
+
+
+async def test_update_same_type_with_transactions(
+    uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo
+) -> None:
+    """Переданный тип, совпадающий с текущим, — не смена типа: статья с транзакциями меняется."""
+    category = await _add(categories, "Еда")
+    categories.with_transactions.add(category.uid)
+
+    await UpdateCommandHandler(uow).handle(
+        user_uid=OWNER, category_uid=category.uid, changes=CategoryChanges(category_type=OUTCOME, money_plan=NEW_PLAN)
+    )
+
+    assert categories.items[category.uid].money_plan == NEW_PLAN
+
+
+async def test_update_locks_user_categories(uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo) -> None:
+    """Проверка дубликата — под блокировкой статей пользователя, как при создании."""
+    category = await _add(categories, "Еда")
+
+    await UpdateCommandHandler(uow).handle(
+        user_uid=OWNER, category_uid=category.uid, changes=CategoryChanges(name="Кафе")
+    )
+
+    assert categories.locked_users == [OWNER]
 
 
 async def test_delete_own_category(uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo) -> None:

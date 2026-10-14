@@ -195,12 +195,10 @@ async def test_move_own_transaction_to_foreign_category(
 
 
 async def test_update_foreign_category(client: AsyncClient, seed: Seed, user_a: User, user_b: User) -> None:
-    """PATCH /category: чужая статья — 404, у A ничего не меняется."""
+    """PATCH /categories/{uid}: чужая статья — 404, у A ничего не меняется."""
     before = await _categories(client, user_a)
 
-    response = await client.patch(
-        "/category", params={"category_uid": seed.category_uid}, headers=user_b.headers, json=CATEGORY_UPDATE
-    )
+    response = await client.patch(f"/categories/{seed.category_uid}", headers=user_b.headers, json=CATEGORY_UPDATE)
 
     _assert_not_found(response)
     assert await _categories(client, user_a) == before
@@ -237,8 +235,9 @@ async def test_owner_can_update_and_delete_own_data(client: AsyncClient, seed: S
     [transaction] = response.json()["content"]
     assert (transaction["money_sum"], transaction["description"]) == (999, "Изменено")
 
+    # Без смены типа: по статье есть транзакция, тип такой статьи не меняется (FM-400101)
     response = await client.patch(
-        "/category", params={"category_uid": seed.category_uid}, headers=user_a.headers, json=CATEGORY_UPDATE
+        f"/categories/{seed.category_uid}", headers=user_a.headers, json={"name": "Изменено", "money_plan": 1}
     )
     assert response.status_code == status.HTTP_200_OK, response.text
     [category] = await _categories(client, user_a)

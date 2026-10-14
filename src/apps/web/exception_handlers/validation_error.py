@@ -135,11 +135,14 @@ def setup_validation_exception_handlers(app: FastAPI) -> None:
     # когда появится первый подкласс с собственным кодом.
     @app.exception_handler(BaseCustomValidationError)
     async def custom_validation_exception_handler(request: Request, exc: BaseCustomValidationError) -> JSONResponse:
-        instance = request.url.path
-        return ValidationErrorResponseSchema(
-            instance=instance,
+        # Собственный код ошибки (`FM-400101`) — через from_error, как у остальных доменных ошибок; без него
+        # общий код 400, а не FM-422000 по умолчанию схемы ответа
+        return ValidationErrorResponseSchema.from_error(
+            request,
+            exc,
             status=status.HTTP_400_BAD_REQUEST,
-            detail=exc.msg,
+            code="FM-400000",
+            type="/help-center?helpSectionId=errors#400",
             validation=[],
         ).json_response()
 

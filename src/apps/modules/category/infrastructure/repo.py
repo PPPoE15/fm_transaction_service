@@ -68,14 +68,21 @@ class Repo(AbstractCategoryRepo, BaseSqlAlchemyRepo):
         category = (await self._session.scalars(stmt)).one_or_none()
         return builders.build(category) if category else None
 
-    # TODO(FM-4): уникальное ограничение названия (FM-41) действует и на изменение статьи, но ни
-    # `UpdateCommandHandler`, ни `update` (merge, ошибка всплывает на commit) дубликат не проверяют и `IntegrityError`
-    # не переводят: старый `PATCH /category` с названием и типом другой статьи пользователя даёт 500. В
-    # `PATCH /categories/{uid}` проверять дубликат в команде (под `lock_user_categories`) и переводить нарушение
-    # в 409 `FM-409101`, как в `create`.
+    async def has_transactions(self, category_uid: apps_types.CategoryUID) -> bool:
+        # Через связь статьи по имени класса: модуль статей не импортирует модуль транзакций (NOTE(FM-30) в orm.py)
+        stmt = select(orm.Category.transactions.any()).where(orm.Category.uid == category_uid)
+        return bool((await self._session.scalars(stmt)).one_or_none())
+
     async def update(self, category_agg: Category) -> None:
         orm_category = builders.build_orm(category_agg=category_agg)
         await self._session.merge(orm_category)
+        # flush сразу, чтобы нарушение уникальности при гонке проявилось здесь, а не на commit.
+        try:
+            await self._session.flush()
+        except IntegrityError as exc:
+            if _is_unique_name_violation(exc):
+                raise CategoryAlreadyExistsError from exc
+            raise
 
     async def delete(self, category_uid: apps_types.CategoryUID) -> None:
         category = await self._session.get(orm.Category, category_uid)
