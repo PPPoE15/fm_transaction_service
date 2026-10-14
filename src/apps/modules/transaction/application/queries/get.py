@@ -47,6 +47,12 @@ class TransactionQueries(BaseQueries):
         select_stmt = self._apply_filters(base_stmt, filter_params)
 
         count_stmt = select_stmt.with_only_columns(func.count(), maintain_column_froms=True)
+        date_order = (
+            orm.Transaction.transaction_date.desc()
+            if filter_params.sort == "-transaction_date"
+            else orm.Transaction.transaction_date.asc()
+        )
+        select_stmt = select_stmt.order_by(date_order, orm.Transaction.uid.asc())
         select_stmt = self._apply_pagination(select_stmt, page_params)
 
         orm_transactions = (await self._session.scalars(select_stmt)).all()
@@ -101,7 +107,7 @@ class TransactionQueries(BaseQueries):
             schemas.TransactionSchema(
                 uid=transaction.uid,
                 transaction_date=transaction.transaction_date,
-                category=transaction.category.name,
+                category=schemas.CategoryRef(uid=transaction.category.uid, name=transaction.category.name),
                 money_sum=transaction.money_sum,
                 transaction_type=transaction.transaction_type,
                 description=transaction.description,
