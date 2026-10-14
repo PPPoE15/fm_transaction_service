@@ -79,6 +79,8 @@ class Repo(AbstractCategoryRepo, BaseSqlAlchemyRepo):
         stmt = select(orm.Category.transactions.any()).where(orm.Category.uid == category_uid)
         return bool((await self._session.scalars(stmt)).one_or_none())
 
+    # TODO(FM-45): старый `DELETE /category` не берёт `lock_user_categories`: если статью удалят между чтением
+    # в команде и `flush`, UPDATE затронет 0 строк — `StaleDataError` и 500 вместо 404. Решать с переделкой удаления.
     async def update(self, category_agg: Category) -> None:
         orm_category = builders.build_orm(category_agg=category_agg)
         await self._session.merge(orm_category)

@@ -131,8 +131,8 @@ def setup_validation_exception_handlers(app: FastAPI) -> None:
 
         return error_correct_form.json_response()
 
-    # TODO(FM-37): обработчик игнорирует `exc.code` (и forbidden_error тоже) — перевести на `from_error`,
-    # когда появится первый подкласс с собственным кодом.
+    # NOTE(FM-45): ответ 400 сохраняет `validation: []` от схемы ответа валидации — контракт `ErrorResponse`
+    # лишние поля допускает.
     @app.exception_handler(BaseCustomValidationError)
     async def custom_validation_exception_handler(request: Request, exc: BaseCustomValidationError) -> JSONResponse:
         # Собственный код ошибки (`FM-400101`) — через from_error, как у остальных доменных ошибок; без него

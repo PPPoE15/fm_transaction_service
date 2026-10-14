@@ -77,6 +77,9 @@ class Category(Base):
             description=description,
         )
 
+    # TODO(FM-45): правило «название и тип не бывают null» живёт только в схеме запроса (`not_null`) —
+    # `CategoryChanges(name=None)` из другого вызывающего запишет None, и БД ответит NOT NULL (500). Отклонять
+    # None для этих полей в `CategoryChanges`, а смену типа в команде проверять по `model_fields_set`.
     def update(self, changes: CategoryChanges) -> None:
         """
         Изменить статью: только поля, переданные в `changes` (частичное изменение).

@@ -56,6 +56,10 @@ class CreateCategorySchema(Base):
         return value or None
 
 
+# TODO(FM-45): ограничения плана (`ge`/`le`/`strict`) и `empty_description_is_none` скопированы из
+# `CreateCategorySchema` — вынести общий `Annotated` (вроде `MoneyPlanIn`), чтобы схемы не разошлись снова.
+# TODO(FM-45): сгенерированный `/openapi.json` расходится с контрактом: у `name` и `category_type` `anyOf [.., null]`,
+# нет `minProperties` и ответов 400/404/409 (у `POST /categories` ответы тоже не описаны). Источник правды — контракт.
 class UpdateCategorySchema(Base):
     """
     Схема частичного изменения статьи: те же ограничения полей, что при создании.

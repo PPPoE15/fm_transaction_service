@@ -57,6 +57,8 @@ class UpdateCommandHandler:
                 if await uow.repo.has_transactions(category.uid):
                     raise CategoryTypeChangeForbiddenError
             category.update(changes)
+            # TODO(FM-45): `get_by_name` выполняется и при изменении только плана или комментария — лишний SELECT
+            # под блокировкой; проверять дубликат, только если переданы название или тип.
             # NOTE(FM-41): дубликат — точное совпадение с учётом регистра, как и уникальное ограничение в БД
             same_name = await uow.repo.get_by_name(user_uid, category.name, category.category_type)
             if same_name is not None and same_name.uid != category.uid:
