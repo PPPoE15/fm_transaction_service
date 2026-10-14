@@ -68,8 +68,14 @@ class Repo(AbstractCategoryRepo, BaseSqlAlchemyRepo):
         category = (await self._session.scalars(stmt)).one_or_none()
         return builders.build(category) if category else None
 
+    async def lock_category(self, category_uid: apps_types.CategoryUID) -> None:
+        # FOR UPDATE конфликтует с FOR KEY SHARE, который берёт вставка транзакции (проверка внешнего ключа): ждём её
+        # завершения, и следующий запрос в READ COMMITTED уже видит закоммиченную транзакцию.
+        await self._session.execute(select(orm.Category.uid).where(orm.Category.uid == category_uid).with_for_update())
+
     async def has_transactions(self, category_uid: apps_types.CategoryUID) -> bool:
         # Через связь статьи по имени класса: модуль статей не импортирует модуль транзакций (NOTE(FM-30) в orm.py)
+        # NOTE(FM-45): видит только закоммиченные транзакции — вызывать после `lock_category`
         stmt = select(orm.Category.transactions.any()).where(orm.Category.uid == category_uid)
         return bool((await self._session.scalars(stmt)).one_or_none())
 

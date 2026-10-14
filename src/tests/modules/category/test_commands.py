@@ -328,6 +328,19 @@ async def test_update_same_type_with_transactions(
     assert categories.items[category.uid].money_plan == NEW_PLAN
 
 
+async def test_update_type_locks_category_row_before_checking_transactions(
+    uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo
+) -> None:
+    """Смена типа: строка статьи блокируется до проверки транзакций, иначе параллельная вставка транзакции не видна."""
+    category = await _add(categories, "Еда")
+
+    await UpdateCommandHandler(uow).handle(
+        user_uid=OWNER, category_uid=category.uid, changes=CategoryChanges(category_type=INCOME)
+    )
+
+    assert categories.calls == [f"lock_category {category.uid}", f"has_transactions {category.uid}"]
+
+
 async def test_update_locks_user_categories(uow: FakeCategoryUnitOfWork, categories: InMemoryCategoryRepo) -> None:
     """Проверка дубликата — под блокировкой статей пользователя, как при создании."""
     category = await _add(categories, "Еда")

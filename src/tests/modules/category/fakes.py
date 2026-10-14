@@ -16,6 +16,8 @@ class InMemoryCategoryRepo(AbstractCategoryRepo):
         self.locked_users: list[apps_types.UserUID] = []
         # Статьи, по которым есть транзакции: транзакции живут в другом модуле, фейку хватает их наличия
         self.with_transactions: set[apps_types.CategoryUID] = set()
+        # Порядок обращений, важных для гонок: блокировка строки статьи должна идти до проверки транзакций
+        self.calls: list[str] = []
 
     async def create(self, category: Category) -> None:
         self.items[category.uid] = category.model_copy()
@@ -37,7 +39,11 @@ class InMemoryCategoryRepo(AbstractCategoryRepo):
                 return category.model_copy()
         return None
 
+    async def lock_category(self, category_uid: apps_types.CategoryUID) -> None:
+        self.calls.append(f"lock_category {category_uid}")
+
     async def has_transactions(self, category_uid: apps_types.CategoryUID) -> bool:
+        self.calls.append(f"has_transactions {category_uid}")
         return category_uid in self.with_transactions
 
     async def update(self, category_agg: Category) -> None:

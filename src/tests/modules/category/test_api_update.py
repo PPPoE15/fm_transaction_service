@@ -1,6 +1,7 @@
 """`PATCH /categories/{uid}` на настоящем Postgres: частичное изменение, валидация, дубликат, смена типа и гонки."""
 
 import asyncio
+from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -12,6 +13,7 @@ from starlette import status
 from apps.modules.category.application.exceptions import CategoryAlreadyExistsError
 from apps.modules.category.domain import Category, CategoryChanges
 from apps.modules.category.infrastructure.repo import Repo
+from apps.modules.transaction import TransactionORM
 from apps.shared import apps_types
 from apps.shared.db.session import async_session_factory
 from tests.conftest import TokenFactory
@@ -192,6 +194,39 @@ async def test_type_change_with_transactions_is_forbidden(
     assert await _list(client, headers) == [created]
     response = await _patch(client, headers, created["uid"], {"category_type": "outcome", "money_plan": 1})
     assert response.status_code == status.HTTP_200_OK, response.text
+
+
+@pytest.mark.db
+async def test_type_change_waits_for_uncommitted_transaction(
+    db_engine: AsyncEngine, client: AsyncClient, headers: dict[str, str], owner: UUID
+) -> None:
+    """
+    Транзакция, вставленная, но ещё не закоммиченная, задерживает смену типа; после коммита — 400 `FM-400101`.
+
+    Без блокировки строки статьи проверка транзакций не видит незакоммиченную вставку, и обе операции проходят:
+    расходная транзакция оказывается в статье дохода.
+    """
+    created = await _create(client, headers)
+    async with async_session_factory() as session:
+        session.add(
+            TransactionORM(
+                uid=uuid4(),
+                user_uid=owner,
+                transaction_date=datetime(2026, 10, 1, 12),  # noqa: DTZ001 — колонка без часового пояса
+                category_uid=UUID(created["uid"]),
+                money_sum=100,
+                transaction_type=OUTCOME,
+                description="Обед",
+            )
+        )
+        await session.flush()
+        patch = asyncio.create_task(_patch(client, headers, created["uid"], {"category_type": "income"}))
+        await asyncio.sleep(0.5)
+        assert not patch.done(), "смена типа не ждёт незакоммиченную транзакцию"
+        await session.commit()
+
+    _assert_error(await patch, status.HTTP_400_BAD_REQUEST, "FM-400101")
+    assert await _list(client, headers) == [created]
 
 
 @pytest.mark.db

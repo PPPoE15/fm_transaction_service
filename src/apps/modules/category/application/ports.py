@@ -57,6 +57,18 @@ class AbstractCategoryRepo(abc.ABC):
         """
 
     @abc.abstractmethod
+    async def lock_category(self, category_uid: apps_types.CategoryUID) -> None:
+        """
+        Заблокировать строку статьи до конца транзакции единицы работы.
+
+        Нужна перед `has_transactions` при смене типа: вставка транзакции держит на строке статьи блокировку
+        внешнего ключа, и без ожидания её завершения незакоммиченная транзакция не видна проверке.
+
+        Args:
+            category_uid: UID статьи.
+        """
+
+    @abc.abstractmethod
     async def has_transactions(self, category_uid: apps_types.CategoryUID) -> bool:
         """
         Есть ли транзакции по статье.

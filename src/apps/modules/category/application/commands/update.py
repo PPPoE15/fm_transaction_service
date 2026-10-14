@@ -48,8 +48,14 @@ class UpdateCommandHandler:
             await uow.repo.lock_user_categories(user_uid)
             category = await get_own_category(uow.repo, user_uid, category_uid)
             type_changed = changes.category_type is not None and changes.category_type != category.category_type
-            if type_changed and await uow.repo.has_transactions(category.uid):
-                raise CategoryTypeChangeForbiddenError
+            if type_changed:
+                # Строка статьи блокируется до проверки: иначе параллельно вставляемая транзакция не видна, и обе
+                # операции проходят — расходная транзакция в статье дохода
+                # NOTE(FM-45): обратный порядок (тип сменился и закоммичен до вставки транзакции) закрывает проверка
+                # типа при создании транзакции — `FM-400202` в FM-5, пока не реализована.
+                await uow.repo.lock_category(category.uid)
+                if await uow.repo.has_transactions(category.uid):
+                    raise CategoryTypeChangeForbiddenError
             category.update(changes)
             # NOTE(FM-41): дубликат — точное совпадение с учётом регистра, как и уникальное ограничение в БД
             same_name = await uow.repo.get_by_name(user_uid, category.name, category.category_type)
