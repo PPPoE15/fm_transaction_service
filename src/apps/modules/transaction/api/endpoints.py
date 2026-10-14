@@ -21,7 +21,7 @@ router = APIRouter(tags=["Транзакции"])
     description="Получить список транзакций пользователя",
 )
 async def get_transactions(
-    page_params: Annotated[PageParams, Depends()],
+    page_params: Annotated[q_schemas.TransactionPageParams, Depends()],
     user: Annotated[UserInfo, Depends(get_user_info)],
     filter_params: Annotated[q_schemas.TransactionFilters, Depends()],
 ) -> BaseListResponseSchema[q_schemas.TransactionSchema]:
