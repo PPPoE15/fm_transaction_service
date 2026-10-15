@@ -26,7 +26,15 @@ async def root_client() -> AsyncIterator[AsyncClient]:
         yield http_client
 
 
-@pytest.mark.parametrize("path", ["/transaction/categories", "/transaction/transactions"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/transaction/categories",
+        "/transaction/transactions",
+        "/transaction/budget-structure",
+        "/transaction/starting-balance",
+    ],
+)
 async def test_endpoints_are_under_prefix(root_client: AsyncClient, path: str) -> None:
     """Эндпоинты доступны по пути с префиксом `/transaction`."""
     response = await root_client.get(path)
@@ -34,14 +42,12 @@ async def test_endpoints_are_under_prefix(root_client: AsyncClient, path: str) -
     assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.text
 
 
-# TODO(FM-35): после выкатки UI с nginx без срезания /transaction (PPPoE15/financial_manager_ui#5) пути без
-# префикса убираются из main.py — тест меняется на 404.
-@pytest.mark.parametrize("path", ["/categories", "/transactions"])
-async def test_endpoints_without_prefix_work_during_transition(root_client: AsyncClient, path: str) -> None:
-    """Переходный режим: старый nginx срезает /transaction, поэтому пути без префикса пока работают."""
+@pytest.mark.parametrize("path", ["/categories", "/transactions", "/budget-structure", "/starting-balance"])
+async def test_endpoints_without_prefix_are_not_found(root_client: AsyncClient, path: str) -> None:
+    """Эндпоинты без префикса отсутствуют независимо от наличия токена."""
     response = await root_client.get(path)
 
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.text
+    assert response.status_code == status.HTTP_404_NOT_FOUND, response.text
 
 
 async def test_openapi_paths_have_prefix(root_client: AsyncClient) -> None:
