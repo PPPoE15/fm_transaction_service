@@ -41,7 +41,7 @@ make down_all
 make test_downgrade_migrations_compose
 ```
 
-Note: the root `docker-compose.yaml` and `Makefile`'s `build`/`up_all`/`down_all` targets reference `docker/docker-compose.yml`, which is the actual dev compose file (builds via `docker/Dockerfile`, target `development-env`). The root `Dockerfile` (targets `dev`/`master`) is what CI (`.github/workflows/docker-image-*.yml`) builds and pushes to Docker Hub as `fm_transaction_service:dev`/`:master`.
+Note: the root `docker-compose.yaml` and `Makefile`'s `build`/`up_all`/`down_all` targets reference `docker/docker-compose.yml`, which is the actual dev compose file (builds via `docker/Dockerfile`, target `development-env`). The root `Dockerfile` (targets `dev`/`master`) is what CI (`.github/workflows/lint-and-test.yml`, job `publish` after successful checks) builds and pushes to Docker Hub as `fm_transaction_service:<target>-<full SHA>`. Deployment metadata pins the digest; see README.md.
 
 Tests: `src/tests/__init__.py` sets up the test env (generates an RSA key pair, points `WEB_PUBLIC_KEY_PATH` at the public key, dummy `DB_*`) before any `apps` import, because settings are read at import time. `src/tests/conftest.py` has `make_token` (RS256 tokens like the auth service issues), `client` (httpx over the ASGI app) and the `db` fixtures: a session-scoped Postgres container with `alembic upgrade head`, and `db_engine`, which rebinds `async_session_factory` to it and truncates tables after each test. Without Docker the `db` tests fail with an explicit message rather than being skipped. Command handlers are unit-tested with plain in-memory fakes from `src/tests/modules/<module>/fakes.py`.
 
