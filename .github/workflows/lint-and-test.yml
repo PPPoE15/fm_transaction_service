@@ -5,6 +5,9 @@ on:
     branches: ["dev", "master"]
   pull_request: {}
 
+permissions:
+  contents: read
+
 jobs:
 
   lint-and-test:
@@ -13,6 +16,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.sha }}
+        persist-credentials: false
 
     - uses: actions/setup-python@v5
       with:
@@ -37,3 +43,40 @@ jobs:
       run: poetry run pytest
       env:
         PYTHONPATH: src
+
+  publish:
+    needs: lint-and-test
+    if: >-
+      ${{ github.event_name == 'push' && needs.lint-and-test.result == 'success' &&
+          (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/master') }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: publish-${{ github.repository }}-${{ github.ref_name }}
+      cancel-in-progress: false
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
+      sha: ${{ steps.publish.outputs.sha }}
+      environment: ${{ steps.publish.outputs.environment }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.sha }}
+        persist-credentials: false
+    - uses: docker/setup-buildx-action@v3
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Publish verified image
+      id: publish
+      env:
+        CI_RESULT: ${{ needs.lint-and-test.result }}
+        IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}
+      run: bash scripts/publish-image.sh
+    - name: Save deployment metadata
+      uses: actions/upload-artifact@v4
+      with:
+        name: publication-${{ github.ref_name }}-${{ github.sha }}-${{ github.run_attempt }}
+        path: publication.json
+        if-no-files-found: error
