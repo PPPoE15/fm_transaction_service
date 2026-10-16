@@ -45,3 +45,15 @@ Docker CLI. Это проверки конфигурации и скрипта, 
 публикация, artifact и совпадение SHA/target/digest. На тестовой ветке workflow
 можно проверить ошибку обязательной проверки и отмену CI: `publish` не запускается.
 Не ломайте рабочую `dev`/`master` ради такой проверки.
+
+## SSH deployment (FM-66)
+
+После успешной публикации workflow передаёт digest серверному контроллеру fm_devops
+через SSH. Push в dev/master использует соответствующий GitHub Environment.
+Master требует required reviewer в настройках окружения.
+Подготовка SSH, environment secrets и процедура восстановления:
+[fm_devops deployment guide](https://github.com/PPPoE15/fm_devops/blob/dev/docs/deployment.md).
+На сервере должен быть установлен контроллер FM-66 и выполнен bootstrap.
+Повторять неудачный деплой через Re-run failed jobs, сохраняя digest успешной публикации.
+SSH-клиент и тесты синхронны в трёх репозиториях: scripts/deploy-ssh.py,
+scripts/tests/test_deploy_ssh.py. Проверка: python3 -m unittest discover -s scripts/tests -p test_deploy_ssh.py -v.

@@ -39,6 +39,9 @@ jobs:
     - name: Mypy
       run: poetry run mypy --config-file=pyproject.toml src/
 
+    - name: Test SSH deployment client
+      run: python3 -m unittest discover -s scripts/tests -p test_deploy_ssh.py -v
+
     - name: Pytest
       run: poetry run pytest
       env:
@@ -54,6 +57,7 @@ jobs:
       group: publish-${{ github.repository }}-${{ github.ref_name }}
       cancel-in-progress: false
     outputs:
+      image: ${{ steps.publish.outputs.image }}
       digest: ${{ steps.publish.outputs.digest }}
       sha: ${{ steps.publish.outputs.sha }}
       environment: ${{ steps.publish.outputs.environment }}
@@ -66,13 +70,13 @@ jobs:
     - name: Log in to Docker Hub
       uses: docker/login-action@v3
       with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        username: ${{ vars.DOCKERHUB_USERNAME || 'pppoe15' }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Publish verified image
       id: publish
       env:
         CI_RESULT: ${{ needs.lint-and-test.result }}
-        IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}
+        IMAGE: ${{ vars.DOCKERHUB_USERNAME || 'pppoe15' }}/${{ github.event.repository.name }}
       run: bash scripts/publish-image.sh
     - name: Save deployment metadata
       uses: actions/upload-artifact@v4
@@ -80,3 +84,27 @@ jobs:
         name: publication-${{ github.ref_name }}-${{ github.sha }}-${{ github.run_attempt }}
         path: publication.json
         if-no-files-found: error
+
+  deploy:
+    needs: publish
+    if: ${{ success() && github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'master') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Deploy published digest over verified SSH
+        env:
+          DEPLOY_ENVIRONMENT: ${{ github.ref_name }}
+          DEPLOY_COMPONENT: transaction
+          DEPLOY_IMAGE: ${{ needs.publish.outputs.image }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_ROOT: ${{ secrets.DEPLOY_ROOT }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: python3 scripts/deploy-ssh.py
