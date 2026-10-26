@@ -221,13 +221,13 @@ def test_module_dependency_graph() -> None:
     """
     Транзакции зависят от статей, статьи о транзакциях не знают.
 
-    Отчёты (только чтение) читают статьи и транзакции, от них не зависит никто.
+    Отчёты (только чтение) читают статьи, транзакции и стартовый остаток; от них не зависит никто.
     Стартовый остаток ни от кого не зависит.
     """
     deps = _module_dependencies()
     assert deps == {
         "category": set(),
-        "reports": {"category", "transaction"},
+        "reports": {"category", "transaction", "starting_balance"},
         "starting_balance": set(),
         "transaction": {"category"},
     }
