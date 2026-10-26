@@ -38,7 +38,7 @@ def test_workflow_gates_publication() -> None:
 
 
 @pytest.mark.parametrize("target", ["dev", "master"])
-@pytest.mark.parametrize("registry", ["existing", "missing", "unavailable"])
+@pytest.mark.parametrize("registry", ["existing", "missing", "unavailable", "alias_failed"])
 def test_publication_script(tmp_path: Path, target: str, registry: str) -> None:
     """Оба target публикуются один раз, ошибки реестра останавливают процесс."""
     docker = tmp_path / "docker"
@@ -51,7 +51,9 @@ def test_publication_script(tmp_path: Path, target: str, registry: str) -> None:
         '    echo "ERROR: not found" >&2; exit 1\n'
         "  fi\n"
         '  printf \'"%s"\\n\' "$DIGEST"\n'
-        'elif [[ "$*" == *"buildx build"* ]]; then touch "$BUILT"; fi\n'
+        'elif [[ "$*" == *"buildx build"* ]]; then touch "$BUILT";\n'
+        'elif [[ "$*" == *"imagetools create"* && "$REGISTRY" == alias_failed ]]; then\n'
+        '  echo "alias update failed" >&2; exit 1; fi\n'
     )
     docker.chmod(0o755)
     env = {
@@ -82,11 +84,23 @@ def test_publication_script(tmp_path: Path, target: str, registry: str) -> None:
     if registry == "unavailable":
         assert result.returncode != 0
         assert "buildx build" not in (tmp_path / "calls").read_text()
+        assert "imagetools create" not in (tmp_path / "calls").read_text()
+        assert not (tmp_path / "publication.json").exists()
+        return
+    if registry == "alias_failed":
+        assert result.returncode != 0
+        assert "alias update failed" in result.stderr
+        assert not (tmp_path / "publication.json").exists()
+        assert not (tmp_path / "outputs").exists()
         return
     assert result.returncode == 0, result.stderr
     calls = (tmp_path / "calls").read_text()
     version = f"example/fm_transaction_service:{target}-{SHA}"
     assert version in calls
+    assert (
+        f"buildx imagetools create --prefer-index=false --tag example/fm_transaction_service:{target} "
+        f"example/fm_transaction_service@{DIGEST}"
+    ) in calls
     assert ("buildx build" in calls) == (registry == "missing")
     if registry == "missing":
         assert f"--target {target}" in calls
