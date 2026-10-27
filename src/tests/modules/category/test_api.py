@@ -276,3 +276,12 @@ async def test_list_is_sorted_by_name(db_engine: AsyncEngine, client: AsyncClien
         await _post(client, headers, {**BODY, "name": name})
 
     assert [item["name"] for item in await _list(client, headers)] == ["Аренда", "Еда", "Транспорт"]
+
+
+async def test_category_delete_route_is_removed(client: AsyncClient, make_token: TokenFactory) -> None:
+    """DELETE категории недоступен с токеном и без него и отсутствует в OpenAPI."""
+    for headers in ({}, {"Authorization": f"Bearer {make_token()}"}):
+        response = await client.delete("/category", params={"category_uid": str(uuid4())}, headers=headers)
+        assert response.status_code == status.HTTP_404_NOT_FOUND, response.text
+    response = await client.get("http://test/api/openapi.json")
+    assert "/transaction/category" not in response.json()["paths"]

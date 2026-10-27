@@ -8,6 +8,14 @@ class AbstractCategoryRepo(abc.ABC):
     """Абстрактный репозиторий."""
 
     @abc.abstractmethod
+    async def get_all_for_import(
+        self,
+        user_uid: apps_types.UserUID,
+        category_type: apps_types.TransactionType,
+    ) -> list[Category]:
+        """Прочитать категории типа, удерживая набор и строки от изменений до конца импорта."""
+
+    @abc.abstractmethod
     async def create(self, category: Category) -> None:
         """
         Создать категорию пользователя.

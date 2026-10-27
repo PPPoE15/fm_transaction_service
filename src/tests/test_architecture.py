@@ -222,12 +222,12 @@ def test_module_dependency_graph() -> None:
     Транзакции зависят от статей, статьи о транзакциях не знают.
 
     Отчёты (только чтение) читают статьи, транзакции и стартовый остаток; от них не зависит никто.
-    Стартовый остаток ни от кого не зависит.
+    Стартовый остаток ни от кого не зависит. Импорт использует публичный API транзакций (FM-93).
     """
     deps = _module_dependencies()
     assert deps == {
         "category": set(),
-        "import_export": set(),
+        "import_export": {"transaction"},
         "reports": {"category", "transaction", "starting_balance"},
         "starting_balance": set(),
         "transaction": {"category"},
