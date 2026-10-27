@@ -218,3 +218,11 @@ def test_unknown_xml_encoding() -> None:
     )
     exc = xlsx_error(data)
     assert exc.errors[0].reason == "invalid_structure"
+
+
+@pytest.mark.parametrize("amount", [1, 100, 1000000000])
+def test_amount_with_date_display_format(amount: int) -> None:
+    """Формат отображения даты в B не изменяет точное числовое значение суммы."""
+    data = workbook_bytes([[datetime.fromisoformat("2026-10-01"), amount, "Еда", ""]])
+    data = replace_part(data, "xl/worksheets/sheet1.xml", b'r="B2" t="n"', b'r="B2" s="1" t="n"')
+    assert parse_xlsx(data)[0].money_sum == amount

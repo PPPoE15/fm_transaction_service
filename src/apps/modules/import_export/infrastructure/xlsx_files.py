@@ -107,7 +107,7 @@ def _read_row(row: Element, parts: WorkbookParts, number: int) -> RawRecord:
             raise file_error()
         column = match[1]
         seen.add(column)
-        value = read_cell(cell, parts.strings, parts.date_styles, parts.mac_epoch)
+        value = read_cell(cell, parts.strings, parts.date_styles, parts.mac_epoch, date_column=column == "A")
         if column not in "ABCD" or len(column) != 1:
             if value.value not in (None, "") or value.formula:
                 raise file_error()

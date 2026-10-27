@@ -47,7 +47,14 @@ def numeric_value(text: str, *, date_style: bool, mac_epoch: bool) -> object:
     return epoch + timedelta(days=days)
 
 
-def read_cell(cell: Element, strings: list[str], date_styles: list[bool], mac_epoch: bool) -> RawCell:
+def read_cell(
+    cell: Element,
+    strings: list[str],
+    date_styles: list[bool],
+    mac_epoch: bool,
+    *,
+    date_column: bool,
+) -> RawCell:
     """Прочитать тип ячейки, не вычисляя формулы и не округляя числовые значения."""
     if cell.find(f"{NS}f") is not None:
         return RawCell(formula=True)
@@ -68,4 +75,4 @@ def read_cell(cell: Element, strings: list[str], date_styles: list[bool], mac_ep
     style = int(cell.get("s", "0"))
     if not 0 <= style < len(date_styles):
         raise file_error()
-    return RawCell(numeric_value(text, date_style=date_styles[style], mac_epoch=mac_epoch))
+    return RawCell(numeric_value(text, date_style=date_column and date_styles[style], mac_epoch=mac_epoch))
