@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from apps.modules.import_export.domain.errors import ImportFileError, ImportIssue, file_error
 from apps.modules.import_export.domain.models import (
     MAX_ERRORS,
@@ -5,9 +7,10 @@ from apps.modules.import_export.domain.models import (
     MAX_RECORDS,
     FileFormat,
     ParsedRecord,
+    RawRecord,
     TransactionKind,
 )
-from apps.modules.import_export.domain.validation import validate_record
+from apps.modules.import_export.domain.validation import FIELDS, normalize_category, validate_record
 from apps.modules.import_export.infrastructure.csv_files import read_csv
 from apps.modules.import_export.infrastructure.templates import XLSX_MEDIA_TYPE
 from apps.modules.import_export.infrastructure.xlsx_files import read_xlsx
@@ -28,36 +31,54 @@ def validate_file_type(content: bytes, filename: str, file_format: FileFormat, c
         raise ImportFileError(code="FM-415301", message="Формат файла не поддерживается")
 
 
-def parse_file(
+def read_file_records(
     content: bytes,
     *,
     transaction_type: TransactionKind,
     file_format: FileFormat,
     filename: str,
     content_type: str | None = None,
-) -> list[ParsedRecord]:
-    """
-    Разобрать файл без БД, возвратив записи только после проверки всего файла.
-
-    Вызывающий код FM-93 ограничивает поток загрузки до 5 МиБ, проверяет параметры HTTP,
-    затем сопоставляет категории и сохраняет результат атомарно. Здесь проверяется и размер готовых байтов.
-    """
+) -> list[RawRecord]:
+    """Проверить контейнер, структуру и ограничения всего файла до обращения к БД."""
     if len(content) > MAX_FILE_BYTES:
         raise ImportFileError(code="FM-413301", message="Размер файла превышает 5 МиБ")
     validate_file_type(content, filename, file_format, content_type)
     if not content:
         raise file_error(reason="empty_file")
     source = read_csv(content) if file_format == "csv" else read_xlsx(content, transaction_type)
-    records = []
-    errors: list[ImportIssue] = []
-    count = 0
+    records: list[RawRecord] = []
     for raw in source:
         if all(cell.value in (None, "") and not cell.formula for cell in raw.cells):
             continue
-        count += 1
-        if count > MAX_RECORDS:
+        if len(records) >= MAX_RECORDS:
             raise ImportFileError(code="FM-413302", message="В файле больше 10000 операций")
+        records.append(raw)
+    if not records:
+        raise file_error(reason="empty_file")
+    return records
+
+
+def validate_records(
+    raw_records: list[RawRecord],
+    category_matches: Callable[[str], int] | None = None,
+) -> list[ParsedRecord]:
+    """Объединить ошибки полей и категорий в порядке строк и колонок, без записи в БД."""
+    records = []
+    errors: list[ImportIssue] = []
+    for raw in raw_records:
         record, issues = validate_record(raw)
+        if category_matches is not None and not any(issue.field == "category" for issue in issues):
+            count = category_matches(normalize_category(raw.cells[2].value))
+            if count != 1:
+                issues.append(
+                    ImportIssue(
+                        raw.row,
+                        "category",
+                        "ambiguous_category" if count else "unknown_category",
+                        "Неоднозначная категория" if count else "Категория не найдена",
+                    )
+                )
+        issues.sort(key=_issue_order)
         errors.extend(issues[: MAX_ERRORS + 1 - len(errors)])
         if record is not None:
             records.append(record)
@@ -68,6 +89,29 @@ def parse_file(
             errors=tuple(errors[:MAX_ERRORS]),
             errors_truncated=len(errors) > MAX_ERRORS,
         )
-    if not count:
-        raise file_error(reason="empty_file")
     return records
+
+
+def parse_file(
+    content: bytes,
+    *,
+    transaction_type: TransactionKind,
+    file_format: FileFormat,
+    filename: str,
+    content_type: str | None = None,
+) -> list[ParsedRecord]:
+    """Разобрать и проверить файл без БД, сохранив публичный интерфейс парсера."""
+    return validate_records(
+        read_file_records(
+            content,
+            transaction_type=transaction_type,
+            file_format=file_format,
+            filename=filename,
+            content_type=content_type,
+        )
+    )
+
+
+def _issue_order(issue: ImportIssue) -> int:
+    """Вернуть порядок поля в строке шаблона."""
+    return FIELDS.index(issue.field)

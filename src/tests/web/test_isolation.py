@@ -209,10 +209,10 @@ async def test_update_foreign_category(client: AsyncClient, seed: Seed, user_a: 
 
 
 async def test_delete_foreign_category(client: AsyncClient, seed: Seed, user_a: User, user_b: User) -> None:
-    """DELETE /category: чужая статья — 404, статья и её транзакции остаются."""
+    """Удалённый DELETE /category возвращает 404; чужая статья и её транзакции остаются."""
     response = await client.delete("/category", params={"category_uid": seed.category_uid}, headers=user_b.headers)
 
-    _assert_not_found(response)
+    assert response.status_code == status.HTTP_404_NOT_FOUND, response.text
     assert [item["uid"] for item in await _categories(client, user_a)] == [seed.category_uid]
     assert [item["uid"] for item in await _transactions(client, user_a)] == [seed.transaction_uid]
 
@@ -228,7 +228,7 @@ async def test_create_category_is_visible_only_to_creator(
 
 
 async def test_owner_can_update_and_delete_own_data(client: AsyncClient, seed: Seed, user_a: User) -> None:
-    """Владелец меняет и удаляет свои транзакцию и статью — проверки не мешают законным операциям."""
+    """Владелец меняет свои данные и удаляет транзакцию; удаление категории через API недоступно."""
     response = await client.patch(
         "/transactions",
         params={"transaction_uid": seed.transaction_uid},
@@ -252,7 +252,7 @@ async def test_owner_can_update_and_delete_own_data(client: AsyncClient, seed: S
     )
     assert response.status_code == status.HTTP_200_OK, response.text
     response = await client.delete("/category", params={"category_uid": seed.category_uid}, headers=user_a.headers)
-    assert response.status_code == status.HTTP_200_OK, response.text
+    assert response.status_code == status.HTTP_404_NOT_FOUND, response.text
 
     assert await _transactions(client, user_a) == []
-    assert await _categories(client, user_a) == []
+    assert [item["uid"] for item in await _categories(client, user_a)] == [seed.category_uid]

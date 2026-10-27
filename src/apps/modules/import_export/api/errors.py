@@ -21,6 +21,8 @@ async def import_error_handler(request: Request, exc: ImportFileError) -> JSONRe
         content.update(
             imported_count=0, errors=[asdict(issue) for issue in exc.errors], errors_truncated=exc.errors_truncated
         )
+    if exc.code == "FM-503301":
+        content["outcome"] = "unknown"
     return JSONResponse(content, status_code=exc.status, media_type="application/problem+json")
 
 
