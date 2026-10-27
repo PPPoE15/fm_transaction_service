@@ -1,3 +1,5 @@
+import asyncio
+
 from apps.modules.import_export.application.parsing import read_file_records, validate_records
 from apps.modules.import_export.domain.models import FileFormat, TransactionKind
 from apps.modules.transaction import (
@@ -27,7 +29,8 @@ class ImportCommandHandler:
         content_type: str | None,
     ) -> int:
         """Проверить весь файл, владельца, тип и квоту; применить один commit."""
-        raw_records = read_file_records(
+        raw_records = await asyncio.to_thread(
+            read_file_records,
             content,
             transaction_type=transaction_type,
             file_format=file_format,
