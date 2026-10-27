@@ -54,6 +54,7 @@ def read_cell(
     mac_epoch: bool,
     *,
     date_column: bool,
+    default_style: int = 0,
 ) -> RawCell:
     """Прочитать тип ячейки, не вычисляя формулы и не округляя числовые значения."""
     if cell.find(f"{NS}f") is not None:
@@ -72,7 +73,7 @@ def read_cell(
         return RawCell(strings[index])
     if kind != "n":
         return RawCell(text if kind == "str" else False)
-    style = int(cell.get("s", "0"))
+    style = int(cell.get("s", str(default_style)))
     if not 0 <= style < len(date_styles):
         raise file_error()
     return RawCell(numeric_value(text, date_style=date_column and date_styles[style], mac_epoch=mac_epoch))

@@ -226,3 +226,42 @@ def test_amount_with_date_display_format(amount: int) -> None:
     data = workbook_bytes([[datetime.fromisoformat("2026-10-01"), amount, "Еда", ""]])
     data = replace_part(data, "xl/worksheets/sheet1.xml", b'r="B2" t="n"', b'r="B2" s="1" t="n"')
     assert parse_xlsx(data)[0].money_sum == amount
+
+
+def inherited_date_file(column_format: str | None, row_format: str | None, cell_style: int | None) -> bytes:
+    """Создать числовую дату с форматом колонки/строки и необязательным стилем ячейки."""
+    workbook = Workbook()
+    sheet = workbook.active
+    assert sheet is not None
+    sheet.title = "Расходы"
+    sheet.append(["Дата", "Сумма", "Категория", "Описание"])
+    sheet.append([46296, 1, "Еда", ""])
+    if column_format:
+        sheet.column_dimensions["A"].number_format = column_format
+    if row_format:
+        sheet.row_dimensions[2].number_format = row_format
+    stream = BytesIO()
+    workbook.save(stream)
+    workbook.close()
+    content = stream.getvalue()
+    if cell_style is not None:
+        content = replace_part(
+            content, "xl/worksheets/sheet1.xml", b'r="A2" t="n"', f'r="A2" s="{cell_style}" t="n"'.encode()
+        )
+    return content
+
+
+@pytest.mark.parametrize(
+    ("column_format", "row_format"), [("dd.mm.yyyy", None), (None, "dd.mm.yyyy"), ("@", "dd.mm.yyyy")]
+)
+def test_inherited_date_style(column_format: str | None, row_format: str | None) -> None:
+    """Стиль строки и колонки применяется при отсутствии собственного стиля A2."""
+    records = parse_xlsx(inherited_date_file(column_format, row_format, None))
+    assert records[0].transaction_date == datetime.fromisoformat("2026-10-01")
+
+
+@pytest.mark.parametrize(("row_format", "cell_style"), [("@", None), (None, 0)])
+def test_explicit_style_overrides_date_column(row_format: str | None, cell_style: int | None) -> None:
+    """Явный формат ячейки имеет приоритет над строкой, а строка — над колонкой."""
+    exc = xlsx_error(inherited_date_file("dd.mm.yyyy", row_format, cell_style), "FM-422303")
+    assert exc.errors[0].reason == "invalid_date"

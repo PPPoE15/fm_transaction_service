@@ -13,7 +13,6 @@ REL_NS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 DOC_REL_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
 CELL_REFERENCE = re.compile(r"([A-Z]+)([1-9][0-9]*)")
 MAX_SHEET_ROW = 1048576
-MAX_SHEET_COLUMN = 16384
 WORKBOOK_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
 
 
@@ -25,6 +24,7 @@ class WorkbookParts:
     strings: list[str]
     date_styles: list[bool]
     mac_epoch: bool
+    column_style: int
 
 
 def _relationships(root: Element, owner: str) -> dict[str, tuple[str, str]]:
@@ -50,6 +50,15 @@ def _part_by_type(relations: dict[str, tuple[str, str]], kind: str) -> str | Non
     if len(targets) > 1:
         raise file_error()
     return targets[0] if targets else None
+
+
+def _date_column_style(sheet: Element) -> int:
+    """Найти формат колонки A, который наследуют ячейки без собственного формата."""
+    style = 0
+    for column in sheet.findall(f"{NS}cols/{NS}col"):
+        if int(column.attrib["min"]) <= 1 <= int(column.attrib["max"]):
+            style = int(column.get("style", "0"))
+    return style
 
 
 def _load_parts(content: bytes, transaction_type: TransactionKind) -> WorkbookParts:
@@ -94,6 +103,7 @@ def _load_parts(content: bytes, transaction_type: TransactionKind) -> WorkbookPa
         strings=[text_content(item) for item in xml[strings_path].findall(f"{NS}si")] if strings_path else [],
         date_styles=read_date_styles(xml[styles_path] if styles_path else None),
         mac_epoch=properties is not None and properties.get("date1904") in {"1", "true"},
+        column_style=_date_column_style(xml[sheet_path]),
     )
 
 
@@ -107,7 +117,14 @@ def _read_row(row: Element, parts: WorkbookParts, number: int) -> RawRecord:
             raise file_error()
         column = match[1]
         seen.add(column)
-        value = read_cell(cell, parts.strings, parts.date_styles, parts.mac_epoch, date_column=column == "A")
+        value = read_cell(
+            cell,
+            parts.strings,
+            parts.date_styles,
+            parts.mac_epoch,
+            date_column=column == "A",
+            default_style=int(row.get("s", str(parts.column_style))) if column == "A" else 0,
+        )
         if column not in "ABCD" or len(column) != 1:
             if value.value not in (None, "") or value.formula:
                 raise file_error()
