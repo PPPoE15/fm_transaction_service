@@ -105,3 +105,30 @@ Domain/application code raises typed exceptions from `apps.shared.exceptions` (`
 до момента запроса. Без стартовой суммы — `409 / FM-409203`; ошибки диапазона
 `422 / FM-422000` проверяются первыми. Ответ содержит `currency: RUB`, `unit: rubles`,
 `timezone: Europe/Moscow`. Таблицы и миграции не добавляются.
+
+
+### Импорт файлов (FM-92)
+
+`modules/import_export/` выдаёт `GET /import-export/templates/{transaction_type}?format=csv|xlsx`
+(с JWT, под общим префиксом `/transaction`) и предоставляет публичный `parse_file(content, *,
+transaction_type, file_format, filename, content_type=None) -> list[ParsedRecord]`.
+`ParsedRecord` содержит `row`, `transaction_date`, `money_sum`, `category_name`, `description`.
+Разбор не обращается к БД и не сохраняет операции. Сопоставление категорий с владельцем/типом,
+POST multipart, атомарное сохранение и лимиты HTTP-загрузки добавляются в FM-93.
+
+- `domain/`: сырые/нормализованные записи, правила полей, `ImportIssue` и `ImportFileError`.
+- `application/parsing.py`: проверка размера/типа файла, полный структурный разбор,
+  ограничение операций и ошибок. Ошибка структуры заменяет ошибки значений; частичный результат не возвращается.
+- `infrastructure/`: CSV, ограниченная распаковка ZIP, безопасный XML и чтение XLSX;
+  openpyxl используется для генерации шаблонов и распознавания форматов дат.
+  Числа XML читаются через Decimal, чтобы не терять дроби через float; обход идёт по существующим
+  XML-строкам, без доверия worksheet dimension. DTD/entities и внешние связи запрещены.
+- `api/`: выдача шаблонов и регистрация обработчика ошибок RFC 7807 при сборке web.
+  `Content-Disposition` открыт через CORS.
+
+Модуль не зависит от других модулей и не имеет ORM/UoW. Публичные экспорты:
+`parse_file`, `ParsedRecord`, `ImportIssue`, `ImportFileError`.
+Нормативный контракт: `fm-auto-dev/contracts/import-export.md` (FM-91).
+Вызывающий код обязан ограничить фактически прочитанный поток до передачи `bytes` парсеру;
+повторная проверка здесь ограничивает размер уже полученного файла 5 МиБ. Лимиты: 10 000
+операций, 100 ошибок, 1000 ZIP-элементов, 50 МиБ распакованных данных.
