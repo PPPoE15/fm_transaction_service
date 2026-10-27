@@ -49,5 +49,5 @@ def parse_xml(content: bytes) -> Element:
     """Прочитать XML без DTD, сущностей и обращений к внешним ресурсам."""
     try:
         return fromstring(content, forbid_dtd=True, forbid_entities=True, forbid_external=True)
-    except (ParseError, DefusedXmlException, ValueError) as exc:
+    except (ParseError, DefusedXmlException, ValueError, LookupError) as exc:
         raise file_error() from exc

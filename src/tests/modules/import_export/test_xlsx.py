@@ -206,3 +206,15 @@ def test_macro_relationship() -> None:
         workbook_bytes([["01.10.2026", 1, "Еда", ""]]), "xl/_rels/workbook.xml.rels", b'/styles"', b'/vbaProject"'
     )
     xlsx_error(data)
+
+
+def test_unknown_xml_encoding() -> None:
+    """Неизвестная XML-кодировка возвращает ошибку структуры вместо LookupError."""
+    data = replace_part(
+        workbook_bytes(),
+        "xl/worksheets/sheet1.xml",
+        b"<worksheet ",
+        b'<?xml version="1.0" encoding="unknown"?><worksheet ',
+    )
+    exc = xlsx_error(data)
+    assert exc.errors[0].reason == "invalid_structure"
