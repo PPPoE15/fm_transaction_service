@@ -35,8 +35,10 @@ class ImportFileError(BaseError):
         self.errors_truncated = errors_truncated
 
 
-def file_error(reason: str = "invalid_structure") -> ImportFileError:
-    """Создать адресованную всему файлу ошибку структуры, кодировки или пустого файла."""
+def file_error(
+    reason: str = "invalid_structure", *, row: int | None = None, message: str | None = None
+) -> ImportFileError:
+    """Создать ошибку файла с адресом строки и пояснением, если они известны."""
     messages = {
         "invalid_structure": "Структура файла не соответствует шаблону",
         "invalid_encoding": "Файл должен быть в кодировке UTF-8",
@@ -44,6 +46,6 @@ def file_error(reason: str = "invalid_structure") -> ImportFileError:
     }
     return ImportFileError(
         "FM-422302" if reason == "empty_file" else "FM-422301",
-        messages[reason],
-        errors=(ImportIssue(None, "file", reason, messages[reason]),),
+        message or messages[reason],
+        errors=(ImportIssue(row, "file", reason, message or messages[reason]),),
     )
