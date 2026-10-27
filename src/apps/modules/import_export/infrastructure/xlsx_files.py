@@ -38,7 +38,7 @@ def _relationships(root: Element, owner: str) -> dict[str, tuple[str, str]]:
             raise file_error()
         target = relation.attrib["Target"]
         resolved = posixpath.normpath(posixpath.join(posixpath.dirname(owner), target))
-        if resolved.startswith("../") or "\\" in resolved or ":" in resolved:
+        if resolved == ".." or resolved.startswith("../") or "\\" in resolved or ":" in resolved:
             raise file_error()
         result[relation.attrib["Id"]] = (relation.attrib["Type"].rsplit("/", 1)[-1], resolved.lstrip("/"))
     return result
@@ -67,7 +67,8 @@ def _load_parts(content: bytes, transaction_type: TransactionKind) -> WorkbookPa
     xml = {name: parse_xml(data) for name, data in archive.items() if name.endswith((".xml", ".rels"))}
     for name, root in xml.items():
         if name.endswith(".rels"):
-            _relationships(root, "")
+            owner = posixpath.join(posixpath.dirname(posixpath.dirname(name)), posixpath.basename(name)[:-5])
+            _relationships(root, owner)
     types = xml["[Content_Types].xml"]
     content_types = {node.get("ContentType", "") for node in types}
     if any("macroEnabled.main" in value for value in content_types):

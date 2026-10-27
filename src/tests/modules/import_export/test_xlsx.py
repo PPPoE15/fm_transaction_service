@@ -6,7 +6,9 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 from openpyxl import Workbook
+from openpyxl.comments import Comment
 from openpyxl.utils.datetime import CALENDAR_MAC_1904
+from openpyxl.worksheet.table import Table
 
 from apps.modules.import_export import ImportFileError, ParsedRecord, parse_file
 
@@ -265,3 +267,31 @@ def test_explicit_style_overrides_date_column(row_format: str | None, cell_style
     """Явный формат ячейки имеет приоритет над строкой, а строка — над колонкой."""
     exc = xlsx_error(inherited_date_file("dd.mm.yyyy", row_format, cell_style), "FM-422303")
     assert exc.errors[0].reason == "invalid_date"
+
+
+@pytest.mark.parametrize("extra", ["table", "comment"])
+def test_relative_internal_relationships(extra: str) -> None:
+    """Внутренние связи таблиц и примечаний разрешаются относительно листа-владельца."""
+    workbook = Workbook()
+    sheet = workbook.active
+    assert sheet is not None
+    sheet.title = "Расходы"
+    sheet.append(["Дата", "Сумма", "Категория", "Описание"])
+    sheet.append(["01.10.2026", 1, "Еда", "Текст"])
+    if extra == "table":
+        sheet.add_table(Table(displayName="Operations", ref="A1:D2"))
+    else:
+        sheet["D2"].comment = Comment("Примечание", "Автор")
+    stream = BytesIO()
+    workbook.save(stream)
+    workbook.close()
+    content = replace_part(stream.getvalue(), "xl/worksheets/_rels/sheet1.xml.rels", b'Target="/xl/', b'Target="../')
+    assert parse_xlsx(content)[0].description == "Текст"
+
+
+def test_relationship_cannot_escape_archive_root() -> None:
+    """Фактический выход связи за корень контейнера остаётся структурной ошибкой."""
+    content = replace_part(
+        workbook_bytes(), "xl/_rels/workbook.xml.rels", b'Target="/xl/worksheets/', b'Target="../../worksheets/'
+    )
+    xlsx_error(content)
