@@ -91,7 +91,7 @@ def read_csv(content: bytes) -> Iterator[RawRecord]:
     try:
         text = content.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
-        prefix = content[: exc.start]
+        prefix = exc.object[: exc.start]
         row = prefix.count(b"\n") + prefix.count(b"\r") - prefix.count(b"\r\n") + 1
         raise file_error(reason="invalid_encoding", row=row) from exc
     delimiter = detect_delimiter(text)

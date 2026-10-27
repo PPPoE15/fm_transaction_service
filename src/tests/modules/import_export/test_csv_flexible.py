@@ -138,7 +138,9 @@ def test_empty_csv_points_to_file_start(content: bytes) -> None:
     assert exc.errors[0].row == 1
 
 
-def test_encoding_error_has_physical_line() -> None:
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+def test_encoding_error_has_physical_line(encoding: str, newline: str) -> None:
     """Ошибка UTF-8 сообщает физическую строку байтового повреждения."""
-    exc = error("Дата,Сумма,Категория,Описание\r\n".encode() + b"\xff", "FM-422301")
+    exc = error(f"Дата,Сумма,Категория,Описание{newline}".encode(encoding) + b"\xff", "FM-422301")
     assert exc.errors[0].row == FIRST_DATA_ROW
