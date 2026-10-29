@@ -61,10 +61,18 @@ jobs:
             dockerfile: docker/Dockerfile
             check: dev
             workdir: /opt/financial_manager
+          - target: default
+            dockerfile: Dockerfile
+            check: master
+            workdir: /opt/fm_transaction_service
+          - target: default
+            dockerfile: docker/Dockerfile
+            check: dev
+            workdir: /opt/financial_manager
     steps:
     - uses: actions/checkout@v4
     - name: Check Dockerfile compatibility
-      run: cmp Dockerfile docker/Dockerfile
+      run: diff -u <(sed '$d' Dockerfile) <(sed '$d' docker/Dockerfile)
     - name: Build and check runtime
       env:
         TARGET: ${{ matrix.target }}
@@ -72,7 +80,11 @@ jobs:
         CHECK: ${{ matrix.check }}
         WORKDIR: ${{ matrix.workdir }}
       run: |
-        docker build --target "$TARGET" -f "$DOCKERFILE" -t fm-image-check .
+        if [ "$TARGET" = default ]; then
+          docker build -f "$DOCKERFILE" -t fm-image-check .
+        else
+          docker build --target "$TARGET" -f "$DOCKERFILE" -t fm-image-check .
+        fi
         docker run --rm -w /opt/fm_transaction_service fm-image-check python scripts/check-image.py "$CHECK"
         if [ "$CHECK" = dev ]; then
           docker run --rm -w /opt/fm_transaction_service fm-image-check pytest -q src/tests/web/test_security.py

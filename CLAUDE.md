@@ -192,7 +192,9 @@ POST multipart, атомарное сохранение и лимиты HTTP-з�
 
 ## Контейнеры (FM-67)
 
-Основной `Dockerfile` и `docker/Dockerfile` идентичны (CI проверяет `cmp`).
+Основной `Dockerfile` и `docker/Dockerfile` совпадают, кроме последней строки (CI проверяет общий текст через `diff`).
+Последняя стадия выбирает прежнюю сборку по умолчанию: master в корне,
+development-env в docker/.
 Оба поддерживают `dev`, `master` и `development-env`. Основа — Python 3.13
 slim-bookworm. Poetry 2.1 устанавливается в отдельный `/opt/poetry` только
 в builder; `/opt/venv` содержит common для master, все группы для dev.

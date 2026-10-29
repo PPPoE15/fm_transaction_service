@@ -18,7 +18,9 @@ docker run --rm fm-transaction:master python scripts/check-image.py master
 pytest, mypy, ruff и debugpy. Poetry устанавливает зависимости в builder,
 не попадая в runtime. Компиляторы для текущих wheels не требуются. Если будущая
 зависимость потребует сборки, инструменты устанавливаются только в builder.
-`docker/Dockerfile` — копия основного: изменяйте оба, CI проверяет совпадение.
+`docker/Dockerfile` совпадает с основным, кроме последней стадии default:
+master в корне, development-env в docker/. Изменяйте общий текст обоих файлов;
+CI проверяет совпадение и отдельно строит оба варианта без --target.
 
 ## Сравнение на linux/arm64
 

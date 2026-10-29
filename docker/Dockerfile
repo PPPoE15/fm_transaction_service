@@ -48,3 +48,6 @@ COPY --from=dev-dependencies /opt/venv /opt/venv
 # Локальный Compose монтирует src непосредственно в этот каталог.
 FROM dev AS development-env
 WORKDIR /opt/financial_manager
+
+# Сборка без --target сохраняет прежнее назначение этого Dockerfile.
+FROM development-env AS default
