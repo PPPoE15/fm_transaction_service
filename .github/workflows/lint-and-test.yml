@@ -74,6 +74,10 @@ jobs:
       run: |
         docker build --target "$TARGET" -f "$DOCKERFILE" -t fm-image-check .
         docker run --rm -w /opt/fm_transaction_service fm-image-check python scripts/check-image.py "$CHECK"
+        if [ "$CHECK" = dev ]; then
+          docker run --rm -w /opt/fm_transaction_service fm-image-check pytest -q src/tests/web/test_security.py
+          docker run --rm -w /opt/fm_transaction_service fm-image-check ruff check --config=pyproject.toml src/
+        fi
         test "$(docker image inspect fm-image-check --format '{{.Config.WorkingDir}}')" = "$WORKDIR"
 
   publish:

@@ -35,7 +35,7 @@ RUN /opt/poetry/bin/poetry install --all-groups --no-root --no-cache --no-intera
 FROM common AS runtime
 ARG WORKING_DIR
 WORKDIR ${WORKING_DIR}
-COPY template.env ./
+COPY pyproject.toml poetry.lock template.env ./
 COPY src ./src
 COPY scripts ./scripts
 
