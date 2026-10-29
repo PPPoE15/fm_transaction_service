@@ -44,7 +44,7 @@ def read_file_records(
         raise ImportFileError(code="FM-413301", message="Размер файла превышает 5 МиБ")
     validate_file_type(content, filename, file_format, content_type)
     if not content:
-        raise file_error(reason="empty_file")
+        raise file_error(reason="empty_file", row=1 if file_format == "csv" else None)
     source = read_csv(content) if file_format == "csv" else read_xlsx(content, transaction_type)
     records: list[RawRecord] = []
     for raw in source:
@@ -54,7 +54,7 @@ def read_file_records(
             raise ImportFileError(code="FM-413302", message="В файле больше 10000 операций")
         records.append(raw)
     if not records:
-        raise file_error(reason="empty_file")
+        raise file_error(reason="empty_file", row=1 if file_format == "csv" else None)
     return records
 
 

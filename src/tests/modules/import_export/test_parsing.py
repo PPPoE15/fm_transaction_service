@@ -28,7 +28,7 @@ def error(content: bytes, code: str, content_type: str | None = None) -> import_
     return caught.value
 
 
-def test_csv_normalizes_records_and_logical_numbers() -> None:
+def test_csv_normalizes_records_and_physical_lines() -> None:
     """Кириллица, кавычки и multiline сохраняются; пустые записи учитываются в адресах."""
     content = HEADER + '\n;;;\n01/10/2026;100;  Продукты  ;"Первая; ""цитата""\r\nВторая\rТретья"\n'
     records = parse(content.encode("utf-8-sig"))
@@ -41,7 +41,10 @@ def test_csv_normalizes_records_and_logical_numbers() -> None:
     assert record.description == 'Первая; "цитата"\nВторая\nТретья'
 
 
-@pytest.mark.parametrize("value", ["01.10.2026", "01/10/2026", "01-10-2026", "29.02.2024", "31.12.2099"])
+@pytest.mark.parametrize(
+    "value",
+    ["01.10.2026", "01/10/2026", "01-10-2026", "29.02.2024", "31.12.2099", "01.10/2026", "01.10.26", " 01.10.2026"],
+)
 def test_valid_dates(value: str) -> None:
     """Разрешённые разделители и календарные даты читаются без текущего времени."""
     records = parse((HEADER + f"{value};1;Еда;").encode())
@@ -53,11 +56,8 @@ def test_valid_dates(value: str) -> None:
     [
         "29.02.2026",
         "31/04/2026",
-        "01.10/2026",
         "1.10.2026",
-        "01.10.26",
         "2026-10-01",
-        " 01.10.2026",
         "01.01.1999",
         "01.01.2100",
         "٠١.10.2026",
@@ -70,7 +70,7 @@ def test_invalid_dates(value: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "value", ["0", "-1", "1000000001", "1.1", "100.00", "100,00", "1e3", "+100", "001", " 1", "1 ", "١", "9" * 5000]
+    "value", ["0", "-1", "1000000001", "1.1", "100.00", "100,00", "1e3", "+100", "001", "١", "9" * 5000]
 )
 def test_invalid_amounts(value: str) -> None:
     """Сумма проверяется лексически и не округляется, включая очень длинные числа."""
@@ -78,7 +78,7 @@ def test_invalid_amounts(value: str) -> None:
     assert exc.errors[0].reason == "invalid_amount"
 
 
-@pytest.mark.parametrize("value", ["1", "1000000000"])
+@pytest.mark.parametrize("value", ["1", "1000000000", " 1", "1 "])
 def test_amount_boundaries(value: str) -> None:
     """Граничные суммы принимаются как точные целые рубли."""
     assert parse((HEADER + f"01.10.2026;{value};Еда;").encode())[0].money_sum == int(value)
@@ -102,36 +102,44 @@ def test_invalid_text(category: str, description: str, field: str) -> None:
 
 @pytest.mark.parametrize("description", ["", " ", "=пояснение", "\tтекст"])
 def test_description_preserved(description: str) -> None:
-    """Описание не обрезается и не исполняется как формула CSV."""
-    assert parse((HEADER + f"01.10.2026;1;Еда;{description}").encode())[0].description == (description or None)
+    """Описание очищается по краям и не исполняется как формула CSV."""
+    assert parse((HEADER + f"01.10.2026;1;Еда;{description}").encode())[0].description == (description.strip() or None)
 
 
-@pytest.mark.parametrize("content", [b"", HEADER.encode(), (HEADER + "\n;;;\n").encode()])
+@pytest.mark.parametrize("content", [b"", HEADER.encode(), (HEADER + "\n;;;\n").encode(), (HEADER + ";;;;").encode()])
 def test_empty_files(content: bytes) -> None:
     """Нулевой файл и корректный заголовок без операций дают empty_file."""
     exc = error(content, "FM-422302")
-    assert exc.errors[0].row is None
+    assert exc.errors[0].row == 1
     assert exc.errors[0].reason == "empty_file"
 
 
-@pytest.mark.parametrize(
-    "content",
-    [
-        " ",
-        "\n" + HEADER,
-        HEADER.replace("Дата", " Дата"),
-        HEADER + "1;2;3",
-        HEADER + VALID + ";extra",
-        HEADER + '"unterminated',
-        HEADER + '"01.10.2026"x;1;Еда;',
-        HEADER + '01.10.2026;1;Е"да;',
-        HEADER + ";;;;",
-    ],
-)
-def test_invalid_structure(content: str) -> None:
-    """Неверные заголовки, ширина записи и кавычки дают ошибку всего файла."""
+@pytest.mark.parametrize("content", [" ", "\n" + HEADER])
+def test_invalid_headers(content: str) -> None:
+    """Отсутствие заголовков даёт адрес первой строки для каждого обязательного поля."""
     exc = error(content.encode(), "FM-422301")
-    assert [(issue.row, issue.field, issue.reason) for issue in exc.errors] == [(None, "file", "invalid_structure")]
+    assert [(issue.row, issue.field, issue.reason) for issue in exc.errors] == [
+        (1, field, "invalid_structure") for field in ("date", "amount", "category", "description")
+    ]
+
+
+@pytest.mark.parametrize("record", ['"unterminated', '"01.10.2026"x;1;Еда;', '01.10.2026;1;Е"да;'])
+def test_invalid_structure(record: str) -> None:
+    """Некорректные кавычки дают ошибку структуры с адресом начала записи."""
+    exc = error((HEADER + record).encode(), "FM-422301")
+    assert [(issue.row, issue.field, issue.reason) for issue in exc.errors] == [(2, "file", "invalid_structure")]
+
+
+@pytest.mark.parametrize("content", [HEADER.replace("Дата", " Дата") + VALID, HEADER + VALID + ";extra"])
+def test_relaxed_structure(content: str) -> None:
+    """Пробелы заголовка и дополнительные поля больше не являются ошибкой структуры."""
+    assert parse(content.encode())[0].money_sum == EXPECTED_AMOUNT
+
+
+def test_short_record_validates_values() -> None:
+    """Короткая запись проверяется по полям; отсутствующее необязательное описание допустимо."""
+    exc = error((HEADER + "1;2;3").encode(), "FM-422303")
+    assert [(issue.row, issue.field) for issue in exc.errors] == [(2, "date")]
 
 
 def test_encoding() -> None:
@@ -150,7 +158,7 @@ def test_error_order_and_truncation() -> None:
 
 def test_structure_overrides_row_errors() -> None:
     """Повреждение в конце заменяет уже накопленные ошибки значений."""
-    exc = error((HEADER + "bad;0; ;\x00\n" * 30 + "broken").encode(), "FM-422301")
+    exc = error((HEADER + "bad;0; ;\x00\n" * 30 + '"broken').encode(), "FM-422301")
     assert len(exc.errors) == 1
     assert exc.errors_truncated is False
 

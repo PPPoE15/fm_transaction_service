@@ -17,6 +17,12 @@ DATE_PATTERN = re.compile(r"[0-9]{2}(?P<sep>[./-])[0-9]{2}(?P=sep)20[0-9]{2}")
 AMOUNT_PATTERN = re.compile(r"[1-9][0-9]*")
 CATEGORY_CONTROLS = re.compile(r"[\x00-\x1f\x7f]")
 DESCRIPTION_CONTROLS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+FIELD_MESSAGES = {
+    "date": "Дата должна быть существующей датой с днём, месяцем и годом в диапазоне 2000–2099",
+    "amount": "Сумма должна быть целым числом от 1 до 1000000000 без знака и разделителей тысяч",
+    "category": "Укажите категорию: от 1 до 64 символов без управляющих символов",
+    "description": "Описание должно содержать не более 500 символов без запрещённых управляющих символов",
+}
 FIELDS: tuple[IssueField, ...] = ("date", "amount", "category", "description")
 
 
@@ -81,7 +87,7 @@ def validate_record(record: RawRecord) -> tuple[ParsedRecord | None, list[Import
         try:
             validator(cell.value)
         except (TypeError, ValueError):
-            issues.append(ImportIssue(record.row, field, f"invalid_{field}", "Недопустимое значение поля"))
+            issues.append(ImportIssue(record.row, field, f"invalid_{field}", FIELD_MESSAGES[field]))
     if issues:
         return None, issues
     return ParsedRecord(

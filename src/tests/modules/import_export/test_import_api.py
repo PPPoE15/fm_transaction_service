@@ -17,6 +17,7 @@ from tests.conftest import TokenFactory
 
 IMPORT_AMOUNT = 123
 MAX_TEST_ROWS = 10000
+FLEXIBLE_ROW_COUNT = 2
 
 
 async def add_category(client: AsyncClient, headers: dict[str, str], name: str, kind: str) -> str:
@@ -291,3 +292,38 @@ async def test_category_matching_is_exact_and_type_scoped(
     )
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert [item["reason"] for item in response.json()["errors"]] == ["unknown_category", "unknown_category"]
+
+
+@pytest.mark.db
+@pytest.mark.parametrize("last_category", ["Еда", "Нет"])
+async def test_flexible_csv_atomic_import(
+    db_engine: AsyncEngine,
+    client: AsyncClient,
+    make_token: TokenFactory,
+    last_category: str,
+) -> None:
+    """Гибкий CSV сохраняется целиком либо сообщает физическую строку и откатывает пакет."""
+    headers = {"Authorization": f"Bearer {make_token()}"}
+    await add_category(client, headers, "Еда", "outcome")
+    content = (
+        "Лишнее, Описание ,Категория,Сумма,Дата\n"
+        'заметка," текст\nпродолжение ", Еда , 123 ,01|10|26\n'
+        f"данные, конец ,{last_category}, 123 ,01.10.26"
+    ).encode()
+    response = await client.post(
+        "/import-export/imports/outcome?format=csv", headers=headers, files={"file": ("a.csv", content, "text/csv")}
+    )
+    listed = await client.get("/transactions", headers=headers)
+    if last_category == "Еда":
+        assert response.status_code == HTTPStatus.CREATED, response.text
+        assert response.json()["imported_count"] == FLEXIBLE_ROW_COUNT
+        assert listed.json()["total"] == FLEXIBLE_ROW_COUNT
+        assert {item["description"] for item in listed.json()["content"]} == {"текст\nпродолжение", "конец"}
+        assert all(item["money_sum"] == IMPORT_AMOUNT for item in listed.json()["content"])
+    else:
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY, response.text
+        assert response.json()["imported_count"] == 0
+        assert [(issue["row"], issue["field"], issue["reason"]) for issue in response.json()["errors"]] == [
+            (4, "category", "unknown_category")
+        ]
+        assert listed.json()["total"] == 0
