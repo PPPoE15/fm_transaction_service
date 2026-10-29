@@ -189,3 +189,21 @@ POST multipart, атомарное сохранение и лимиты HTTP-з�
 Сопутствующие изменения UI (подпись физических строк, общая подсказка) и нормативного
 контракта в fm-auto-dev выполняются отдельными частями FM-96. До их внедрения старый UI
 может по-прежнему называть физическую строку «Запись CSV» и показывать общую подсказку.
+
+## Контейнеры (FM-67)
+
+Основной `Dockerfile` и `docker/Dockerfile` совпадают, кроме последней строки (CI проверяет общий текст через `diff`).
+Последняя стадия выбирает прежнюю сборку по умолчанию: master в корне,
+development-env в docker/.
+Оба поддерживают `dev`, `master` и `development-env`. Основа — Python 3.13
+slim-bookworm. Poetry 2.1 устанавливается в отдельный `/opt/poetry` только
+в builder; `/opt/venv` содержит common для master, все группы для dev.
+Нативные зависимости устанавливаются из lock-файла; текущие wheels не требуют
+libpq5 или компиляторов в runtime. curl нужен healthcheck в Compose, gettext-base
+сохранён для совместимости, tzdata — для Europe/Moscow. Кэши pip отключены,
+индексы apt удаляются в том же слое. Не добавляйте Poetry в runtime.
+
+`development-env` сохраняет `/opt/financial_manager` для bind mount `src` и
+debugpy; dev/master сохраняют `/opt/fm_transaction_service` и прежний entrypoint.
+CI строит все три цели и запускает `scripts/check-image.py` перед публикацией.
+Инструкции и замеры — `docs/container-images.md`.
