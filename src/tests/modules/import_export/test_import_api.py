@@ -102,6 +102,7 @@ async def test_unknown_category_rolls_back(
     assert [(error["row"], error["field"], error["reason"]) for error in result["errors"]] == [
         (3, "category", "unknown_category")
     ]
+    assert "Чужая" in result["errors"][0]["message"]
     listed = await client.get("/transactions", headers=headers)
     assert listed.json()["total"] == 0
 
@@ -114,7 +115,7 @@ async def test_combined_errors_in_column_order(
 ) -> None:
     """Ошибки категории не теряются даже в строках с неверной суммой или датой."""
     headers = {"Authorization": f"Bearer {make_token()}"}
-    content = "Дата;Сумма;Категория;Описание\nwrong;1.5;Нет;\n01.10.2026;1;Нет;".encode()
+    content = "Дата;Сумма;Категория;Описание\nwrong;-1;Нет;\n01.10.2026;1;Нет;".encode()
     response = await client.post(
         "/import-export/imports/outcome?format=csv", headers=headers, files={"file": ("input.csv", content, "text/csv")}
     )

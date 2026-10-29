@@ -3,6 +3,7 @@ from datetime import datetime
 import pytest
 
 from apps.modules import import_export
+from apps.modules.import_export.application.parsing import read_file_records, validate_records
 
 EXPECTED_ROW = 4
 EXPECTED_AMOUNT = 100
@@ -51,12 +52,79 @@ def test_valid_dates(value: str) -> None:
     assert records[0].transaction_date.hour == 0
 
 
+def test_unknown_category_error_names_the_category() -> None:
+    """Для незнакомой категории указывается имя из файла и исходный адрес."""
+    records = read_file_records(
+        (HEADER + "01.01.2025;1; Несуществующая категория ;").encode(),
+        transaction_type="outcome",
+        file_format="csv",
+        filename="test.csv",
+    )
+
+    def no_matches(_name: str) -> int:
+        """Вернуть отсутствие категории у пользователя."""
+        return 0
+
+    with pytest.raises(import_export.ImportFileError) as caught:
+        validate_records(records, category_matches=no_matches)
+    issue = caught.value.errors[0]
+    assert (issue.row, issue.field, issue.reason) == (2, "category", "unknown_category")
+    assert "Несуществующая категория" in issue.message
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("1.1.2025", "2025-01-01"),
+        ("1/09/25", "2025-09-01"),
+        ("09-1-25", "2025-01-09"),
+        ("29.2.2024", "2024-02-29"),
+    ],
+)
+def test_csv_dates_allow_single_digit_day_and_month(value: str, expected: str) -> None:
+    """Однозначные день и месяц распознаются без изменения календарной проверки."""
+    assert parse((HEADER + f"{value};1;Еда;").encode())[0].transaction_date == datetime.fromisoformat(expected)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("1 234", 1234),
+        ("1\u00a0234\u202f567", 1234567),
+        ("1.234.567", 1234567),
+        ("1,234,567", 1234567),
+        ("1.25", 125),
+        ("100,00", 10000),
+        ("1 000 000 000", 1000000000),
+    ],
+)
+def test_csv_amount_separators_represent_integer(value: str, expected: int) -> None:
+    """Пробелы, точки и запятые между цифрами обозначают разряды целых рублей."""
+    assert parse((HEADER + f"1.1.2025;{value};Еда;").encode())[0].money_sum == expected
+
+
+def test_csv_quoted_comma_amount() -> None:
+    """Запятые суммы в CSV с запятой сохраняются внутри кавычек и обозначают разряды."""
+    content = 'Дата,Сумма,Категория,Описание\n1.1.25,"1,234,567",Еда,Тест'
+    record = parse(content.encode())[0]
+    expected_amount = 1234567
+    assert record.money_sum == expected_amount
+    assert record.transaction_date == datetime.fromisoformat("2025-01-01")
+
+
+@pytest.mark.parametrize("value", ["1.", ".1", "1,,", "1 000 000 001", "1-2", "001.00"])
+def test_csv_amount_rejects_invalid_separators_and_limits(value: str) -> None:
+    """Ошибочные символы, пустые группы, ведущие нули и превышение лимита отклоняются."""
+    exc = error((HEADER + f"01.01.2025;{value};Еда;").encode(), "FM-422303")
+    assert exc.errors[0].reason == "invalid_amount"
+
+
 @pytest.mark.parametrize(
     "value",
     [
         "29.02.2026",
+        "29.2.2025",
         "31/04/2026",
-        "1.10.2026",
         "2026-10-01",
         "01.01.1999",
         "01.01.2100",
@@ -69,9 +137,7 @@ def test_invalid_dates(value: str) -> None:
     assert [(issue.row, issue.field, issue.reason) for issue in exc.errors] == [(2, "date", "invalid_date")]
 
 
-@pytest.mark.parametrize(
-    "value", ["0", "-1", "1000000001", "1.1", "100.00", "100,00", "1e3", "+100", "001", "١", "9" * 5000]
-)
+@pytest.mark.parametrize("value", ["0", "-1", "1000000001", "1e3", "+100", "001", "١", "9" * 5000])
 def test_invalid_amounts(value: str) -> None:
     """Сумма проверяется лексически и не округляется, включая очень длинные числа."""
     exc = error((HEADER + f"01.10.2026;{value};Еда;").encode(), "FM-422303")
