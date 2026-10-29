@@ -29,14 +29,14 @@ Docker Engine 29.6.1, containerd image store. Измерение одним сп
 
 ```sh
 docker image inspect fm-67-transaction-before:dev fm-67-transaction-before:master \
-  fm-67-transaction-after:dev fm-67-transaction-after:master \
+  fm-67-final:dev fm-67-final:master \
   --format '{{.RepoTags}} {{.Architecture}} {{.Size}}'
 ```
 
 | Цель | До, байт | После, байт | Уменьшение |
 |---|---:|---:|---:|
-| dev | 543001989 | 99835329 | 81,61% |
-| master | 478192078 | 66364492 | 86,12% |
+| dev | 543001989 | 99887786 | 81,60% |
+| master | 478192078 | 66416924 | 86,11% |
 
 Это значение Size данного Docker storage backend, а не сумма распакованных слоёв
 и не уникальное место на диске; сравнивать его напрямую с 2,1 ГБ из issue нельзя.
@@ -67,7 +67,9 @@ JWT-ключами и исходной конфигурацией `fm_devops/doc
 Smoke повторён также с `master`: тот же сценарий прошёл. Образы замера:
 - before/dev: `sha256:cc53a52331efe02ce3eefe1893bf2be4003720fbe1e019800ae77e303839bdab`;
 - before/master: `sha256:d94f27376a43d4cc427af0181fcb806f423480368cb1dd2fe0000a93679ee0a0`;
-- after/dev: `sha256:aeafa724900bb3fb52321c1dc539b48b985af53357a51373f3d5eaf8186e9c29`;
-- after/master: `sha256:5bb52f6003d8c30271ba63b627222edf8cfe977330ba33fef26b8ca85cce1260`.
-Замер сделан до обновления текстового ожидания CI в `test_publication.py`;
-зависимости и Dockerfile после замера не менялись.
+- final/dev: `sha256:d943e572927c4a5bdaf7847f899345cc67065aca823dd963bfea5a9456a47460`;
+- final/master: `sha256:0a2bb25ef507c5e68842d6933aef4afb1ce6a33d16f7712179abbd5b9422df96`.
+Итоговый замер повторён после исправлений ревью: восстановлены pyproject.toml
+и poetry.lock, прежние default-стадии, переопределение VIRTUAL_ENV.
+Проверка `--build-arg VIRTUAL_ENV=/opt/custom-venv` проходит; CI включает этот
+сценарий, обе default-сборки и запуск pytest/ruff внутри dev-образов.

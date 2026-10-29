@@ -69,6 +69,11 @@ jobs:
             dockerfile: docker/Dockerfile
             check: dev
             workdir: /opt/financial_manager
+          - target: master
+            dockerfile: Dockerfile
+            check: master
+            workdir: /opt/fm_transaction_service
+            venv: /opt/custom-venv
     steps:
     - uses: actions/checkout@v4
     - name: Check Dockerfile compatibility
@@ -79,11 +84,12 @@ jobs:
         DOCKERFILE: ${{ matrix.dockerfile }}
         CHECK: ${{ matrix.check }}
         WORKDIR: ${{ matrix.workdir }}
+        VIRTUAL_ENV: ${{ matrix.venv || '/opt/venv' }}
       run: |
         if [ "$TARGET" = default ]; then
-          docker build -f "$DOCKERFILE" -t fm-image-check .
+          docker build --build-arg VIRTUAL_ENV="$VIRTUAL_ENV" -f "$DOCKERFILE" -t fm-image-check .
         else
-          docker build --target "$TARGET" -f "$DOCKERFILE" -t fm-image-check .
+          docker build --build-arg VIRTUAL_ENV="$VIRTUAL_ENV" --target "$TARGET" -f "$DOCKERFILE" -t fm-image-check .
         fi
         docker run --rm -w /opt/fm_transaction_service fm-image-check python scripts/check-image.py "$CHECK"
         if [ "$CHECK" = dev ]; then

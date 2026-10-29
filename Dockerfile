@@ -40,10 +40,10 @@ COPY src ./src
 COPY scripts ./scripts
 
 FROM runtime AS master
-COPY --from=master-dependencies /opt/venv /opt/venv
+COPY --from=master-dependencies ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
 FROM runtime AS dev
-COPY --from=dev-dependencies /opt/venv /opt/venv
+COPY --from=dev-dependencies ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
 # Локальный Compose монтирует src непосредственно в этот каталог.
 FROM dev AS development-env
