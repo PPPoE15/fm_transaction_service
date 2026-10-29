@@ -16,7 +16,7 @@ DIGEST = "sha256:" + "b" * 64
 def test_workflow_gates_publication() -> None:
     """Публикация зависит от обязательных проверок того же запуска."""
     workflow = (ROOT / ".github/workflows/lint-and-test.yml").read_text()
-    assert "needs: lint-and-test" in workflow
+    assert "needs: [lint-and-test, container-check]" in workflow
     assert "github.event_name == 'push'" in workflow
     assert "needs.lint-and-test.result == 'success'" in workflow
     assert "github.ref == 'refs/heads/dev'" in workflow

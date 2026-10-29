@@ -44,8 +44,40 @@ jobs:
       env:
         PYTHONPATH: src
 
+  container-check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: dev
+            dockerfile: Dockerfile
+            check: dev
+            workdir: /opt/fm_transaction_service
+          - target: master
+            dockerfile: Dockerfile
+            check: master
+            workdir: /opt/fm_transaction_service
+          - target: development-env
+            dockerfile: docker/Dockerfile
+            check: dev
+            workdir: /opt/financial_manager
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check Dockerfile compatibility
+      run: cmp Dockerfile docker/Dockerfile
+    - name: Build and check runtime
+      env:
+        TARGET: ${{ matrix.target }}
+        DOCKERFILE: ${{ matrix.dockerfile }}
+        CHECK: ${{ matrix.check }}
+        WORKDIR: ${{ matrix.workdir }}
+      run: |
+        docker build --target "$TARGET" -f "$DOCKERFILE" -t fm-image-check .
+        docker run --rm -w /opt/fm_transaction_service fm-image-check python scripts/check-image.py "$CHECK"
+        test "$(docker image inspect fm-image-check --format '{{.Config.WorkingDir}}')" = "$WORKDIR"
+
   publish:
-    needs: lint-and-test
+    needs: [lint-and-test, container-check]
     if: >-
       ${{ github.event_name == 'push' && needs.lint-and-test.result == 'success' &&
           (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/master') }}
