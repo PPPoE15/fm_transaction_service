@@ -68,14 +68,17 @@ def validate_records(
     for raw in raw_records:
         record, issues = validate_record(raw)
         if category_matches is not None and not any(issue.field == "category" for issue in issues):
-            count = category_matches(normalize_category(raw.cells[2].value))
+            category_name = normalize_category(raw.cells[2].value)
+            count = category_matches(category_name)
             if count != 1:
                 issues.append(
                     ImportIssue(
                         raw.row,
                         "category",
                         "ambiguous_category" if count else "unknown_category",
-                        "Неоднозначная категория" if count else "Категория не найдена",
+                        f"Неоднозначная категория «{category_name}»"
+                        if count
+                        else f"Категория «{category_name}» не найдена",
                     )
                 )
         issues.sort(key=_issue_order)

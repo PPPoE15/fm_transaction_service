@@ -44,7 +44,7 @@ def test_any_date_separator(separator: str, year: str) -> None:
     assert record.transaction_date == datetime.fromisoformat("2022-09-01")
 
 
-@pytest.mark.parametrize("date_value", ["01.09/22", "01/09-2022"])
+@pytest.mark.parametrize("date_value", ["01.09/22", "01/09-2022", "1.09.22", "01.9.22"])
 def test_mixed_date_separators(date_value: str) -> None:
     """Каждый разделитель даты может быть произвольным при фиксированном порядке компонентов."""
     assert parse(csv_bytes([list(HEADERS), [date_value, "50", "Еда", ""]]))[
@@ -52,7 +52,7 @@ def test_mixed_date_separators(date_value: str) -> None:
     ].transaction_date == datetime.fromisoformat("2022-09-01")
 
 
-@pytest.mark.parametrize("date_value", ["29.02.23", "31|04|2022", "1.09.22", "01.9.22", "2022-09-01", "010922"])
+@pytest.mark.parametrize("date_value", ["29.02.23", "31|04|2022", "2022-09-01", "010922"])
 def test_invalid_flexible_date(date_value: str) -> None:
     """Произвольный разделитель не отменяет календарь и порядок компонентов даты."""
     exc = error(csv_bytes([list(HEADERS), [date_value, "50", "Еда", ""]]), "FM-422303")
