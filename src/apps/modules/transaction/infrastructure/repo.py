@@ -50,3 +50,9 @@ class Repo(AbstractTransactionRepo, BaseSqlAlchemyRepo):
     async def get_by_uid(self, transaction_uid: apps_types.TransactionUID) -> Transaction | None:
         transaction = await self._session.get(orm.Transaction, transaction_uid)
         return builders.build(transaction) if transaction else None
+
+    async def get_by_uid_for_update(self, transaction_uid: apps_types.TransactionUID) -> Transaction | None:
+        """Прочитать актуальную операцию под блокировкой от параллельных записей и удаления."""
+        stmt = select(orm.Transaction).where(orm.Transaction.uid == transaction_uid).with_for_update()
+        transaction = (await self._session.scalars(stmt.execution_options(populate_existing=True))).one_or_none()
+        return builders.build(transaction) if transaction else None

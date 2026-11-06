@@ -95,7 +95,7 @@ async def _transactions(client: AsyncClient, user: User) -> list[dict[str, Any]]
 def _transaction_update(category_uid: str) -> dict[str, Any]:
     return {
         "transaction_date": TRANSACTION_DATE,
-        "category": category_uid,
+        "category_uid": category_uid,
         "money_sum": 999,
         "transaction_type": "outcome",
         "description": "Изменено",
@@ -129,7 +129,7 @@ async def test_list_transactions_shows_only_own(client: AsyncClient, seed: Seed,
     assert [item["uid"] for item in await _transactions(client, user_a)] == [seed.transaction_uid]
     response = await client.get("/transactions", headers=user_b.headers)
 
-    assert response.json() == {"total": 0, "content": []}
+    assert response.json() == {"total": 0, "content": [], "next_skip": None}
 
 
 async def test_list_categories_shows_only_own(client: AsyncClient, seed: Seed, user_a: User, user_b: User) -> None:
@@ -146,8 +146,7 @@ async def test_update_foreign_transaction(client: AsyncClient, seed: Seed, user_
     b_category = await _create_category(client, user_b, "Своя статья B")
 
     response = await client.patch(
-        "/transactions",
-        params={"transaction_uid": seed.transaction_uid},
+        f"/transactions/{seed.transaction_uid}",
         headers=user_b.headers,
         json=_transaction_update(b_category),
     )
@@ -158,9 +157,7 @@ async def test_update_foreign_transaction(client: AsyncClient, seed: Seed, user_
 
 async def test_delete_foreign_transaction(client: AsyncClient, seed: Seed, user_a: User, user_b: User) -> None:
     """DELETE /transactions: чужая транзакция — 404 и не удаляется."""
-    response = await client.delete(
-        "/transactions", params={"transaction_uid": seed.transaction_uid}, headers=user_b.headers
-    )
+    response = await client.delete(f"/transactions/{seed.transaction_uid}", headers=user_b.headers)
 
     _assert_not_found(response)
     assert [item["uid"] for item in await _transactions(client, user_a)] == [seed.transaction_uid]
@@ -171,7 +168,6 @@ async def test_create_transaction_in_foreign_category(
 ) -> None:
     """POST /transactions: в чужую статью — 400 `FM-400201`, как в несуществующую; транзакция не создаётся ни у кого."""
     body = {**_transaction_update(seed.category_uid), "description": "Чужая статья"}
-    body["category_uid"] = body.pop("category")
     response = await client.post("/transactions", headers=user_b.headers, json=body)
 
     _assert_foreign_category(response)
@@ -188,8 +184,7 @@ async def test_move_own_transaction_to_foreign_category(
     before = await _transactions(client, user_b)
 
     response = await client.patch(
-        "/transactions",
-        params={"transaction_uid": b_transaction},
+        f"/transactions/{b_transaction}",
         headers=user_b.headers,
         json=_transaction_update(seed.category_uid),
     )
@@ -230,13 +225,12 @@ async def test_create_category_is_visible_only_to_creator(
 async def test_owner_can_update_and_delete_own_data(client: AsyncClient, seed: Seed, user_a: User) -> None:
     """Владелец меняет свои данные и удаляет транзакцию; удаление категории через API недоступно."""
     response = await client.patch(
-        "/transactions",
-        params={"transaction_uid": seed.transaction_uid},
+        f"/transactions/{seed.transaction_uid}",
         headers=user_a.headers,
         json=_transaction_update(seed.category_uid),
     )
     assert response.status_code == status.HTTP_200_OK, response.text
-    [transaction] = response.json()["content"]
+    transaction = response.json()
     assert (transaction["money_sum"], transaction["description"]) == (999, "Изменено")
 
     # Без смены типа: по статье есть транзакция, тип такой статьи не меняется (FM-400101)
@@ -247,10 +241,8 @@ async def test_owner_can_update_and_delete_own_data(client: AsyncClient, seed: S
     [category] = await _categories(client, user_a)
     assert (category["name"], category["money_plan"]) == ("Изменено", 1)
 
-    response = await client.delete(
-        "/transactions", params={"transaction_uid": seed.transaction_uid}, headers=user_a.headers
-    )
-    assert response.status_code == status.HTTP_200_OK, response.text
+    response = await client.delete(f"/transactions/{seed.transaction_uid}", headers=user_a.headers)
+    assert response.status_code == status.HTTP_204_NO_CONTENT, response.text
     response = await client.delete("/category", params={"category_uid": seed.category_uid}, headers=user_a.headers)
     assert response.status_code == status.HTTP_404_NOT_FOUND, response.text
 

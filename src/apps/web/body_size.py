@@ -1,5 +1,5 @@
 """
-Ограничение тела: 16 КиБ для обычного API, 6 МиБ для multipart-импорта (FM-93).
+Ограничение тела: 16 КиБ для обычного API, 512 КиБ для пакетов, 6 МиБ для импорта.
 
 Основной лимит задаёт прокси (`client_max_body_size`), здесь — дубль на случай прямого доступа к сервису.
 """
@@ -11,6 +11,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from apps.web.exception_handlers.base import BaseErrorResponseSchema
 
 MAX_BODY_SIZE = 16 * 1024
+MAX_BATCH_BODY_SIZE = 512 * 1024
 MAX_IMPORT_BODY_SIZE = 6 * 1024 * 1024
 
 
@@ -45,16 +46,25 @@ class BodySizeLimitMiddleware:
             "/import-export/imports/income",
             "/import-export/imports/outcome",
         }
-        limit = MAX_IMPORT_BODY_SIZE if import_request else self.max_body_size
+        batch_request = (scope.get("method"), scope["path"].rstrip("/")) in {
+            ("PATCH", "/transaction/transactions/batch"),
+            ("POST", "/transaction/transactions/batch-delete"),
+        }
+        limit = self.max_body_size
+        if import_request:
+            limit = MAX_IMPORT_BODY_SIZE
+        elif batch_request:
+            limit = MAX_BATCH_BODY_SIZE
         content_length = Headers(scope=scope).get("content-length")
-        if content_length is not None:
-            # Для обычного API сервер проверяет Content-Length; импорт дополнительно считает реальные байты.
-            if content_length.isascii() and content_length.isdigit() and int(content_length) > limit:
-                await self._reject(scope, receive, send, import_request)
-                return
-            if not import_request:
-                await self.app(scope, receive, send)
-                return
+        # Заголовок позволяет отклонить запрос раньше; действительный размер проверяется всегда.
+        if (
+            content_length is not None
+            and content_length.isascii()
+            and content_length.isdigit()
+            and int(content_length) > limit
+        ):
+            await self._reject(scope, receive, send, import_request, limit)
+            return
 
         messages: list[Message] = []
         received = 0
@@ -65,7 +75,7 @@ class BodySizeLimitMiddleware:
                 break
             received += len(message.get("body", b""))
             if received > limit:
-                await self._reject(scope, receive, send, import_request)
+                await self._reject(scope, receive, send, import_request, limit)
                 return
             if not message.get("more_body", False):
                 break
@@ -77,13 +87,15 @@ class BodySizeLimitMiddleware:
         await self.app(scope, replay, send)
 
     @staticmethod
-    async def _reject(scope: Scope, receive: Receive, send: Send, import_request: bool = False) -> None:
+    async def _reject(
+        scope: Scope, receive: Receive, send: Send, import_request: bool = False, limit: int = MAX_BODY_SIZE
+    ) -> None:
         """Ответить 413 с кодом обычного API или импорта в формате RFC 7807."""
         error = BaseErrorResponseSchema(
             type="/help-center?helpSectionId=errors#413",
             title="Content Too Large",
             status=status.HTTP_413_CONTENT_TOO_LARGE,
-            detail="Тело запроса больше 6 МиБ" if import_request else "Тело запроса больше 16 КиБ",
+            detail=f"Тело запроса больше {limit} байт",
             instance=scope["path"],
             code="FM-413301" if import_request else "FM-413000",
         )
