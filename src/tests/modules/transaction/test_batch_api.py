@@ -250,3 +250,43 @@ async def test_batch_error_priority_and_foreign_isolation(
     assert [result["status"] for result in deleted.json()["results"]] == [404, 404]
     actual = (await client.get("/transactions", headers=headers)).json()["content"]
     assert sorted(actual, key=lambda item: item["uid"]) == sorted(original, key=lambda item: item["uid"])
+
+
+@pytest.mark.db
+async def test_maximum_batch_with_long_comments(
+    client: AsyncClient, batch_seed: tuple[dict[str, str], list[dict[str, Any]]]
+) -> None:
+    """Сто операций с длинными комментариями сохраняются и удаляются без скрытого дробления."""
+    headers, original = batch_seed
+    for number in range(98):
+        response = await client.post(
+            "/transactions",
+            headers=headers,
+            json={
+                "category_uid": original[0]["category"]["uid"],
+                "description": str(number),
+                "transaction_date": "2026-10-01T12:00:00",
+                "money_sum": 100,
+                "transaction_type": "outcome",
+            },
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        original.append(response.json())
+    items = [{"uid": row["uid"], "expected_version": 1, "changes": {"description": "я" * 500}} for row in original]
+    updated = await client.patch("/transactions/batch", headers=headers, json={"items": items})
+    assert updated.status_code == status.HTTP_200_OK, updated.text
+    assert [row["uid"] for row in updated.json()["content"]] == [row["uid"] for row in original]
+    assert {row["version"] for row in updated.json()["content"]} == {2}
+    assert {row["description"] for row in updated.json()["content"]} == {"я" * 500}
+    delete_items = [{"uid": row["uid"], "expected_version": 2} for row in original]
+    invalid = await client.post(
+        "/transactions/batch-delete", headers=headers, json={"items": [delete_items[0], delete_items[0]]}
+    )
+    assert invalid.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert (await client.get("/transactions", headers=headers)).json()["total"] == len(original)
+    deleted = await client.post("/transactions/batch-delete", headers=headers, json={"items": delete_items})
+    assert deleted.status_code == status.HTTP_200_OK, deleted.text
+    assert deleted.json()["results"] == [
+        {"index": index, "uid": row["uid"], "status": 204} for index, row in enumerate(original)
+    ]
+    assert (await client.get("/transactions", headers=headers)).json() == {"total": 0, "content": [], "next_skip": None}
