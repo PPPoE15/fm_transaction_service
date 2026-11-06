@@ -11,6 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
+from apps.modules.transaction.api.batch_messages import validation_message
 from apps.modules.transaction.application.batch_models import BatchIssue, BatchTransactionError
 
 _ITEM_LOCATION_LENGTH = 3
@@ -30,7 +31,9 @@ def validation_issues(exc: RequestValidationError) -> list[BatchIssue]:
                     uid = UUID(str(items[index].get("uid")))
         path = loc[_ITEM_LOCATION_LENGTH:] if index is not None else loc[1:]
         field = ".".join(str(part) for part in path) if path and isinstance(path[0], str) else None
-        result.append(BatchIssue(code="FM-422000", message=error["msg"], index=index, uid=uid, field=field))
+        result.append(
+            BatchIssue(code="FM-422000", message=validation_message(error), index=index, uid=uid, field=field)
+        )
     return result
 
 

@@ -313,3 +313,29 @@ async def test_batch_error_preserves_nested_field_path(
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert response.json()["errors"][0]["field"] == field
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"money_sum": 0}, "Значение должно быть не меньше 1"),
+        ({"money_sum": 1_000_000_001}, "Значение должно быть не больше 1000000000"),
+        ({"money_sum": True}, "Ожидается целое число"),
+        ({"description": "x" * 501}, "Строка должна содержать не больше 500 символов"),
+        ({"description": 12}, "Ожидается строка"),
+        ({"date": "2026-02-30"}, "Укажите существующую дату в формате YYYY-MM-DD, годы 2000–2099"),
+        ({"unknown": 1}, "Неизвестное поле"),
+    ],
+)
+async def test_batch_validation_messages_are_russian(
+    client: AsyncClient, make_token: TokenFactory, changes: dict[str, Any], message: str
+) -> None:
+    """Ответ объясняет ошибку по-русски и использует то же сообщение в detail и errors."""
+    response = await client.patch(
+        "/transactions/batch",
+        headers={"Authorization": f"Bearer {make_token()}"},
+        json={"items": [{"uid": str(uuid4()), "expected_version": 1, "changes": changes}]},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json()["errors"][0]["message"] == message
+    assert response.json()["detail"] == message
