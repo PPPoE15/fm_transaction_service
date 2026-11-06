@@ -62,6 +62,8 @@ class TransactionSchema(Base):
 class TransactionFilters:
     """Фильтр по транзакциям."""
 
+    category_uid: Annotated[apps_types.CategoryUID | None, Query()] = None
+
     category: Annotated[
         str | None,
         Query(
@@ -100,3 +102,11 @@ class TransactionFilters:
         """Отклонить обратный диапазон дат до обращения к БД."""
         if self.after is not None and self.before is not None and self.before < self.after:
             raise InvalidDateRangeError
+
+
+class TransactionList(Base):
+    """Согласованная страница списка с указателем следующей порции."""
+
+    content: list[TransactionSchema]
+    total: int
+    next_skip: int | None

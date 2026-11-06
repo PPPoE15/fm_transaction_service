@@ -129,7 +129,7 @@ async def test_list_transactions_shows_only_own(client: AsyncClient, seed: Seed,
     assert [item["uid"] for item in await _transactions(client, user_a)] == [seed.transaction_uid]
     response = await client.get("/transactions", headers=user_b.headers)
 
-    assert response.json() == {"total": 0, "content": []}
+    assert response.json() == {"total": 0, "content": [], "next_skip": None}
 
 
 async def test_list_categories_shows_only_own(client: AsyncClient, seed: Seed, user_a: User, user_b: User) -> None:

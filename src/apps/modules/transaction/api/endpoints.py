@@ -7,7 +7,6 @@ from apps.modules.transaction.application.exceptions import TransactionNotFoundE
 from apps.modules.transaction.application.queries import schemas as q_schemas
 from apps.modules.transaction.application.queries.get import TransactionQueries
 from apps.shared import apps_types
-from apps.shared.api_schemas import BaseListResponseSchema
 from apps.shared.db.session import async_session_factory
 from apps.web.security import UserInfo, get_user_info
 
@@ -25,7 +24,7 @@ async def get_transactions(
     page_params: Annotated[q_schemas.TransactionPageParams, Depends()],
     user: Annotated[UserInfo, Depends(get_user_info)],
     filter_params: Annotated[q_schemas.TransactionFilters, Depends()],
-) -> BaseListResponseSchema[q_schemas.TransactionSchema]:
+) -> q_schemas.TransactionList:
     """
     Список транзакций пользователя.
 
@@ -41,7 +40,10 @@ async def get_transactions(
             page_params=page_params,
             filter_params=filter_params,
         )
-    return BaseListResponseSchema(total=total, content=transactions)
+    next_skip = page_params.skip + len(transactions)
+    return q_schemas.TransactionList(
+        total=total, content=transactions, next_skip=next_skip if next_skip < total else None
+    )
 
 
 @router.post(

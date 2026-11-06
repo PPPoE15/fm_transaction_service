@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, select, true
 from sqlalchemy.orm import selectinload
 
+from apps.modules.category import CategoryORM
 from apps.modules.transaction.infrastructure import orm
 from apps.shared.db.base_query import BaseQueries
 
@@ -37,27 +38,51 @@ class TransactionQueries(BaseQueries):
         Returns:
             Список наборов возможностей; Общее количество записей в БД.
         """
-        base_stmt = (
-            select(orm.Transaction)
-            .options(
-                selectinload(orm.Transaction.category),
+        filtered = self._apply_filters(
+            select(
+                orm.Transaction.uid,
+                orm.Transaction.transaction_date,
+                orm.Transaction.money_sum,
+                orm.Transaction.transaction_type,
+                orm.Transaction.description,
+                orm.Transaction.version,
+                CategoryORM.uid.label("category_uid"),
+                CategoryORM.name.label("category_name"),
             )
-            .where(orm.Transaction.user_uid == user_uid)
-        )
-        select_stmt = self._apply_filters(base_stmt, filter_params)
-
-        count_stmt = select_stmt.with_only_columns(func.count(), maintain_column_froms=True)
+            .join(CategoryORM, orm.Transaction.category_uid == CategoryORM.uid)
+            .where(orm.Transaction.user_uid == user_uid),
+            filter_params,
+        ).cte("filtered_transactions")
+        count = select(func.count().label("total")).select_from(filtered).cte("transaction_count")
         date_order = (
-            orm.Transaction.transaction_date.desc()
+            filtered.c.transaction_date.desc()
             if filter_params.sort == "-transaction_date"
-            else orm.Transaction.transaction_date.asc()
+            else filtered.c.transaction_date.asc()
         )
-        select_stmt = select_stmt.order_by(date_order, orm.Transaction.uid.asc())
-        select_stmt = self._apply_pagination(select_stmt, page_params)
-
-        orm_transactions = (await self._session.scalars(select_stmt)).all()
-        total = (await self._session.scalars(count_stmt)).one()
-        return self.build_list(orm_transactions), total
+        page_stmt = select(filtered).order_by(date_order, filtered.c.uid.asc())
+        page = self._apply_pagination(page_stmt, page_params).cte("transaction_page")
+        outer_order = (
+            page.c.transaction_date.desc()
+            if filter_params.sort == "-transaction_date"
+            else page.c.transaction_date.asc()
+        )
+        # LEFT JOIN сохраняет total при пустой странице; всё читается одним MVCC-снимком.
+        stmt = select(count.c.total, page).select_from(count.outerjoin(page, true()))
+        rows = (await self._session.execute(stmt.order_by(outer_order, page.c.uid.asc()))).mappings().all()
+        content = [
+            schemas.TransactionSchema(
+                uid=row["uid"],
+                transaction_date=row["transaction_date"],
+                money_sum=row["money_sum"],
+                transaction_type=row["transaction_type"],
+                description=row["description"],
+                version=row["version"],
+                category=schemas.CategoryRef(uid=row["category_uid"], name=row["category_name"]),
+            )
+            for row in rows
+            if row["uid"] is not None
+        ]
+        return content, rows[0]["total"]
 
     async def get_transaction(
         self,
@@ -96,8 +121,10 @@ class TransactionQueries(BaseQueries):
         """
         if filter_params.category:
             stmt = stmt.filter(
-                orm.Transaction.category == filter_params.category,
+                CategoryORM.name.icontains(filter_params.category, autoescape=True),
             )
+        if filter_params.category_uid is not None:
+            stmt = stmt.filter(orm.Transaction.category_uid == filter_params.category_uid)
         if filter_params.transaction_type:
             stmt = stmt.filter(
                 orm.Transaction.transaction_type == filter_params.transaction_type,
