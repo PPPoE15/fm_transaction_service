@@ -17,6 +17,8 @@ from tests.conftest import TokenFactory
 
 ENDPOINTS = [
     ("GET", "/transactions"),
+    ("PATCH", "/transactions/batch"),
+    ("POST", "/transactions/batch-delete"),
     ("POST", "/transactions"),
     ("PATCH", "/transactions/00000000-0000-4000-8000-000000000001"),
     ("DELETE", "/transactions/00000000-0000-4000-8000-000000000001"),
