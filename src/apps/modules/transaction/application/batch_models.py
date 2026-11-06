@@ -5,7 +5,7 @@ from datetime import date as calendar_date
 from datetime import datetime
 from typing import Annotated, Generic, Literal, Self, TypeVar
 
-from pydantic import ConfigDict, Field, PlainValidator, model_validator
+from pydantic import ConfigDict, Field, PlainValidator, WithJsonSchema, model_validator
 
 from apps.modules.transaction.domain.changes import TransactionChanges
 from apps.shared import apps_types
@@ -25,7 +25,14 @@ class BatchChanges(Base):
     """Изменяемые поля строки таблицы без смены типа операции."""
 
     model_config = ConfigDict(extra="forbid")
-    date: Annotated[calendar_date, PlainValidator(parse_calendar_date)] | None = None
+    date: (
+        Annotated[
+            calendar_date,
+            PlainValidator(parse_calendar_date),
+            WithJsonSchema({"type": "string", "format": "date", "pattern": r"^20[0-9]{2}-[0-9]{2}-[0-9]{2}$"}),
+        ]
+        | None
+    ) = None
     category_uid: apps_types.CategoryUID | None = None
     money_sum: int | None = Field(default=None, ge=1, le=1_000_000_000, strict=True)
     description: DescriptionIn | None = None

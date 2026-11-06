@@ -55,7 +55,7 @@ Config is loaded from `dev.env`/`prod.env` (see `ENV_FILES` in `src/apps/config.
 - `src/apps/shared/` — shared kernel with no domain logic, used by several modules: `apps_types/` (domain-wide `Annotated` aliases like `UserUID`, `MoneySum`, `TransactionType`), `api_types.py` (request-field constraints shared by modules: `DescriptionIn`, `LocalDateTimeIn` — the contract's `LocalDateTime`, years 2000–2099, the date must exist), `schemas.py` (`Base`, `PageParams`), `api_schemas.py` (`BaseResponseSchema`/`BaseListResponseSchema` envelopes), `exceptions.py` (`BaseError` family), `unit_of_work.py` (`AbstractUnitOfWork`, `AbstractSQLAlchemyUnitOfWork`), `logger.py`, `datetime_tz.py`, and `db/` — `base.py` (`AsyncBase` declarative base with an explicit constraint-naming convention), `session.py` (`async_engine` from `db_settings.DSN`, `async_session_factory`), `base_repo.py` (`BaseSqlAlchemyRepo`), `base_query.py` (`BaseQueries` with `_apply_pagination`/`_model_to_dict`), `tz_type.py`.
 - `src/apps/web/` — application assembly, no domain logic: `main.py` builds the app (CORS, exception handlers, lifespan) and mounts the API under `/transaction` (the reverse proxy passes the path through unchanged, like `/auth` in the auth service; tests' `client` fixture has `base_url` ending in `/transaction`, so test paths omit it), `router.py` includes each module's `api` router, `body_size.py` (`BodySizeLimitMiddleware`: a body over 16 KiB → 413 `FM-413000` before auth and parsing; `Content-Length` is checked up front, a chunked body is read up to the limit; the proxy's `client_max_body_size` is the primary limit), `security.py` verifies the access token (RS256 signature with the auth service's public key from `WEB_PUBLIC_KEY_PATH`, default `/run/secrets/jwt_public_key`; `exp` and `sub` required; any failure → 401) and produces `UserInfo` (just `uid` from `sub`). The key is checked on startup (`validate_public_key` in `LifespanEvent`), so a missing/private/non-PEM key fails the app at boot. `config.py` holds `WEB_`-prefixed settings; `exception_handlers/`, `bootstrap/`, `telemetry/`.
 - `src/apps/modules/<module>/` — one package per bounded context: `category` (статьи), `transaction` (транзакции), `reports` (отчёты, read-only; FM-27: `GET /budget-structure`) and `starting_balance` (стартовый остаток). `reports` has no tables of its own, so `infrastructure/` is empty; queries aggregate over the category/transaction ORM exported by those modules, report rules live in `domain/` and take today's date as a parameter (`api/deps.get_today`, overridden in tests). One file per report in each layer (`domain/budget_structure.py`, `application/queries/budget_structure.py`), so the next read-only report (balance) goes next to it. Being read-only, `reports` deviates from the layering below: no commands/UoW/ports/fakes, the query class (`GetBudgetStructure.execute`) returns the domain read model, which is also the response schema (`NOTE(FM-27)` in `api/endpoints.py`), and its tests are domain unit tests plus API tests on Postgres. Write-side areas get their own module. `starting_balance` (стартовый остаток, FM-37: `GET`/`POST /starting-balance`) is one: table `starting_balances` with `user_uid` as the primary key (one row per user, `created_at` is diagnostic only and not returned), set once and never changed — the command checks that there's no balance yet (409 `FM-409201`), and on a race of two `POST`s the repo translates the primary-key violation into the same error. Date rules (default — yesterday, years 2000–2099, not after today → 422 `FM-422002`) live in the aggregate `StartingBalance.create`, today's date comes from its own `api/deps.get_today` (overridden in tests). It depends on no other module and exports `StartingBalanceORM` for read-only reports.
-- `transaction` (FM-52: `POST /transactions` → 201 `Transaction` + `Location`). The read schema `TransactionSchema` with `category: CategoryRef {uid, name}` (`application/queries/schemas.py`) is shared by the list and the create response. Create rules live in `CreateTransactionCommandHandler`: the category from `category_uid` must be the user's (else 400 `FM-400201` — a value in the body, not a path resource, so not 404; the legacy `PATCH /transactions` uses the same guard), `transaction_type` must match the category type (400 `FM-400202`), at most `MAX_TRANSACTIONS_PER_USER` = 100 000 per user (409 `FM-409202`). Atomicity comes from the repos, decisions stay in the handler: `count_by_user_for_update` takes a per-user advisory lock (namespace 52) before counting, and the category is read with `get_by_uid_for_key_share` (`FOR KEY SHARE`), so a concurrent type change (`lock_category`, `FOR UPDATE`) either waits for the insert or is seen by it. Lock order on create: user's transaction set, then the category row.
+- `transaction` (FM-52: `POST /transactions` → 201 `Transaction` + `Location`). The read schema `TransactionSchema` with `category: CategoryRef {uid, name}` (`application/queries/schemas.py`) is shared by the list and the create response. Create rules live in `CreateTransactionCommandHandler`: the category from `category_uid` must be the user's (else 400 `FM-400201` — a value in the body, not a path resource, so not 404; `PATCH /transactions/{uid}` uses the same guard), `transaction_type` must match the category type (400 `FM-400202`), at most `MAX_TRANSACTIONS_PER_USER` = 100 000 per user (409 `FM-409202`). Atomicity comes from the repos, decisions stay in the handler: `count_by_user_for_update` takes a per-user advisory lock (namespace 52) before counting, and the category is read with `get_by_uid_for_key_share` (`FOR KEY SHARE`), so a concurrent type change (`lock_category`, `FOR UPDATE`) either waits for the insert or is seen by it. Lock order on create: user's transaction set, then the category row.
 - `src/apps/db_models/__init__.py` — ORM registry: imports every module's `infrastructure/orm.py` and re-exports `AsyncBase`, so Alembic (`migrations/env.py` imports `AsyncBase` **from here**, not from `shared.db.base`) sees all tables. The app itself doesn't import it — see the relationship rule below.
 - `src/migrations/` — Alembic env (`env.py` runs migrations async via `run_sync`) and versioned migration scripts.
 - `src/tests/` — `modules/<module>/` (command-handler unit tests + that module's in-memory fakes in `fakes.py`; the shared commit/rollback mixin is `tests/modules/fakes.py`), `web/` (security, isolation, health), `test_architecture.py` (module boundary rules, see below).
@@ -210,3 +210,47 @@ libpq5 или компиляторов в runtime. curl нужен healthcheck �
 debugpy; dev/master сохраняют `/opt/fm_transaction_service` и прежний entrypoint.
 CI строит все три цели и запускает `scripts/check-image.py` перед публикацией.
 Инструкции и замеры — `docs/container-images.md`.
+
+
+### Редактирование таблицы операций (FM-99)
+
+Одиночные PATCH/DELETE используют `/transactions/{transaction_uid}`. PATCH частичный,
+принимает `category_uid`, возвращает одну `Transaction`; DELETE — 204 без тела.
+`description: null` очищает поле, отсутствие поля сохраняет его. Необязательная
+`expected_version` в теле PATCH или query DELETE даёт 409/FM-409204 при несовпадении.
+Новая миграция добавляет положительную BIGINT `version`, начиная с 1 для всех операций.
+Каждый успешный PATCH повышает её, даже при совпадении значений.
+
+`GET /transactions` объединяет фильтры через AND, включая точный `category_uid` и
+регистронезависимую подстроку `category` (символы `%` и `_` литеральны). Один SQL с CTE
+читает страницу, категорию и count из общего MVCC-снимка; LEFT JOIN сохраняет total
+для пустой страницы. Ответ содержит `next_skip`, null на последней/пустой странице.
+Сортировка по дате дополнена UID ASC. Между страницами снимок не закрепляется.
+
+`PATCH /transactions/batch` принимает 1–100 уникальных `{uid, expected_version, changes}`.
+Изменения: `date`, `money_sum`, `category_uid`, `description`; календарная дата сохраняет
+локальное время и микросекунды. Все проверки и записи выполняются внутри одного UoW.
+Приоритет ошибок: доступ 404, версия 409, категория 400. Ни одна строка не сохраняется
+при ошибке. Ответ `{content}` сохраняет порядок входа и содержит повышенные версии.
+
+`POST /transactions/batch-delete` принимает 1–100 `{uid, expected_version}` и возвращает
+HTTP 200 с `results` в порядке входа: `{index,uid,status:204}` либо результат 404/FM-404000
+или 409/FM-409204 с `code,message`. Чужая операция неотличима от отсутствующей.
+Ожидаемые ошибки строк пропускаются; допустимые удаления фиксируются вместе, неожиданный
+сбой до commit откатывает весь запрос. Вход валидируется целиком до команды.
+`BatchRoute` переводит ошибки входа и атомарного сохранения в RFC7807 с массивом `errors`.
+Статические пакетные маршруты зарегистрированы перед путями с UUID.
+
+Порядок блокировок: операции по UID ASC, затем итоговые категории по UID ASC;
+одиночная запись использует тот же порядок. Категории удерживаются до commit, как при
+создании. Ответ изменения строится из проверенного состояния внутри UoW и выдаётся
+после commit, без повторного чтения, которое могло бы увидеть чужую конкурентную запись.
+Ключа идемпотентности и хранения ответов нет: устаревшая версия при повторе сохранения
+даёт конфликт, уже удалённый UID — 404 в результате строки. После неизвестного исхода
+клиент перечитывает данные и не повторяет автоматически.
+
+`BodySizeLimitMiddleware` ограничивает реальные байты всех HTTP-тел, даже при заданном
+Content-Length. Для PATCH batch и POST batch-delete предел включительно 512 КиБ,
+для остальных 16 КиБ; исключение импорта 6 МиБ не изменено. Превышение обычного/пакетного
+лимита даёт application/problem+json, 413/FM-413000. Настройка внешнего proxy в fm_devops
+и проверки через него выполняются отдельным проходом по решению пользователя.
