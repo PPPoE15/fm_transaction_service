@@ -27,8 +27,7 @@ class Repo(AbstractTransactionRepo, BaseSqlAlchemyRepo):
             text("SELECT pg_advisory_xact_lock(:namespace, hashtext(:user_uid))"),
             {"namespace": _USER_TRANSACTIONS_LOCK_NAMESPACE, "user_uid": str(user_uid)},
         )
-        # TODO(FM-33): индекса по `user_uid` нет — подсчёт сканирует таблицу транзакций всех пользователей при каждом
-        # создании. Индекс `(user_uid, transaction_date)` из FM-33 покроет и этот запрос.
+        # Левый префикс индекса (user_uid, transaction_date) поддерживает и подсчёт квоты пользователя.
         stmt = select(func.count()).select_from(orm.Transaction).where(orm.Transaction.user_uid == user_uid)
         return (await self._session.scalars(stmt)).one()
 
