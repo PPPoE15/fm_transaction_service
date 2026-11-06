@@ -99,7 +99,7 @@ class BatchUpdateCommandHandler:
                     BatchIssue(
                         index=index,
                         uid=item.uid,
-                        field="category_uid",
+                        field="changes.category_uid",
                         code="FM-400201",
                         message="Статья с данным UID не найдена",
                     )
@@ -109,7 +109,7 @@ class BatchUpdateCommandHandler:
                     BatchIssue(
                         index=index,
                         uid=item.uid,
-                        field="category_uid",
+                        field="changes.category_uid",
                         code="FM-400202",
                         message="Тип транзакции не совпадает с типом статьи",
                     )

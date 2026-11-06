@@ -28,7 +28,8 @@ def validation_issues(exc: RequestValidationError) -> list[BatchIssue]:
             if isinstance(items, list) and index < len(items) and isinstance(items[index], dict):
                 with suppress(ValueError):
                     uid = UUID(str(items[index].get("uid")))
-        field = str(loc[-1]) if len(loc) > 1 and isinstance(loc[-1], str) else None
+        path = loc[_ITEM_LOCATION_LENGTH:] if index is not None else loc[1:]
+        field = ".".join(str(part) for part in path) if path and isinstance(path[0], str) else None
         result.append(BatchIssue(code="FM-422000", message=error["msg"], index=index, uid=uid, field=field))
     return result
 

@@ -89,6 +89,8 @@ async def test_batch_failure_rolls_back(
     assert response.status_code == expected_status, response.text
     assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["errors"]
+    if failure in {"category", "type"}:
+        assert response.json()["errors"][0]["field"] == "changes.category_uid"
     actual = (await client.get("/transactions", headers=headers)).json()["content"]
     assert sorted(actual, key=lambda item: item["uid"]) == sorted(original, key=lambda item: item["uid"])
 
@@ -290,3 +292,24 @@ async def test_maximum_batch_with_long_comments(
         {"index": index, "uid": row["uid"], "status": 204} for index, row in enumerate(original)
     ]
     assert (await client.get("/transactions", headers=headers)).json() == {"total": 0, "content": [], "next_skip": None}
+
+
+@pytest.mark.parametrize(
+    ("changes", "field"),
+    [
+        ({"money_sum": 0}, "changes.money_sum"),
+        ({"date": "2026-02-30"}, "changes.date"),
+        ({"unknown": 1}, "changes.unknown"),
+    ],
+)
+async def test_batch_error_preserves_nested_field_path(
+    client: AsyncClient, make_token: TokenFactory, changes: dict[str, Any], field: str
+) -> None:
+    """Клиент получает полный путь поля внутри элемента для привязки ошибки к ячейке."""
+    response = await client.patch(
+        "/transactions/batch",
+        headers={"Authorization": f"Bearer {make_token()}"},
+        json={"items": [{"uid": str(uuid4()), "expected_version": 1, "changes": changes}]},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json()["errors"][0]["field"] == field
