@@ -37,7 +37,7 @@ make build      # docker compose build (docker/docker-compose.yml)
 make up_all     # start the `web` service (applies migrations first via _init-migrations)
 make down_all
 
-# Verify all migrations downgrade cleanly
+# Verify downgrade/upgrade on isolated testcontainers Postgres (historical target name)
 make test_downgrade_migrations_compose
 ```
 
