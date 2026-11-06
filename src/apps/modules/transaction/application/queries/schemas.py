@@ -36,6 +36,8 @@ class TransactionSchema(Base):
     Одна схема на все ответы с транзакцией, чтобы список и создание не расходились.
     """
 
+    version: int = Field(ge=1)
+
     uid: apps_types.TransactionUID = Field(
         description="UID транзакции.",
     )

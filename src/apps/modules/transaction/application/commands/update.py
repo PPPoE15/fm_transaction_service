@@ -1,63 +1,42 @@
-from datetime import datetime
-
+from apps.modules.transaction.application.exceptions import (
+    TransactionTypeMismatchError,
+    TransactionVersionConflictError,
+)
 from apps.modules.transaction.application.guards import get_own_category, get_own_transaction
+from apps.modules.transaction.application.queries.schemas import CategoryRef, TransactionSchema
 from apps.modules.transaction.application.uow import AbstractTransactionUnitOfWork
+from apps.modules.transaction.domain.changes import TransactionChanges
 from apps.shared import apps_types
 
 
 class UpdateTransactionCommandHandler:
-    """Класс обработчика команды изменения транзакции."""
+    """Обработчик частичного изменения операции с оптимистической блокировкой."""
 
-    def __init__(
-        self,
-        unit_of_work: AbstractTransactionUnitOfWork,
-    ) -> None:
-        """
-        Конструктор обработчика команды изменения транзакции.
-
-        Args:
-            unit_of_work: Объект шаблона Единица работы.
-        """
+    def __init__(self, unit_of_work: AbstractTransactionUnitOfWork) -> None:
+        """Сохранить единицу работы для атомарной проверки и записи."""
         self._uow = unit_of_work
 
     async def handle(
         self,
         user_uid: apps_types.UserUID,
         transaction_uid: apps_types.TransactionUID,
-        transaction_date: datetime,
-        category: apps_types.CategoryUID,
-        money_sum: apps_types.MoneySum,
-        transaction_type: apps_types.TransactionType,
-        description: apps_types.Description,
-    ) -> apps_types.TransactionUID | None:
-        """
-        Изменить транзакцию.
-
-        Args:
-            user_uid: UID пользователя.
-            transaction_uid: UID транзакции.
-            transaction_date: Дата транзакции.
-            category: Категория.
-            money_sum: Денежная сумма по категории.
-            transaction_type:Тип транзакции.
-            description: Описание.
-
-        Raises:
-            TransactionNotFoundError: Если транзакции нет или она принадлежит другому пользователю.
-            TransactionCategoryNotFoundError: Если новой статьи нет или она принадлежит другому пользователю.
-        """
+        changes: TransactionChanges,
+        expected_version: int | None = None,
+    ) -> TransactionSchema:
+        """Обновить операцию и вернуть её проверенное состояние после успешного commit."""
         async with self._uow as uow:
             transaction = await get_own_transaction(uow, user_uid, transaction_uid)
-            await get_own_category(uow, user_uid, category)
-
-            transaction.update(
-                transaction_date=transaction_date,
-                category_uid=category,
-                money_sum=money_sum,
-                transaction_type=transaction_type,
-                description=description,
-            )
-
+            if expected_version is not None and transaction.version != expected_version:
+                raise TransactionVersionConflictError
+            category = await get_own_category(uow, user_uid, changes.category_uid or transaction.category_uid)
+            resulting_type = changes.transaction_type or transaction.transaction_type
+            if resulting_type != category.category_type:
+                raise TransactionTypeMismatchError
+            transaction.update(changes)
             await uow.transactions_repo.update(transaction)
+            response = TransactionSchema(
+                **transaction.model_dump(exclude={"user_uid", "category_uid"}),
+                category=CategoryRef(uid=category.uid, name=category.name),
+            )
             await uow.commit()
-        return transaction.uid
+        return response

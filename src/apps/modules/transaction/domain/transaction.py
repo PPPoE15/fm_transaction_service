@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from pydantic import Field
 
+from apps.modules.transaction.domain.changes import TransactionChanges
 from apps.shared import apps_types
 from apps.shared.schemas import Base
 
@@ -13,6 +14,8 @@ MAX_TRANSACTIONS_PER_USER = 100_000
 
 class Transaction(Base):
     """Агрегатор транзакции пользователя"""
+
+    version: int = Field(default=1, ge=1)
 
     uid: apps_types.TransactionUID = Field(
         description="Уникальный ID записи транзакции.",
@@ -68,31 +71,12 @@ class Transaction(Base):
             description=description,
         )
 
-    def update(
-        self,
-        transaction_date: datetime,
-        category_uid: apps_types.CategoryUID,
-        money_sum: apps_types.MoneySum,
-        transaction_type: apps_types.TransactionType,
-        description: apps_types.Description,
-    ) -> None:
-        """
-        Изменить транзакцию.
-
-        Args:
-            transaction_date: Дата транзакции.
-            money_sum: Денежная сумма по категории.
-            transaction_type:Тип транзакции.
-            category_uid: UID Категории.
-            description: Описание.
-        """
-        # TODO(FM-9): «ложные» значения (money_sum=0, description="") молча игнорируются — PATCH отвечает 200
-        # без изменений. Исправить при переходе на частичный PATCH по контракту (description: null очищает поле).
-        self.transaction_date = transaction_date if transaction_date else self.transaction_date
-        self.category_uid = category_uid if category_uid else self.category_uid
-        self.money_sum = money_sum if money_sum else self.money_sum
-        self.transaction_type = transaction_type if transaction_type else self.transaction_type
-        self.description = description if description else self.description
+    def update(self, changes: TransactionChanges) -> None:
+        """Применить явно переданные поля и увеличить версию даже при совпадении значений."""
+        for name in changes.model_fields_set:
+            value = getattr(changes, name)
+            setattr(self, name, (value or None) if name == "description" else value)
+        self.version += 1
 
     def belongs_to(self, user_uid: apps_types.UserUID) -> bool:
         """

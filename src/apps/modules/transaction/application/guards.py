@@ -52,7 +52,7 @@ async def get_own_transaction(
     Raises:
         TransactionNotFoundError: Если транзакции нет или она принадлежит другому пользователю.
     """
-    transaction = await uow.transactions_repo.get_by_uid(transaction_uid)
+    transaction = await uow.transactions_repo.get_by_uid_for_update(transaction_uid)
     if transaction is None or not transaction.belongs_to(user_uid):
         raise TransactionNotFoundError
     return transaction

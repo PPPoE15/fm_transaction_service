@@ -137,6 +137,7 @@ class TransactionQueries(BaseQueries):
             transaction: Orm-модель транзакции с загруженной статьёй.
         """
         return schemas.TransactionSchema(
+            version=transaction.version,
             uid=transaction.uid,
             transaction_date=transaction.transaction_date,
             category=schemas.CategoryRef(uid=transaction.category.uid, name=transaction.category.name),

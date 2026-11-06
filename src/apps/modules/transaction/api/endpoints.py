@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from starlette import status
 
 from apps.modules.transaction.application.exceptions import TransactionNotFoundError
@@ -9,7 +9,6 @@ from apps.modules.transaction.application.queries.get import TransactionQueries
 from apps.shared import apps_types
 from apps.shared.api_schemas import BaseListResponseSchema
 from apps.shared.db.session import async_session_factory
-from apps.shared.schemas import PageParams
 from apps.web.security import UserInfo, get_user_info
 
 from . import deps, schemas
@@ -93,64 +92,29 @@ async def create_user_transaction(
     return created
 
 
-@router.delete(
-    "/transactions",
-    summary="Удаление транзакции пользователя",
-    description="Удалить транзакцию пользователя",
-)
+@router.delete("/transactions/{transaction_uid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_transaction(
     transaction_uid: apps_types.TransactionUID,
     user: Annotated[UserInfo, Depends(get_user_info)],
-) -> None:
-    """
-    Удалить транзакцию пользователя.
-
-    Args:
-        transaction_uid: UID транзакции
-        user: Информация об авторизованном пользователе.
-    """
-    command_handler = deps.build_delete_transaction_command_handler()
-    await command_handler.handle(
-        user_uid=user.uid,
-        transaction_uid=transaction_uid,
+    expected_version: Annotated[int | None, Query(ge=1)] = None,
+) -> Response:
+    """Удалить собственную операцию с необязательной проверкой версии."""
+    await deps.build_delete_transaction_command_handler().handle(
+        user_uid=user.uid, transaction_uid=transaction_uid, expected_version=expected_version
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.patch(
-    "/transactions",
-    summary="Изменение транзакции пользователя",
-    description="Изменить транзакцию пользователя",
-)
+@router.patch("/transactions/{transaction_uid}")
 async def update_user_transaction(
     transaction_uid: apps_types.TransactionUID,
     item_in: schemas.UpdateTransactionSchema,
     user: Annotated[UserInfo, Depends(get_user_info)],
-    page_params: Annotated[PageParams, Depends()],
-) -> BaseListResponseSchema[q_schemas.TransactionSchema]:
-    """
-    Изменить транзакцию пользователя.
-
-    Args:
-        transaction_uid: UID транзакции
-        item_in: Измененная информация о транзакции
-        user: Информация об авторизованном пользователе.
-        page_params: Параметры пагинации
-    """
-    command_handler = deps.build_update_transaction_command_handler()
-    await command_handler.handle(
+) -> q_schemas.TransactionSchema:
+    """Частично изменить собственную операцию и вернуть сохранённое состояние."""
+    return await deps.build_update_transaction_command_handler().handle(
         user_uid=user.uid,
         transaction_uid=transaction_uid,
-        transaction_date=item_in.transaction_date,
-        category=item_in.category,
-        money_sum=item_in.money_sum,
-        transaction_type=item_in.transaction_type,
-        description=item_in.description,
+        changes=item_in.changes(),
+        expected_version=item_in.expected_version,
     )
-    async with async_session_factory() as session:
-        transactions_queries = TransactionQueries(session)
-        transactions, total = await transactions_queries.get_transactions(
-            user_uid=user.uid,
-            page_params=page_params,
-            filter_params=q_schemas.TransactionFilters(),
-        )
-    return BaseListResponseSchema(total=total, content=transactions)

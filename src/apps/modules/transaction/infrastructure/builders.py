@@ -12,6 +12,7 @@ def build_orm(transaction_agg: Transaction) -> orm.Transaction:
        transaction_agg : Агрегатор пользователя с транзакциями.
     """
     return orm.Transaction(
+        version=transaction_agg.version,
         uid=transaction_agg.uid,
         user_uid=transaction_agg.user_uid,
         transaction_date=transaction_agg.transaction_date,
@@ -31,6 +32,7 @@ def build_list(transactions: Sequence[orm.Transaction]) -> list[Transaction]:
     """
     return [
         Transaction(
+            version=transaction.version,
             uid=transaction.uid,
             user_uid=transaction.user_uid,
             transaction_date=transaction.transaction_date,
@@ -51,6 +53,7 @@ def build(transaction: orm.Transaction) -> Transaction:
         transaction: Результаты запроса.
     """
     return Transaction(
+        version=transaction.version,
         uid=transaction.uid,
         user_uid=transaction.user_uid,
         transaction_date=transaction.transaction_date,
