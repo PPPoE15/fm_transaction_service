@@ -11,8 +11,8 @@
 PostgreSQL 16, отдельный testcontainers-контейнер, 100000 операций, 100 пользователей, 100 категорий. После ANALYZE выполнен EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) реального запроса GetBudgetStructure за март 2026, без изменения настроек планировщика.
 
 ```sql
-SELECT transactions.category_uid, CAST(EXTRACT(month FROM transactions.transaction_date) AS INTEGER) AS month, sum(CAST(transactions.money_sum AS BIGINT)) AS money_total 
-FROM transactions JOIN categories ON categories.uid = transactions.category_uid 
+SELECT transactions.category_uid, CAST(EXTRACT(month FROM transactions.transaction_date) AS INTEGER) AS month, sum(CAST(transactions.money_sum AS BIGINT)) AS money_total
+FROM transactions JOIN categories ON categories.uid = transactions.category_uid
 WHERE transactions.user_uid = 'dc98b5ec-530e-4360-98b7-b5ca7f377896' AND categories.user_uid = 'dc98b5ec-530e-4360-98b7-b5ca7f377896' AND categories.category_type = 'outcome' AND transactions.transaction_date >= '2026-01-01 00:00:00' AND transactions.transaction_date < '2026-04-01 00:00:00' GROUP BY transactions.category_uid, CAST(EXTRACT(month FROM transactions.transaction_date) AS INTEGER)
 ```
 
