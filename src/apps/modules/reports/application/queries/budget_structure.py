@@ -7,6 +7,7 @@ from sqlalchemy import BigInteger, Integer, cast, extract, func, select
 
 from apps.modules.category import CategoryORM
 from apps.modules.reports.domain import BudgetCategory, BudgetStructure
+from apps.modules.reports.domain.budget_structure import MONTHS_IN_YEAR
 from apps.modules.transaction import TransactionORM
 from apps.shared.db.base_query import BaseQueries
 
@@ -38,10 +39,8 @@ class GetBudgetStructure(BaseQueries):
         # NOTE(FM-27): статьи и факты читаются двумя запросами в READ COMMITTED — статья, изменённая между ними,
         # даст на один ответ несогласованную строку. Для отчёта это допустимо; если станет важно — один запрос
         # с LEFT JOIN или транзакция REPEATABLE READ.
-        # TODO(FM-33): факты будущих месяцев домен отбрасывает — для будущего года запрос можно не выполнять,
-        # для текущего ограничить верхнюю границу началом следующего месяца.
         categories = await self._get_categories(user_uid, category_type)
-        facts = await self._get_month_facts(user_uid, year, category_type)
+        facts = {} if year > today.year else await self._get_month_facts(user_uid, year, category_type, today)
         return BudgetStructure.build(
             year=year,
             category_type=category_type,
@@ -81,15 +80,20 @@ class GetBudgetStructure(BaseQueries):
         user_uid: apps_types.UserUID,
         year: int,
         category_type: apps_types.TransactionType,
+        today: date,
     ) -> dict[tuple[apps_types.CategoryUID, int], apps_types.MoneyTotal]:
         """
-        Суммы транзакций пользователя по (статья, месяц) за год; пары без транзакций в ответ не попадают.
+        Суммы транзакций пользователя по (статья, месяц) за наступившую часть выбранного года.
 
         Args:
             user_uid: UID пользователя.
             year: Год.
             category_type: Тип статей.
+            today: Текущая дата; текущий месяц включается целиком.
         """
+        end = datetime(year + 1, 1, 1)  # noqa: DTZ001 — даты транзакций без пояса
+        if year == today.year and today.month < MONTHS_IN_YEAR:
+            end = end.replace(year=year, month=today.month + 1)
         month = cast(extract("month", TransactionORM.transaction_date), Integer).label("month")
         # Отдельная сумма не больше int32, но сумма за месяц может его превысить — считаем в BIGINT.
         money_total = func.sum(cast(TransactionORM.money_sum, BigInteger), type_=BigInteger).label("money_total")
@@ -103,12 +107,10 @@ class GetBudgetStructure(BaseQueries):
                 # транзакции не проверяет совпадение типов (FM-5, `FM-400202`), а тип статьи с транзакциями можно
                 # сменить (FM-4), чужой по типу транзакции попадёт в таблицу этого типа.
                 CategoryORM.category_type == category_type,
-                # Полуинтервал [1 января; 1 января следующего года), а не extract по году — чтобы индекс по дате
-                # мог применяться.
-                # TODO(FM-33): индекса на `transactions (user_uid, transaction_date)` пока нет — запрос сканирует
-                # таблицу транзакций всех пользователей; добавить миграцией отдельной задачей.
+                # Полуинтервал по исходной дате позволяет использовать составной индекс;
+                # для текущего года верхняя граница — начало следующего месяца.
                 TransactionORM.transaction_date >= datetime(year, 1, 1),  # noqa: DTZ001 — даты транзакций без пояса
-                TransactionORM.transaction_date < datetime(year + 1, 1, 1),  # noqa: DTZ001
+                TransactionORM.transaction_date < end,
             )
             .group_by(TransactionORM.category_uid, month)
         )
