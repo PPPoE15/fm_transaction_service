@@ -67,11 +67,11 @@ class ListCategories(BaseQueries):
             stmt = stmt.filter(
                 orm.Category.category_type == filter_params.category_type,
             )
-        if filter_params.below_money_sum:
+        if filter_params.below_money_sum is not None:
             stmt = stmt.filter(
                 orm.Category.money_plan <= filter_params.below_money_sum,
             )
-        if filter_params.above_money_sum:
+        if filter_params.above_money_sum is not None:
             stmt = stmt.filter(
                 orm.Category.money_plan >= filter_params.above_money_sum,
             )

@@ -58,7 +58,7 @@ class AbstractTransactionRepo(abc.ABC):
     @abc.abstractmethod
     async def get_by_user_uid(self, user_uid: apps_types.UserUID) -> list[Transaction] | None:
         """
-        Получить пользователя и его транзакции по UID пользователя.
+        Получить операции по UID владельца; при отсутствии вернуть пустой список.
 
         Args:
             user_uid: UID пользователя.
