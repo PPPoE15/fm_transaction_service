@@ -166,3 +166,42 @@ async def test_category_filters_and_next_skip(
     assert missing.json() == {"total": 0, "content": [], "next_skip": None}
     mismatched = await client.get("/transactions", headers=headers, params={**params, "category": "другое"})
     assert mismatched.json() == {"total": 0, "content": [], "next_skip": None}
+
+
+@pytest.mark.db
+@pytest.mark.parametrize("substring", ["еДа", "100%", "а_б"])
+async def test_category_substring_isolated_pages(
+    client: AsyncClient, make_token: TokenFactory, db_engine: AsyncEngine, substring: str
+) -> None:
+    """Подстрока без учёта регистра и с буквальными %/_ фильтрует страницы и total только владельца."""
+    owner, stranger = uuid4(), uuid4()
+    matches = [uuid4(), uuid4()]
+    async with async_session_factory() as session:
+        for user_uid in (owner, stranger):
+            for index, name in enumerate(["ОбЕДА 100% а_б", "еда 100% а_б дома", "Транспорт 1000 аХб"]):
+                category_uid = uuid4()
+                session.add(CategoryORM(uid=category_uid, user_uid=user_uid, name=name, category_type="outcome"))
+                await session.flush()
+                session.add(
+                    TransactionORM(
+                        uid=matches[index] if user_uid == owner and index < len(matches) else uuid4(),
+                        user_uid=user_uid,
+                        category_uid=category_uid,
+                        transaction_date=datetime(2026, 1, index + 1, tzinfo=UTC).replace(tzinfo=None),
+                        money_sum=100,
+                        transaction_type="outcome",
+                    )
+                )
+        await session.commit()
+    headers = {"Authorization": f"Bearer {make_token(owner)}"}
+    for skip in range(len(matches) + 1):
+        response = await client.get(
+            "/transactions",
+            headers=headers,
+            params={"category": substring, "limit": 1, "skip": skip, "sort": "transaction_date"},
+        )
+        assert response.status_code == status.HTTP_200_OK, response.text
+        body = response.json()
+        assert body["total"] == len(matches)
+        assert [item["uid"] for item in body["content"]] == [str(uid) for uid in matches[skip : skip + 1]]
+        assert body["next_skip"] == (skip + 1 if skip + 1 < len(matches) else None)

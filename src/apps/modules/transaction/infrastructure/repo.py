@@ -36,8 +36,9 @@ class Repo(AbstractTransactionRepo, BaseSqlAlchemyRepo):
         await self._session.merge(orm_transactions)
 
     async def get_by_user_uid(self, user_uid: apps_types.UserUID) -> list[Transaction] | None:
+        """Получить только операции владельца; при отсутствии вернуть пустой список."""
         stmt = select(orm.Transaction).where(
-            orm.Transaction.uid == user_uid,
+            orm.Transaction.user_uid == user_uid,
         )
         transactions = (await self._session.scalars(stmt)).all()
         return builders.build_list(transactions)
