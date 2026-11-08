@@ -19,6 +19,7 @@ from apps.modules.transaction.application.exceptions import (
     TransactionTypeMismatchError,
 )
 from apps.modules.transaction.domain import MAX_TRANSACTIONS_PER_USER, Transaction
+from apps.modules.transaction.domain.changes import TransactionChanges
 from apps.shared import apps_types
 from tests.modules.category.fakes import InMemoryCategoryRepo
 from tests.modules.transaction.fakes import FakeTransactionUnitOfWork, InMemoryTransactionRepo
@@ -209,11 +210,7 @@ async def test_update_own_transaction(
     await UpdateTransactionCommandHandler(uow).handle(
         user_uid=OWNER,
         transaction_uid=transaction.uid,
-        transaction_date=transaction.transaction_date,
-        category=other_category.uid,
-        money_sum=250,
-        transaction_type=OUTCOME,
-        description="Ужин",
+        changes=TransactionChanges(category_uid=other_category.uid, money_sum=250, description="Ужин"),
     )
 
     updated = transactions.items[transaction.uid]
@@ -232,11 +229,7 @@ async def test_update_foreign_transaction_is_not_found(
         await UpdateTransactionCommandHandler(uow).handle(
             user_uid=OWNER,
             transaction_uid=foreign.uid,
-            transaction_date=foreign.transaction_date,
-            category=stranger_category.uid,
-            money_sum=999,
-            transaction_type=OUTCOME,
-            description="Взлом",
+            changes=TransactionChanges(category_uid=stranger_category.uid, money_sum=999, description="Взлом"),
         )
 
     assert "не найдена" in exc_info.value.msg
@@ -255,11 +248,7 @@ async def test_update_missing_transaction_is_not_found(
         await UpdateTransactionCommandHandler(uow).handle(
             user_uid=OWNER,
             transaction_uid=uuid4(),
-            transaction_date=DATE,
-            category=category.uid,
-            money_sum=1,
-            transaction_type=OUTCOME,
-            description=None,
+            changes=TransactionChanges(category_uid=category.uid, money_sum=1, description=None),
         )
 
 
@@ -275,11 +264,7 @@ async def test_move_own_transaction_to_foreign_category_is_rejected(
         await UpdateTransactionCommandHandler(uow).handle(
             user_uid=OWNER,
             transaction_uid=transaction.uid,
-            transaction_date=transaction.transaction_date,
-            category=stranger_category.uid,
-            money_sum=100,
-            transaction_type=OUTCOME,
-            description=None,
+            changes=TransactionChanges(category_uid=stranger_category.uid, money_sum=100, description=None),
         )
 
     assert transactions.items[transaction.uid].category_uid == category.uid

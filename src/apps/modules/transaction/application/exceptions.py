@@ -52,3 +52,10 @@ class TransactionLimitExceededError(BaseConflictError):
 
     msg = "Достигнут лимит транзакций: не больше 100 000 на пользователя"
     code = "FM-409202"
+
+
+class TransactionVersionConflictError(BaseConflictError):
+    """Версия операции изменилась после чтения клиентом."""
+
+    code = "FM-409204"
+    msg = "Версия операции изменилась"

@@ -5,7 +5,6 @@ from starlette import status
 
 from apps.modules.category.application.commands import (
     CreateCommandHandler,
-    DeleteCommandHandler,
     UpdateCommandHandler,
 )
 from apps.modules.category.application.queries import schemas as q_schemas
@@ -89,31 +88,6 @@ async def create_category(
     response.headers["Location"] = f"{request.url.path.rstrip('/')}/{category.uid}"
     # Все отдаваемые поля есть в агрегате, только что сохранённом командой, — повторно читать из БД не нужно.
     return q_schemas.CategorySchema.model_validate(category)
-
-
-@router.delete(
-    "/category",
-    summary="Удаление категории пользователя",
-    description="Удалить категорию пользователя",
-)
-async def delete_user_category(
-    category_uid: apps_types.CategoryUID,
-    user: Annotated[UserInfo, Depends(get_user_info)],
-) -> None:
-    """
-    Удалить категорию пользователя.
-
-    Args:
-        category_uid: UID категории
-        user: Информация об авторизованном пользователе.
-    """
-    command_handler = DeleteCommandHandler(
-        unit_of_work=UnitOfWork(async_session_factory),
-    )
-    await command_handler.handle(
-        user_uid=user.uid,
-        category_uid=category_uid,
-    )
 
 
 @router.patch(

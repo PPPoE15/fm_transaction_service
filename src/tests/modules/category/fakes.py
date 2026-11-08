@@ -19,6 +19,18 @@ class InMemoryCategoryRepo(AbstractCategoryRepo):
         # Порядок обращений, важных для гонок: блокировка строки статьи должна идти до проверки транзакций
         self.calls: list[str] = []
 
+    async def get_all_for_import(
+        self,
+        user_uid: apps_types.UserUID,
+        category_type: apps_types.TransactionType,
+    ) -> list[Category]:
+        """Вернуть копии категорий пользователя нужного типа; блокировки проверяются на Postgres."""
+        return [
+            category.model_copy()
+            for category in self.items.values()
+            if category.user_uid == user_uid and category.category_type == category_type
+        ]
+
     async def create(self, category: Category) -> None:
         self.items[category.uid] = category.model_copy()
 

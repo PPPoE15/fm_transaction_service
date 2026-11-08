@@ -10,8 +10,10 @@ from apps.shared.db.session import async_session_factory
 from apps.web.security import UserInfo, get_user_info
 
 from . import deps
+from .balance_history import router as balance_history_router
 
 router = APIRouter(tags=["Отчёты"])
+router.include_router(balance_history_router)
 
 
 @router.get(

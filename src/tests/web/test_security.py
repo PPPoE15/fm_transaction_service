@@ -17,15 +17,16 @@ from tests.conftest import TokenFactory
 
 ENDPOINTS = [
     ("GET", "/transactions"),
+    ("PATCH", "/transactions/batch"),
+    ("POST", "/transactions/batch-delete"),
     ("POST", "/transactions"),
-    ("PATCH", "/transactions"),
-    ("DELETE", "/transactions"),
+    ("PATCH", "/transactions/00000000-0000-4000-8000-000000000001"),
+    ("DELETE", "/transactions/00000000-0000-4000-8000-000000000001"),
     ("GET", "/categories"),
     ("POST", "/categories"),
     # TODO(FM-45): nil-UUID — не UUID4, путь сам по себе дал бы 422; 401 приходит лишь потому, что авторизация
     # проверяется раньше пути. Подставить `uuid4()`.
     ("PATCH", "/categories/00000000-0000-0000-0000-000000000000"),
-    ("DELETE", "/category"),
     ("GET", "/budget-structure"),
 ]
 

@@ -122,4 +122,47 @@ async def test_valid_boundaries(
         },
     )
     assert response.status_code == status.HTTP_200_OK, response.text
-    assert response.json() == {"total": 0, "content": []}
+    assert response.json() == {"total": 0, "content": [], "next_skip": None}
+
+
+@pytest.mark.db
+async def test_category_filters_and_next_skip(
+    client: AsyncClient, make_token: TokenFactory, db_engine: AsyncEngine
+) -> None:
+    """Точный и текстовый фильтры объединяются, пустая страница сохраняет total."""
+    owner, category_uid = uuid4(), uuid4()
+    async with async_session_factory() as session:
+        session.add(CategoryORM(uid=category_uid, user_uid=owner, name="Еда 100%", category_type="outcome"))
+        await session.flush()
+        session.add_all(
+            [
+                TransactionORM(
+                    uid=uuid4(),
+                    user_uid=owner,
+                    category_uid=category_uid,
+                    transaction_date=datetime(2026, 1, 1, tzinfo=UTC).replace(tzinfo=None),
+                    money_sum=100,
+                    transaction_type="outcome",
+                )
+                for _ in range(3)
+            ]
+        )
+        await session.commit()
+    headers = {"Authorization": f"Bearer {make_token(owner)}"}
+    params: dict[str, str | int] = {"category_uid": str(category_uid), "category": "100%", "limit": 2}
+    first = await client.get("/transactions", headers=headers, params=params)
+    assert first.status_code == status.HTTP_200_OK, first.text
+    expected_total, expected_next = 3, 2
+    assert first.json()["total"] == expected_total
+    assert first.json()["next_skip"] == expected_next
+    assert len(first.json()["content"]) == expected_next
+    last = await client.get("/transactions", headers=headers, params={**params, "skip": 2})
+    assert last.json()["total"] == expected_total
+    assert last.json()["next_skip"] is None
+    assert len(last.json()["content"]) == 1
+    empty = await client.get("/transactions", headers=headers, params={**params, "skip": 3})
+    assert empty.json() == {"total": 3, "content": [], "next_skip": None}
+    missing = await client.get("/transactions", headers=headers, params={**params, "category_uid": str(uuid4())})
+    assert missing.json() == {"total": 0, "content": [], "next_skip": None}
+    mismatched = await client.get("/transactions", headers=headers, params={**params, "category": "другое"})
+    assert mismatched.json() == {"total": 0, "content": [], "next_skip": None}

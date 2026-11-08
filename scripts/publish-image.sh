@@ -26,6 +26,12 @@ else
 fi
 
 export VERSION="$version" DIGEST_JSON="$digest_json"
+digest=$(python3 -c 'import json, os; print(json.loads(os.environ["DIGEST_JSON"]))')
+[[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+# Тег ветки указывает на проверенную версию, в том числе при повторном запуске CI.
+docker buildx imagetools create --prefer-index=false --tag "$IMAGE:$GITHUB_REF_NAME" "$IMAGE@$digest"
+printf 'Обновлён тег %s:%s -> %s\n' "$IMAGE" "$GITHUB_REF_NAME" "$digest"
+
 python3 - <<'PY'
 import json
 import os

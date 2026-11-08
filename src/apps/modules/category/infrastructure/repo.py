@@ -31,6 +31,24 @@ def _is_unique_name_violation(exc: IntegrityError) -> bool:
 class Repo(AbstractCategoryRepo, BaseSqlAlchemyRepo):
     """Репозиторий категорий."""
 
+    async def get_all_for_import(
+        self,
+        user_uid: apps_types.UserUID,
+        category_type: apps_types.TransactionType,
+    ) -> list[Category]:
+        """Заблокировать набор и строки: имена, типы и наличие не меняются до commit."""
+        await self.lock_user_categories(user_uid)
+        stmt = (
+            select(orm.Category)
+            .where(
+                orm.Category.user_uid == user_uid,
+                orm.Category.category_type == category_type,
+            )
+            .order_by(orm.Category.uid)
+            .with_for_update()
+        )
+        return [builders.build(category) for category in (await self._session.scalars(stmt)).all()]
+
     async def create(self, category: Category) -> None:
         orm_category = builders.build_orm(category)
         self._session.add(orm_category)

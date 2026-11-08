@@ -1,3 +1,5 @@
-"""Модуль стартового остатка (FM-37). Другим модулям пока ничего не нужно."""
+"""Публичный API стартового остатка для отчётов."""
 
-__all__: list[str] = []
+from .infrastructure.orm import StartingBalance as StartingBalanceORM
+
+__all__ = ["StartingBalanceORM"]

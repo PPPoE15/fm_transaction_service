@@ -63,3 +63,7 @@ class AbstractTransactionRepo(abc.ABC):
         Args:
             user_uid: UID пользователя.
         """
+
+    @abc.abstractmethod
+    async def get_by_uid_for_update(self, transaction_uid: apps_types.TransactionUID) -> Transaction | None:
+        """Прочитать операцию, удерживая блокировку строки до конца единицы работы."""

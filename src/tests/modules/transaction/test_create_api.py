@@ -104,6 +104,7 @@ async def test_create(db_engine: AsyncEngine, client: AsyncClient, headers: dict
     assert response.status_code == status.HTTP_201_CREATED, response.text
     created = response.json()
     assert created == {
+        "version": 1,
         "uid": created["uid"],
         "transaction_date": "2026-03-14T19:30:00",
         "category": {"uid": str(category_uid), "name": CATEGORY_NAME},

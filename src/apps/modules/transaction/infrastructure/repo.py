@@ -27,8 +27,7 @@ class Repo(AbstractTransactionRepo, BaseSqlAlchemyRepo):
             text("SELECT pg_advisory_xact_lock(:namespace, hashtext(:user_uid))"),
             {"namespace": _USER_TRANSACTIONS_LOCK_NAMESPACE, "user_uid": str(user_uid)},
         )
-        # TODO(FM-33): индекса по `user_uid` нет — подсчёт сканирует таблицу транзакций всех пользователей при каждом
-        # создании. Индекс `(user_uid, transaction_date)` из FM-33 покроет и этот запрос.
+        # Левый префикс индекса (user_uid, transaction_date) поддерживает и подсчёт квоты пользователя.
         stmt = select(func.count()).select_from(orm.Transaction).where(orm.Transaction.user_uid == user_uid)
         return (await self._session.scalars(stmt)).one()
 
@@ -49,4 +48,10 @@ class Repo(AbstractTransactionRepo, BaseSqlAlchemyRepo):
 
     async def get_by_uid(self, transaction_uid: apps_types.TransactionUID) -> Transaction | None:
         transaction = await self._session.get(orm.Transaction, transaction_uid)
+        return builders.build(transaction) if transaction else None
+
+    async def get_by_uid_for_update(self, transaction_uid: apps_types.TransactionUID) -> Transaction | None:
+        """Прочитать актуальную операцию под блокировкой от параллельных записей и удаления."""
+        stmt = select(orm.Transaction).where(orm.Transaction.uid == transaction_uid).with_for_update()
+        transaction = (await self._session.scalars(stmt.execution_options(populate_existing=True))).one_or_none()
         return builders.build(transaction) if transaction else None

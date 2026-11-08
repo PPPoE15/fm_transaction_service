@@ -34,6 +34,10 @@ class InMemoryTransactionRepo(AbstractTransactionRepo):
     async def get_by_user_uid(self, user_uid: apps_types.UserUID) -> list[Transaction] | None:
         return [item.model_copy() for item in self.items.values() if item.user_uid == user_uid]
 
+    async def get_by_uid_for_update(self, transaction_uid: apps_types.TransactionUID) -> Transaction | None:
+        """Вернуть копию операции; реальные блокировки проверяются интеграционными тестами."""
+        return await self.get_by_uid(transaction_uid)
+
 
 class FakeTransactionUnitOfWork(FakeUnitOfWorkMixin, AbstractTransactionUnitOfWork):
     """Единица работы модуля транзакций в памяти."""

@@ -1,5 +1,5 @@
 """
-Ограничение размера тела запроса: больше 16 КиБ — 413 `FM-413000` (контракт, «Объёмы»).
+Ограничение тела: 16 КиБ для обычного API, 512 КиБ для пакетов, 6 МиБ для импорта.
 
 Основной лимит задаёт прокси (`client_max_body_size`), здесь — дубль на случай прямого доступа к сервису.
 """
@@ -11,6 +11,8 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from apps.web.exception_handlers.base import BaseErrorResponseSchema
 
 MAX_BODY_SIZE = 16 * 1024
+MAX_BATCH_BODY_SIZE = 512 * 1024
+MAX_IMPORT_BODY_SIZE = 6 * 1024 * 1024
 
 
 class BodySizeLimitMiddleware:
@@ -38,15 +40,30 @@ class BodySizeLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
+        import_request = scope.get("method") == "POST" and scope["path"].rstrip("/") in {
+            "/transaction/import-export/imports/income",
+            "/transaction/import-export/imports/outcome",
+            "/import-export/imports/income",
+            "/import-export/imports/outcome",
+        }
+        batch_request = (scope.get("method"), scope["path"].rstrip("/")) in {
+            ("PATCH", "/transaction/transactions/batch"),
+            ("POST", "/transaction/transactions/batch-delete"),
+        }
+        limit = self.max_body_size
+        if import_request:
+            limit = MAX_IMPORT_BODY_SIZE
+        elif batch_request:
+            limit = MAX_BATCH_BODY_SIZE
         content_length = Headers(scope=scope).get("content-length")
-        if content_length is not None:
-            # Тело длиннее заявленного сервер (h11/httptools) приложению не передаст, поэтому заголовка достаточно.
-            # TODO(FM-52): `isdigit()` пропускает не-ASCII цифры (`int("²")` — ValueError и 500), а `+20000` обходит
-            # проверку. h11/httptools отклоняют такие заголовки сами, поэтому в проде недостижимо; проверять `[0-9]+`.
-            if content_length.isdigit() and int(content_length) > self.max_body_size:
-                await self._reject(scope, receive, send)
-                return
-            await self.app(scope, receive, send)
+        # Заголовок позволяет отклонить запрос раньше; действительный размер проверяется всегда.
+        if (
+            content_length is not None
+            and content_length.isascii()
+            and content_length.isdigit()
+            and int(content_length) > limit
+        ):
+            await self._reject(scope, receive, send, import_request, limit)
             return
 
         messages: list[Message] = []
@@ -57,26 +74,29 @@ class BodySizeLimitMiddleware:
             if message["type"] != "http.request":
                 break
             received += len(message.get("body", b""))
-            if received > self.max_body_size:
-                await self._reject(scope, receive, send)
+            if received > limit:
+                await self._reject(scope, receive, send, import_request, limit)
                 return
             if not message.get("more_body", False):
                 break
 
         async def replay() -> Message:
+            """Повторить проверенное тело для внутреннего приложения."""
             return messages.pop(0) if messages else await receive()
 
         await self.app(scope, replay, send)
 
     @staticmethod
-    async def _reject(scope: Scope, receive: Receive, send: Send) -> None:
-        """Ответ 413 `FM-413000` в формате RFC 7807, как у остальных ошибок."""
+    async def _reject(
+        scope: Scope, receive: Receive, send: Send, import_request: bool = False, limit: int = MAX_BODY_SIZE
+    ) -> None:
+        """Ответить 413 с кодом обычного API или импорта в формате RFC 7807."""
         error = BaseErrorResponseSchema(
             type="/help-center?helpSectionId=errors#413",
             title="Content Too Large",
             status=status.HTTP_413_CONTENT_TOO_LARGE,
-            detail="Тело запроса больше 16 КиБ",
+            detail=f"Тело запроса больше {limit} байт",
             instance=scope["path"],
-            code="FM-413000",
+            code="FM-413301" if import_request else "FM-413000",
         )
         await error.json_response()(scope, receive, send)

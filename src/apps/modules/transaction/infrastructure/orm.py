@@ -1,9 +1,9 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.types import UUID, Integer, String
+from sqlalchemy.types import UUID, BigInteger, Integer, String
 
 from apps.shared import apps_types
 from apps.shared.db.base import AsyncBase
@@ -16,6 +16,13 @@ class Transaction(AsyncBase):
     """Сущность единицы транзакции."""
 
     __tablename__ = "transactions"
+
+    __table_args__ = (
+        CheckConstraint("version >= 1", name="version_positive"),
+        Index("ix_transactions_user_uid_transaction_date", "user_uid", "transaction_date"),
+    )
+
+    version: Mapped[int] = mapped_column(BigInteger, default=1, server_default="1", nullable=False)
 
     uid: Mapped[apps_types.TransactionUID] = mapped_column(
         UUID,

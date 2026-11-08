@@ -79,3 +79,35 @@ async def test_body_at_limit_is_processed(client: AsyncClient, make_token: Token
 
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT, response.text
     assert response.json()["code"] == "FM-422000"
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "limit"),
+    [
+        ("PATCH", "/transactions/batch", 524288),
+        ("POST", "/transactions/batch-delete", 524288),
+        ("POST", "/transactions", 16384),
+    ],
+)
+@pytest.mark.parametrize("extra", [0, 1])
+@pytest.mark.parametrize("transport", ["length", "chunked", "false_length"])
+async def test_route_body_boundaries(
+    client: AsyncClient, make_token: TokenFactory, method: str, path: str, limit: int, extra: int, transport: str
+) -> None:
+    """Реальные байты ограничены включительно независимо от заголовка и числа частей потока."""
+    body = b'{"items":[]}'
+    body += b" " * (limit + extra - len(body))
+    headers = {"Authorization": f"Bearer {make_token()}", "Content-Type": "application/json"}
+    if transport == "false_length":
+        headers["Content-Length"] = "1"
+
+    async def chunks() -> AsyncIterator[bytes]:
+        """Передать валидный JSON и пробелы несколькими сетевыми порциями."""
+        for start in range(0, len(body), 4096):
+            yield body[start : start + 4096]
+
+    response = await client.request(method, path, headers=headers, content=chunks() if transport == "chunked" else body)
+    expected = status.HTTP_413_CONTENT_TOO_LARGE if extra else status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.status_code == expected, response.text
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["code"] == ("FM-413000" if extra else "FM-422000")

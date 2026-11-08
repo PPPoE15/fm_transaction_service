@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from apps.modules.category.api import router as category_router
+from apps.modules.import_export.api import router as import_export_router
 from apps.modules.reports.api import router as reports_router
 from apps.modules.starting_balance.api import router as starting_balance_router
 from apps.modules.transaction.api import router as transaction_router
@@ -11,3 +12,5 @@ main_router.include_router(category_router)
 main_router.include_router(transaction_router)
 main_router.include_router(reports_router)
 main_router.include_router(starting_balance_router)
+
+main_router.include_router(import_export_router)

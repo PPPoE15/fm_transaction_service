@@ -1,7 +1,8 @@
-from datetime import datetime
+from typing import Self
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
+from apps.modules.transaction.domain.changes import TransactionChanges
 from apps.shared import apps_types
 from apps.shared.api_types import DescriptionIn, LocalDateTimeIn
 from apps.shared.schemas import Base
@@ -51,35 +52,21 @@ class CreateTransactionSchema(Base):
         return value or None
 
 
-# TODO(FM-52): у старого PATCH нет ограничений полей из контракта (формат даты, границы суммы — 5 000 000 000 даёт 500
-# на int32, длина описания, `extra="forbid"`) и проверки `FM-400202`. Привести вместе с `PATCH /transactions/{uid}`
-# по контракту — отдельной задачи пока нет (было до FM-52).
-class UpdateTransactionSchema(Base):
-    """Схема данных для обновления транзакции"""
+class UpdateTransactionSchema(TransactionChanges):
+    """Частичное обновление с необязательной проверкой версии."""
 
-    transaction_date: datetime = Field(
-        title="Дата транзакции.",
-        description="Дата транзакции.",
-        examples=["2025-11-07T16:52:48.249989"],
-    )
-    category: apps_types.CategoryUID = Field(
-        title="Категория.",
-        description="Категория.",
-        examples=[],
-    )
-    money_sum: apps_types.MoneySum = Field(
-        title="Денежная сумма по категории.",
-        description="Денежная сумма по категории.",
-        examples=[120, 4590],
-    )
-    transaction_type: apps_types.TransactionType = Field(
-        title="Тип транзакции",
-        description="Тип транзакции",
-        examples=["outcome", "income"],
-    )
-    description: apps_types.Description = Field(
-        default=None,
-        title="Описание.",
-        description="Описание транзакции.",
-        examples=["Корм коту", "котлеты"],
-    )
+    transaction_date: LocalDateTimeIn | None = None
+    description: DescriptionIn | None = None
+    expected_version: int | None = Field(default=None, ge=1, strict=True)
+
+    @model_validator(mode="after")
+    def require_changes(self) -> Self:
+        """Версия сама по себе не является изменением операции."""
+        if not self.model_fields_set - {"expected_version"}:
+            msg = "Необходимо передать хотя бы одно изменяемое поле"
+            raise ValueError(msg)
+        return self
+
+    def changes(self) -> TransactionChanges:
+        """Передать команде только явно заданные поля изменения."""
+        return TransactionChanges.model_validate(self.model_dump(exclude_unset=True, exclude={"expected_version"}))
