@@ -45,6 +45,8 @@ class InvalidPlanDateError(BaseUnprocessableError):
     field = "planned_date"
 
 
+# TODO(FM-107): для обеих ошибок категории добавить validation с field=category_uid по FM-106.
+# Общий обработчик 400 пока возвращает пустой validation; код ошибки остаётся доступен клиенту.
 class PlanCategoryError(BaseCustomValidationError):
     """Категория отсутствует или принадлежит другому пользователю."""
 
