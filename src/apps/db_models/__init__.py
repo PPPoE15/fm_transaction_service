@@ -6,6 +6,7 @@
 """
 
 from apps.modules.category.infrastructure.orm import Category
+from apps.modules.planning.infrastructure.orm import PlannedOperation
 from apps.modules.starting_balance.infrastructure.orm import StartingBalance
 from apps.modules.transaction.infrastructure.orm import Transaction
 from apps.shared.db.base import AsyncBase
@@ -13,6 +14,7 @@ from apps.shared.db.base import AsyncBase
 __all__ = [
     "AsyncBase",
     "Category",
+    "PlannedOperation",
     "StartingBalance",
     "Transaction",
 ]

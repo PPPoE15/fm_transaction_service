@@ -135,10 +135,10 @@ def test_directory_with_only_bytecode_cache_is_gone(tmp_path: Path) -> None:
 
 
 def test_modules_exist() -> None:
-    """Модули сервиса — статьи, транзакции, отчёты, стартовый остаток и импорт файлов."""
+    """Модули сервиса включают планирование и существующие финансовые модули."""
     # NOTE(FM-30): состав модулей и граф зависимостей (ниже) зафиксированы намеренно: новый модуль должен
     # явно дописать себя сюда и в ожидаемый граф, а не появиться незамеченным.
-    assert _module_names() == ["category", "import_export", "reports", "starting_balance", "transaction"]
+    assert _module_names() == ["category", "import_export", "planning", "reports", "starting_balance", "transaction"]
 
 
 @pytest.mark.parametrize("module", _module_names())
@@ -223,11 +223,13 @@ def test_module_dependency_graph() -> None:
 
     Отчёты (только чтение) читают статьи, транзакции и стартовый остаток; от них не зависит никто.
     Стартовый остаток ни от кого не зависит. Импорт использует публичный API транзакций (FM-93).
+    Планирование использует публичный API статей (FM-107).
     """
     deps = _module_dependencies()
     assert deps == {
         "category": set(),
         "import_export": {"transaction"},
+        "planning": {"category"},
         "reports": {"category", "transaction", "starting_balance"},
         "starting_balance": set(),
         "transaction": {"category"},

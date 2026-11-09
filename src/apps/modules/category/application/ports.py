@@ -77,6 +77,10 @@ class AbstractCategoryRepo(abc.ABC):
         """
 
     @abc.abstractmethod
+    async def has_plans(self, category_uid: apps_types.CategoryUID) -> bool:
+        """Проверить наличие планов после блокировки категории."""
+
+    @abc.abstractmethod
     async def has_transactions(self, category_uid: apps_types.CategoryUID) -> bool:
         """
         Есть ли транзакции по статье.

@@ -30,7 +30,7 @@ def alembic_config(postgres_dsn: str) -> Iterator[Config]:
         yield config
     finally:
         command.upgrade(config, "head")
-        _run(postgres_dsn, "TRUNCATE transactions, categories, starting_balances")
+        _run(postgres_dsn, "TRUNCATE planned_operations, transactions, categories, starting_balances")
 
 
 def _run(dsn: str, sql: str, params: list[dict[str, Any]] | None = None) -> list[Any]:
@@ -120,3 +120,24 @@ def test_fm_41_plan_becomes_optional_and_downgrade_restores_zero(postgres_dsn: s
 
     plans = {row.uid: row.money_plan for row in _run(postgres_dsn, "SELECT uid, money_plan FROM categories")}
     assert plans == {without_plan: 0, with_plan: 5}
+
+
+@pytest.mark.db
+def test_fm_107_upgrade_downgrade_preserves_existing_data(postgres_dsn: str, alembic_config: Config) -> None:
+    """Добавление и откат таблицы планов сохраняют существующие категории и факты."""
+    command.downgrade(alembic_config, "a33b00000001")
+    category_uid, user_uid, fact_uid = uuid4(), uuid4(), uuid4()
+    _insert_categories(postgres_dsn, [(category_uid, user_uid, "Существующая", "outcome", 100)])
+    _run(
+        postgres_dsn,
+        "INSERT INTO transactions (uid, user_uid, category_uid, money_sum, transaction_type, transaction_date) "
+        "VALUES (:uid, :user, :category, 100, 'outcome', '2026-11-09 12:00:00')",
+        [{"uid": fact_uid, "user": user_uid, "category": category_uid}],
+    )
+    before = _run(postgres_dsn, "SELECT * FROM transactions")
+    command.upgrade(alembic_config, "head")
+    assert _run(postgres_dsn, "SELECT * FROM transactions") == before
+    assert _run(postgres_dsn, "SELECT * FROM planned_operations") == []
+    command.downgrade(alembic_config, "a33b00000001")
+    assert _run(postgres_dsn, "SELECT * FROM transactions") == before
+    assert _names(postgres_dsn) == {category_uid: "Существующая"}

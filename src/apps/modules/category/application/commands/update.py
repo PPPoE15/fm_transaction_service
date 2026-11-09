@@ -1,6 +1,7 @@
 from apps.modules.category.application.exceptions import (
     CategoryAlreadyExistsError,
     CategoryTypeChangeForbiddenError,
+    CategoryUsedByPlanError,
 )
 from apps.modules.category.application.guards import get_own_category
 from apps.modules.category.application.uow import AbstractCategoryUnitOfWork
@@ -58,6 +59,8 @@ class UpdateCommandHandler:
                 await uow.repo.lock_category(category.uid)
                 if await uow.repo.has_transactions(category.uid):
                     raise CategoryTypeChangeForbiddenError
+                if await uow.repo.has_plans(category.uid):
+                    raise CategoryUsedByPlanError
             category.update(changes)
             # TODO(FM-45): `get_by_name` выполняется и при изменении только плана или комментария — лишний SELECT
             # под блокировкой; проверять дубликат, только если переданы название или тип.

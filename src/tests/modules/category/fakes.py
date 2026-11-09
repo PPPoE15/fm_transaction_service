@@ -54,6 +54,10 @@ class InMemoryCategoryRepo(AbstractCategoryRepo):
     async def lock_category(self, category_uid: apps_types.CategoryUID) -> None:
         self.calls.append(f"lock_category {category_uid}")
 
+    async def has_plans(self, category_uid: apps_types.CategoryUID) -> bool:
+        """Вернуть отсутствие планов в сценариях отдельного модуля категорий."""
+        return False
+
     async def has_transactions(self, category_uid: apps_types.CategoryUID) -> bool:
         self.calls.append(f"has_transactions {category_uid}")
         return category_uid in self.with_transactions
