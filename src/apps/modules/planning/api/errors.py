@@ -3,7 +3,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from apps.modules.planning.domain.errors import PlanOutcomeUnknownError
+from apps.modules.planning.domain.errors import PlanCategoryError, PlanCategoryTypeError, PlanOutcomeUnknownError
 
 
 async def outcome_unknown_handler(request: Request, exc: PlanOutcomeUnknownError) -> JSONResponse:
@@ -25,3 +25,20 @@ async def outcome_unknown_handler(request: Request, exc: PlanOutcomeUnknownError
 def setup_exception_handlers(app: FastAPI) -> None:
     """Подключить обработчик при сборке приложения."""
     app.exception_handler(PlanOutcomeUnknownError)(outcome_unknown_handler)
+
+
+def category_error_response(request: Request, exc: PlanCategoryError | PlanCategoryTypeError) -> JSONResponse:
+    """Привязать ошибку категории подтверждения к полю формы по контракту FM-106."""
+    return JSONResponse(
+        {
+            "type": "/help-center?helpSectionId=errors#400",
+            "title": "Bad Request",
+            "status": 400,
+            "detail": exc.msg,
+            "instance": request.url.path,
+            "code": exc.code,
+            "validation": [{"field": "category_uid", "message": exc.msg}],
+        },
+        status_code=400,
+        media_type="application/problem+json",
+    )

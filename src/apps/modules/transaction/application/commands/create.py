@@ -1,10 +1,6 @@
 from datetime import datetime
 
-from apps.modules.transaction.application.exceptions import (
-    TransactionLimitExceededError,
-    TransactionTypeMismatchError,
-)
-from apps.modules.transaction.application.guards import get_own_category
+from apps.modules.transaction.application.creation_rules import validate_creation
 from apps.modules.transaction.application.uow import AbstractTransactionUnitOfWork
 from apps.modules.transaction.domain import MAX_TRANSACTIONS_PER_USER, Transaction
 from apps.shared import apps_types
@@ -68,11 +64,8 @@ class CreateTransactionCommandHandler:
             # (user_uid, transaction_date) из FM-33 подсчёт ограничен данными пользователя.
             # Если начнёт мешать — сначала статья, потом `count_by_user_for_update`.
             transactions_count = await uow.transactions_repo.count_by_user_for_update(user_uid)
-            category = await get_own_category(uow, user_uid, category_uid)
-            if category.category_type != transaction_type:
-                raise TransactionTypeMismatchError
-            if transactions_count >= MAX_TRANSACTIONS_PER_USER:
-                raise TransactionLimitExceededError
+            category = await uow.categories_repo.get_by_uid_for_key_share(category_uid)
+            validate_creation(category, user_uid, transaction_type, transactions_count, MAX_TRANSACTIONS_PER_USER)
             await uow.transactions_repo.create(transaction)
             await uow.commit()
         return transaction

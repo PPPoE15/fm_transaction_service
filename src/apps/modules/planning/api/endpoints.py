@@ -1,17 +1,20 @@
 """HTTP-методы отдельного списка запланированных операций."""
 
 from collections.abc import Callable
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi.responses import JSONResponse
 from starlette import status
 
 from apps.modules.planning.api import deps
-from apps.modules.planning.api.schemas import CreatePlanSchema, PlanPageParams, UpdatePlanSchema
+from apps.modules.planning.api.errors import category_error_response
+from apps.modules.planning.api.schemas import ConfirmPlanSchema, CreatePlanSchema, PlanPageParams, UpdatePlanSchema
 from apps.modules.planning.application.queries import PlanQueries
-from apps.modules.planning.application.schemas import PlanList, PlanView
+from apps.modules.planning.application.schemas import PlanConfirmation, PlanList, PlanView
+from apps.modules.planning.domain.errors import PlanCategoryError, PlanCategoryTypeError
 from apps.shared.apps_types import TransactionType
 from apps.shared.db.session import async_session_factory
 from apps.web.security import UserInfo, get_user_info
@@ -60,3 +63,18 @@ async def delete_plan(
     """Удалить план в любом статусе без удаления связанного факта."""
     await deps.commands(clock).delete(user.uid, plan_uid, expected_version)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{plan_uid}/confirm", response_model=PlanConfirmation)
+async def confirm_plan(
+    plan_uid: UUID,
+    item: ConfirmPlanSchema,
+    user: User,
+    request: Request,
+    clock: Annotated[Callable[[], datetime], Depends(deps.get_confirmation_clock)],
+) -> PlanConfirmation | JSONResponse:
+    """Подтвердить один план без автоматического повтора при неизвестном результате."""
+    try:
+        return await deps.confirmation_command(clock).handle(user.uid, plan_uid, **item.model_dump())
+    except (PlanCategoryError, PlanCategoryTypeError) as exc:
+        return category_error_response(request, exc)

@@ -5,6 +5,7 @@ from typing import Literal
 from uuid import UUID
 
 from apps.modules.planning.domain.model import Plan
+from apps.modules.transaction import TransactionSchema
 from apps.shared.apps_types import TransactionType
 from apps.shared.schemas import Base
 
@@ -57,3 +58,10 @@ class PlanList(Base):
     today: date
     timezone: Literal["Europe/Moscow"] = "Europe/Moscow"
     content: list[PlanView]
+
+
+class PlanConfirmation(Base):
+    """Снимок атомарно выполненного плана и созданного факта."""
+
+    plan: PlanView
+    transaction: TransactionSchema
