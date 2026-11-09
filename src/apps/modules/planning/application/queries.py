@@ -9,7 +9,7 @@ from apps.modules.category import CategoryORM
 from apps.modules.planning.application.schemas import PlanList, PlanView
 from apps.modules.planning.domain.errors import PlanNotFoundError
 from apps.modules.planning.domain.model import Plan
-from apps.modules.planning.infrastructure.orm import PlannedOperation
+from apps.modules.planning.infrastructure.orm import PlannedTransaction
 from apps.shared.apps_types import TransactionType
 from apps.shared.db.base_query import BaseQueries
 from apps.shared.schemas import PageParams
@@ -22,15 +22,15 @@ class PlanQueries(BaseQueries):
     def _select(user_uid: UUID) -> Select:
         """Выбрать поля агрегата и имя категории без дополнительных ORM-запросов."""
         return (
-            select(*PlannedOperation.__table__.columns, CategoryORM.name.label("category_name"))
-            .join(CategoryORM, CategoryORM.uid == PlannedOperation.category_uid)
-            .where(PlannedOperation.user_uid == user_uid)
+            select(*PlannedTransaction.__table__.columns, CategoryORM.name.label("category_name"))
+            .join(CategoryORM, CategoryORM.uid == PlannedTransaction.category_uid)
+            .where(PlannedTransaction.user_uid == user_uid)
         )
 
     async def get(self, user_uid: UUID, plan_uid: UUID, today: date) -> PlanView:
         """Получить собственный план или одинаковую ошибку отсутствующего/чужого."""
         row = (
-            (await self._session.execute(self._select(user_uid).where(PlannedOperation.uid == plan_uid)))
+            (await self._session.execute(self._select(user_uid).where(PlannedTransaction.uid == plan_uid)))
             .mappings()
             .one_or_none()
         )
@@ -50,7 +50,7 @@ class PlanQueries(BaseQueries):
         """Вернуть страницу, total и due_count даже при пустой странице одним SELECT."""
         source = self._select(user_uid)
         if transaction_type is not None:
-            source = source.where(PlannedOperation.transaction_type == transaction_type)
+            source = source.where(PlannedTransaction.transaction_type == transaction_type)
         owned = source.cte("owned_plans")
         visible = true() if include_completed else owned.c.status == "pending"
         counts = (

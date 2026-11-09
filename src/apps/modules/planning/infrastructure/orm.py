@@ -9,13 +9,13 @@ from sqlalchemy.orm import Mapped, mapped_column
 from apps.shared.db.base import AsyncBase
 
 
-class PlannedOperation(AsyncBase):
+class PlannedTransaction(AsyncBase):
     """Исходные поля плана и безопасная nullable-ссылка на факт."""
 
-    __tablename__ = "planned_operations"
+    __tablename__ = "planned_transactions"
     __table_args__ = (
-        Index("ix_planned_operations_user_date_uid", "user_uid", "planned_date", "uid"),
-        Index("ix_planned_operations_category_uid", "category_uid"),
+        Index("ix_planned_transactions_user_date_uid", "user_uid", "planned_date", "uid"),
+        Index("ix_planned_transactions_category_uid", "category_uid"),
     )
 
     uid: Mapped[UUID] = mapped_column(Uuid, primary_key=True)

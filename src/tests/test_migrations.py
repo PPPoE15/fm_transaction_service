@@ -30,7 +30,7 @@ def alembic_config(postgres_dsn: str) -> Iterator[Config]:
         yield config
     finally:
         command.upgrade(config, "head")
-        _run(postgres_dsn, "TRUNCATE planned_operations, transactions, categories, starting_balances")
+        _run(postgres_dsn, "TRUNCATE planned_transactions, transactions, categories, starting_balances")
 
 
 def _run(dsn: str, sql: str, params: list[dict[str, Any]] | None = None) -> list[Any]:
@@ -137,7 +137,7 @@ def test_fm_107_upgrade_downgrade_preserves_existing_data(postgres_dsn: str, ale
     before = _run(postgres_dsn, "SELECT * FROM transactions")
     command.upgrade(alembic_config, "head")
     assert _run(postgres_dsn, "SELECT * FROM transactions") == before
-    assert _run(postgres_dsn, "SELECT * FROM planned_operations") == []
+    assert _run(postgres_dsn, "SELECT * FROM planned_transactions") == []
     command.downgrade(alembic_config, "a33b00000001")
     assert _run(postgres_dsn, "SELECT * FROM transactions") == before
     assert _names(postgres_dsn) == {category_uid: "Существующая"}

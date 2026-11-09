@@ -94,7 +94,7 @@ class Repo(AbstractCategoryRepo, BaseSqlAlchemyRepo):
 
     async def has_plans(self, category_uid: apps_types.CategoryUID) -> bool:
         """Проверить планы всех статусов без импорта соседнего модуля."""
-        stmt = select(orm.Category.planned_operations.any()).where(orm.Category.uid == category_uid)
+        stmt = select(orm.Category.planned_transactions.any()).where(orm.Category.uid == category_uid)
         return bool((await self._session.scalars(stmt)).one_or_none())
 
     async def has_transactions(self, category_uid: apps_types.CategoryUID) -> bool:

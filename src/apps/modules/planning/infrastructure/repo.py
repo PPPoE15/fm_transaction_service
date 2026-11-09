@@ -7,7 +7,7 @@ from sqlalchemy import delete, func, select, text, update
 from apps.modules.planning.application.ports import AbstractPlanRepo
 from apps.modules.planning.domain.model import Plan
 from apps.modules.planning.infrastructure import builders
-from apps.modules.planning.infrastructure.orm import PlannedOperation
+from apps.modules.planning.infrastructure.orm import PlannedTransaction
 from apps.shared.db.base_repo import BaseSqlAlchemyRepo
 
 
@@ -19,7 +19,7 @@ class PlanRepo(AbstractPlanRepo, BaseSqlAlchemyRepo):
         await self._session.execute(text("SELECT pg_advisory_xact_lock(107, hashtext(:uid))"), {"uid": str(user_uid)})
         return int(
             await self._session.scalar(
-                select(func.count()).select_from(PlannedOperation).where(PlannedOperation.user_uid == user_uid)
+                select(func.count()).select_from(PlannedTransaction).where(PlannedTransaction.user_uid == user_uid)
             )
             or 0
         )
@@ -27,8 +27,8 @@ class PlanRepo(AbstractPlanRepo, BaseSqlAlchemyRepo):
     async def get_for_update(self, user_uid: UUID, plan_uid: UUID) -> Plan | None:
         """Прочитать собственную запись под блокировкой до конца команды."""
         stmt = (
-            select(PlannedOperation)
-            .where(PlannedOperation.uid == plan_uid, PlannedOperation.user_uid == user_uid)
+            select(PlannedTransaction)
+            .where(PlannedTransaction.uid == plan_uid, PlannedTransaction.user_uid == user_uid)
             .with_for_update()
         )
         row = await self._session.scalar(stmt)
@@ -41,13 +41,15 @@ class PlanRepo(AbstractPlanRepo, BaseSqlAlchemyRepo):
     async def update(self, plan: Plan) -> None:
         """Обновить заблокированную запись, не затрагивая связи ORM."""
         await self._session.execute(
-            update(PlannedOperation)
-            .where(PlannedOperation.uid == plan.uid, PlannedOperation.user_uid == plan.user_uid)
+            update(PlannedTransaction)
+            .where(PlannedTransaction.uid == plan.uid, PlannedTransaction.user_uid == plan.user_uid)
             .values(**plan.model_dump(exclude={"uid", "user_uid"}))
         )
 
     async def delete(self, plan: Plan) -> None:
         """Удалить заблокированную запись без удаления факта."""
         await self._session.execute(
-            delete(PlannedOperation).where(PlannedOperation.uid == plan.uid, PlannedOperation.user_uid == plan.user_uid)
+            delete(PlannedTransaction).where(
+                PlannedTransaction.uid == plan.uid, PlannedTransaction.user_uid == plan.user_uid
+            )
         )

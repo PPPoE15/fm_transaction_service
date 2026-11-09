@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from apps.modules.planning.application import commands
-from apps.modules.planning.infrastructure.orm import PlannedOperation
+from apps.modules.planning.infrastructure.orm import PlannedTransaction
 from tests.conftest import TokenFactory
 
 pytestmark = pytest.mark.db
@@ -141,10 +141,11 @@ async def test_due_sort_filter_and_paging(
     future = await create(client, headers, await category(client, headers, "income"))
     async with db_engine.begin() as conn:
         await conn.execute(
-            text("UPDATE planned_operations SET planned_date = planned_date - 1 WHERE uid=:uid"), {"uid": old["uid"]}
+            text("UPDATE planned_transactions SET planned_date = planned_date - 1 WHERE uid=:uid"), {"uid": old["uid"]}
         )
         await conn.execute(
-            text("UPDATE planned_operations SET planned_date = planned_date + 5 WHERE uid=:uid"), {"uid": future["uid"]}
+            text("UPDATE planned_transactions SET planned_date = planned_date + 5 WHERE uid=:uid"),
+            {"uid": future["uid"]},
         )
     result = (await client.get(URL, headers=headers)).json()
     assert [row["uid"] for row in result["content"]] == [old["uid"], current["uid"], future["uid"]]
@@ -198,13 +199,13 @@ async def test_completed_snapshot_and_independent_deletion(
             text(
                 "INSERT INTO transactions (uid, user_uid, category_uid, transaction_type, money_sum, transaction_date) "
                 "SELECT :fact, user_uid, category_uid, transaction_type, 99, CURRENT_TIMESTAMP "
-                "FROM planned_operations WHERE uid=:plan"
+                "FROM planned_transactions WHERE uid=:plan"
             ),
             {"fact": fact_uid, "plan": plan["uid"]},
         )
         await conn.execute(
             text(
-                "UPDATE planned_operations SET status='completed', completed_at=CURRENT_TIMESTAMP, "
+                "UPDATE planned_transactions SET status='completed', completed_at=CURRENT_TIMESTAMP, "
                 "category_name_snapshot='Исходная категория', transaction_uid=:fact, version=2 WHERE uid=:plan"
             ),
             {"fact": fact_uid, "plan": plan["uid"]},
@@ -269,5 +270,5 @@ async def test_database_category_reference(
     with pytest.raises(IntegrityError):
         async with db_engine.begin() as conn:
             await conn.execute(
-                update(PlannedOperation).where(PlannedOperation.uid == plan["uid"]).values(category_uid=uuid4())
+                update(PlannedTransaction).where(PlannedTransaction.uid == plan["uid"]).values(category_uid=uuid4())
             )

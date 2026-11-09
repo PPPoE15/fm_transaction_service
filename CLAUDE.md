@@ -267,7 +267,7 @@ Content-Length. Для PATCH batch и POST batch-delete предел включ�
 
 ### Запланированные операции (FM-107)
 
-Модуль `planning` хранит планы отдельно от фактов. CRUD `/planned-operations` не меняет
+Модуль `planning` хранит планы отдельно от фактов: ORM `PlannedTransaction`, таблица `planned_transactions`. CRUD `/planned-operations` не меняет
 баланс. Подтверждение реализуется в FM-108. PATCH/DELETE требуют `expected_version`;
 PATCH разрешён только для pending и увеличивает версию даже при прежних значениях.
 Суммы — целые положительные рубли. Дата создания/итоговая дата PATCH — сегодня или
