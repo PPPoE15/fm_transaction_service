@@ -71,3 +71,29 @@ def test_create_invalid_date(day: date) -> None:
         Plan.create(
             uuid4(), TransactionType.OUTCOME, PlanInput(planned_date=day, money_sum=10, category_uid=uuid4()), TODAY
         )
+
+
+def test_complete_preserves_plan_values_and_prevents_repeat() -> None:
+    """Подтверждение сохраняет исходные поля и не допускает второго перехода."""
+    plan = make_plan()
+    original = plan.model_dump(include={"planned_date", "money_sum", "category_uid", "description", "transaction_type"})
+    fact_uid = uuid4()
+    moment = datetime(2026, 11, 10, 12, tzinfo=UTC)
+    plan.complete(1, fact_uid, "Исходная категория", moment)
+    assert plan.status == "completed"
+    assert plan.version == SECOND_VERSION
+    assert plan.transaction_uid == fact_uid
+    assert plan.completed_at == moment
+    assert plan.category_name_snapshot == "Исходная категория"
+    assert plan.model_dump(include=set(original)) == original
+    with pytest.raises(CompletedPlanError):
+        plan.complete(1, uuid4(), "Другая", moment)
+
+
+def test_complete_rejects_stale_version_without_mutation() -> None:
+    """Устаревшее подтверждение не меняет план и его связь."""
+    plan = make_plan()
+    original = plan.model_dump()
+    with pytest.raises(PlanVersionError):
+        plan.complete(SECOND_VERSION, uuid4(), "Категория", datetime.now(UTC))
+    assert plan.model_dump() == original

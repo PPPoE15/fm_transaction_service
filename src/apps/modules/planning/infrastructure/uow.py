@@ -9,6 +9,7 @@ from apps.modules.category import CategoryRepo
 from apps.modules.planning.application.uow import AbstractPlanUnitOfWork
 from apps.modules.planning.domain.errors import PlanOutcomeUnknownError
 from apps.modules.planning.infrastructure.repo import PlanRepo
+from apps.modules.transaction import TransactionRepo
 from apps.shared.unit_of_work import AbstractSQLAlchemyUnitOfWork
 
 
@@ -20,6 +21,7 @@ class PlanUnitOfWork(AbstractPlanUnitOfWork, AbstractSQLAlchemyUnitOfWork):
         self._session = self._session_factory()
         self.plans = PlanRepo(self._session)
         self.categories = CategoryRepo(self._session)
+        self.transactions = TransactionRepo(self._session)
         return self
 
     async def commit(self) -> None:

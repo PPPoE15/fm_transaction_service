@@ -223,13 +223,13 @@ def test_module_dependency_graph() -> None:
 
     Отчёты (только чтение) читают статьи, транзакции и стартовый остаток; от них не зависит никто.
     Стартовый остаток ни от кого не зависит. Импорт использует публичный API транзакций (FM-93).
-    Планирование использует публичный API статей (FM-107).
+    Планирование использует публичный API статей и фактов (FM-108).
     """
     deps = _module_dependencies()
     assert deps == {
         "category": set(),
         "import_export": {"transaction"},
-        "planning": {"category"},
+        "planning": {"category", "transaction"},
         "reports": {"category", "transaction", "starting_balance"},
         "starting_balance": set(),
         "transaction": {"category"},

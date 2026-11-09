@@ -1,6 +1,6 @@
 """Агрегат плана и разрешённые изменения его исходных полей."""
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Literal, Self
 from uuid import UUID, uuid4
 
@@ -96,4 +96,13 @@ class Plan(PlanInput):
         for name in changes.model_fields_set:
             setattr(self, name, getattr(changes, name))
         self.normalized()
+        self.version += 1
+
+    def complete(self, expected_version: int, transaction_uid: UUID, category_name: str, now: datetime) -> None:
+        """Однократно выполнить план, сохранив его исходные поля и снимок категории."""
+        self.ensure_editable(expected_version)
+        self.status = "completed"
+        self.transaction_uid = transaction_uid
+        self.category_name_snapshot = category_name
+        self.completed_at = now.astimezone(UTC)
         self.version += 1

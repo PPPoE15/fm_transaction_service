@@ -2,6 +2,7 @@
 
 from apps.modules.category import AbstractCategoryRepo
 from apps.modules.planning.application.ports import AbstractPlanRepo
+from apps.modules.transaction import AbstractTransactionRepo
 from apps.shared.unit_of_work import AbstractUnitOfWork
 
 
@@ -10,3 +11,4 @@ class AbstractPlanUnitOfWork(AbstractUnitOfWork):
 
     plans: AbstractPlanRepo
     categories: AbstractCategoryRepo
+    transactions: AbstractTransactionRepo

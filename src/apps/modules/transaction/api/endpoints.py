@@ -120,3 +120,16 @@ async def update_user_transaction(
         changes=item_in.changes(),
         expected_version=item_in.expected_version,
     )
+
+
+@router.get("/transactions/{transaction_uid}")
+async def get_transaction(
+    transaction_uid: apps_types.TransactionUID,
+    user: Annotated[UserInfo, Depends(get_user_info)],
+) -> q_schemas.TransactionSchema:
+    """Прочитать текущий собственный факт; чужой и отсутствующий UID не различаются."""
+    async with async_session_factory() as session:
+        result = await TransactionQueries(session).get_transaction(user.uid, transaction_uid)
+    if result is None:
+        raise TransactionNotFoundError
+    return result
