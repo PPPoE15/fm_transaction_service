@@ -56,3 +56,5 @@ class Category(AsyncBase):
         back_populates="category",
         cascade="all, delete-orphan",
     )
+
+    planned_transactions: Mapped[list[AsyncBase]] = relationship("PlannedTransaction", viewonly=True)

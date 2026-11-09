@@ -1,0 +1,27 @@
+"""Перевод неизвестного исхода COMMIT в контрактную ошибку."""
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from apps.modules.planning.domain.errors import PlanOutcomeUnknownError
+
+
+async def outcome_unknown_handler(request: Request, exc: PlanOutcomeUnknownError) -> JSONResponse:
+    """Сообщить неопределённый результат без обещания rollback и указания повторить POST."""
+    return JSONResponse(
+        {
+            "type": "/help-center?helpSectionId=errors#503",
+            "title": "Service Unavailable",
+            "status": 503,
+            "detail": exc.msg,
+            "instance": request.url.path,
+            "code": exc.code,
+        },
+        status_code=503,
+        media_type="application/problem+json",
+    )
+
+
+def setup_exception_handlers(app: FastAPI) -> None:
+    """Подключить обработчик при сборке приложения."""
+    app.exception_handler(PlanOutcomeUnknownError)(outcome_unknown_handler)

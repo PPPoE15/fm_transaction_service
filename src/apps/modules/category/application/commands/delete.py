@@ -1,3 +1,4 @@
+from apps.modules.category.application.exceptions import CategoryUsedByPlanError
 from apps.modules.category.application.guards import get_own_category
 from apps.modules.category.application.uow import AbstractCategoryUnitOfWork
 from apps.shared import apps_types
@@ -35,6 +36,9 @@ class DeleteCommandHandler:
         """
         async with self._uow as uow:
             await get_own_category(uow.repo, user_uid, category_uid)
+            await uow.repo.lock_category(category_uid)
+            if await uow.repo.has_plans(category_uid):
+                raise CategoryUsedByPlanError
             # TODO(FM-4): по контракту статью с транзакциями удалять нельзя (409). Сейчас каскад
             # Category.transactions (delete-orphan) удаляет вместе со статьёй все её транзакции.
             await uow.repo.delete(category_uid)

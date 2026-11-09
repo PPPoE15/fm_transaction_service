@@ -30,3 +30,10 @@ class CategoryTypeChangeForbiddenError(BaseCustomValidationError):
 
     msg = "Нельзя сменить тип статьи, по которой уже есть транзакции"
     code = "FM-400101"
+
+
+class CategoryUsedByPlanError(BaseConflictError):
+    """Категорию с планами нельзя удалить или изменить её тип."""
+
+    msg = "Категория используется в запланированных операциях"
+    code = "FM-409405"

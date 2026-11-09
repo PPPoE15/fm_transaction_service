@@ -3,6 +3,7 @@ from types import TracebackType
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from apps.modules.planning.api import setup_exception_handlers as setup_planning_errors
 from apps.web.body_size import BodySizeLimitMiddleware
 from apps.web.bootstrap import exception_handlers, logger
 from apps.web.config import app_settings
@@ -71,6 +72,7 @@ def build_app() -> FastAPI:
     )
     exception_handlers.setup(fastapi_app)
 
+    setup_planning_errors(fastapi_app)
     return fastapi_app
 
 
