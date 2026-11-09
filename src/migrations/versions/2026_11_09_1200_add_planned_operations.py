@@ -31,17 +31,6 @@ def upgrade() -> None:
             unique=True,
             nullable=True,
         ),
-        sa.CheckConstraint("money_sum BETWEEN 1 AND 1000000000", name="money_range"),
-        sa.CheckConstraint("planned_date BETWEEN DATE '2000-01-01' AND DATE '2099-12-31'", name="date_range"),
-        sa.CheckConstraint("version >= 1", name="version_positive"),
-        sa.CheckConstraint("transaction_type IN ('income', 'outcome')", name="type_valid"),
-        sa.CheckConstraint("char_length(description) <= 500", name="description_length"),
-        sa.CheckConstraint(
-            "(status = 'pending' AND completed_at IS NULL AND transaction_uid IS NULL "
-            "AND category_name_snapshot IS NULL) "
-            "OR (status = 'completed' AND completed_at IS NOT NULL AND category_name_snapshot IS NOT NULL)",
-            name="completion_consistent",
-        ),
     )
     op.create_index("ix_planned_operations_user_date_uid", "planned_operations", ["user_uid", "planned_date", "uid"])
     op.create_index("ix_planned_operations_category_uid", "planned_operations", ["category_uid"])

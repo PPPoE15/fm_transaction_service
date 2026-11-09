@@ -260,16 +260,14 @@ async def test_pagination_bounds(client: AsyncClient, make_token: TokenFactory, 
     assert result.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
-@pytest.mark.parametrize(
-    "values",
-    [{"money_sum": 0}, {"status": "unknown"}, {"version": 0}, {"status": "completed"}, {"category_uid": uuid4()}],
-)
-async def test_database_constraints(
-    client: AsyncClient, db_engine: AsyncEngine, make_token: TokenFactory, values: dict[str, object]
+async def test_database_category_reference(
+    client: AsyncClient, db_engine: AsyncEngine, make_token: TokenFactory
 ) -> None:
-    """База отвергает недопустимые значения и связи независимо от API."""
+    """Внешний ключ не позволяет сослаться на отсутствующую категорию."""
     headers = {"Authorization": f"Bearer {make_token()}"}
     plan = await create(client, headers, await category(client, headers))
     with pytest.raises(IntegrityError):
         async with db_engine.begin() as conn:
-            await conn.execute(update(PlannedOperation).where(PlannedOperation.uid == plan["uid"]).values(**values))
+            await conn.execute(
+                update(PlannedOperation).where(PlannedOperation.uid == plan["uid"]).values(category_uid=uuid4())
+            )

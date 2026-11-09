@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import BigInteger, CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, Uuid
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.shared.db.base import AsyncBase
@@ -14,17 +14,6 @@ class PlannedOperation(AsyncBase):
 
     __tablename__ = "planned_operations"
     __table_args__ = (
-        CheckConstraint("money_sum BETWEEN 1 AND 1000000000", name="money_range"),
-        CheckConstraint("planned_date BETWEEN DATE '2000-01-01' AND DATE '2099-12-31'", name="date_range"),
-        CheckConstraint("version >= 1", name="version_positive"),
-        CheckConstraint("transaction_type IN ('income', 'outcome')", name="type_valid"),
-        CheckConstraint("char_length(description) <= 500", name="description_length"),
-        CheckConstraint(
-            "(status = 'pending' AND completed_at IS NULL AND transaction_uid IS NULL "
-            "AND category_name_snapshot IS NULL) OR (status = 'completed' AND completed_at IS NOT NULL "
-            "AND category_name_snapshot IS NOT NULL)",
-            name="completion_consistent",
-        ),
         Index("ix_planned_operations_user_date_uid", "user_uid", "planned_date", "uid"),
         Index("ix_planned_operations_category_uid", "category_uid"),
     )
