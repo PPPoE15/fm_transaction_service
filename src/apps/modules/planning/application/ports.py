@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from uuid import UUID
 
 from apps.modules.planning.domain.model import Plan
-from apps.modules.planning.domain.regular import Position, RegularTransactionRule
+from apps.modules.planning.domain.regular import Position, RegularOperationRule
 
 
 class AbstractPlanRepo(ABC):
@@ -35,7 +35,7 @@ class AbstractPlanRepo(ABC):
         """Заблокировать изменения планов и регулярных операций владельца."""
 
     @abstractmethod
-    async def link(self, plan_uid: UUID) -> tuple[Position, RegularTransactionRule] | None:
+    async def link(self, plan_uid: UUID) -> tuple[Position, RegularOperationRule] | None:
         """Прочитать метаданные регулярного платежа."""
 
     @abstractmethod
@@ -43,11 +43,11 @@ class AbstractPlanRepo(ABC):
         """Отметить ручное изменение позиции."""
 
 
-class AbstractRegularTransactionRuleRepo(ABC):
+class AbstractRegularOperationRuleRepo(ABC):
     """Порт записи регулярных операций и позиций в транзакции планирования."""
 
     @abstractmethod
-    async def get(self, user_uid: UUID, uid: UUID) -> RegularTransactionRule | None:
+    async def get(self, user_uid: UUID, uid: UUID) -> RegularOperationRule | None:
         """Получить регулярную операцию под блокировкой."""
 
     @abstractmethod
@@ -55,7 +55,7 @@ class AbstractRegularTransactionRuleRepo(ABC):
         """Проверить наличие регулярной операции у исходного плана."""
 
     @abstractmethod
-    async def save(self, rule: RegularTransactionRule, *, new: bool = False) -> None:
+    async def save(self, rule: RegularOperationRule, *, new: bool = False) -> None:
         """Сохранить регулярную операцию и её границу."""
 
     @abstractmethod

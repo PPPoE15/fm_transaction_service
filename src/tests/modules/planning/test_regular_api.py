@@ -177,8 +177,8 @@ async def test_conversion_reuses_pending_only_and_isolates_sources(
     assert (data["first_plan"]["uid"] == original["uid"]) is not completed
     if completed:
         assert (await client.get(source, headers=headers)).json() == original
-    regular_transaction_url = f"/regular-operations/{data['operation']['uid']}"
-    assert (await client.get(regular_transaction_url, headers=other)).status_code == HTTPStatus.NOT_FOUND
+    regular_operation_url = f"/regular-operations/{data['operation']['uid']}"
+    assert (await client.get(regular_operation_url, headers=other)).status_code == HTTPStatus.NOT_FOUND
     page = await client.get("/regular-operations", headers=headers, params={"source_plan_uid": original["uid"]})
     assert page.json()["total"] == 1
     values["expected_version"] = original["version"] if completed else data["first_plan"]["version"]
@@ -267,7 +267,7 @@ async def test_update_catches_up_old_schedule_and_extends_ended_rule(
     ]
 
 
-async def test_regular_transaction_without_payments_protects_category(
+async def test_regular_operation_without_payments_protects_category(
     client: AsyncClient, db_engine: AsyncEngine, make_token: TokenFactory, move_clock: Callable[[date], None]
 ) -> None:
     """Активная регулярная операция защищает тип категории даже за горизонтом генерации."""
@@ -285,16 +285,16 @@ async def test_regular_transaction_without_payments_protects_category(
     conflict = await client.patch(category_url, headers=headers, json={"category_type": "income"})
     assert conflict.status_code == HTTPStatus.CONFLICT, conflict.text
     assert conflict.json()["code"] == "FM-409405"
-    regular_transaction_url = f"/regular-operations/{created.json()['uid']}"
+    regular_operation_url = f"/regular-operations/{created.json()['uid']}"
     assert (
-        await client.delete(regular_transaction_url, headers=headers, params={"expected_version": 1})
+        await client.delete(regular_operation_url, headers=headers, params={"expected_version": 1})
     ).status_code == HTTPStatus.NO_CONTENT
     assert (
         await client.patch(category_url, headers=headers, json={"category_type": "income"})
     ).status_code == HTTPStatus.OK
 
 
-async def test_regular_transaction_page_accepts_skip_above_database_integer_range(
+async def test_regular_operation_page_accepts_skip_above_database_integer_range(
     client: AsyncClient, db_engine: AsyncEngine, make_token: TokenFactory, move_clock: Callable[[date], None]
 ) -> None:
     """Допустимое смещение за пределами bigint даёт пустую страницу."""

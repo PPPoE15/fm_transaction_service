@@ -4,18 +4,18 @@ from uuid import UUID
 
 from sqlalchemy import delete, select, update
 
-from apps.modules.planning.application.ports import AbstractRegularTransactionRuleRepo
+from apps.modules.planning.application.ports import AbstractRegularOperationRuleRepo
 from apps.modules.planning.domain.model import Plan
-from apps.modules.planning.domain.regular import Position, RegularTransactionRule
+from apps.modules.planning.domain.regular import Position, RegularOperationRule
 from apps.modules.planning.infrastructure import builders
 from apps.modules.planning.infrastructure.orm import PlannedTransaction, RegularOccurrence, RegularOperation
 from apps.shared.db.base_repo import BaseSqlAlchemyRepo
 
 
-class RegularTransactionRuleRepo(AbstractRegularTransactionRuleRepo, BaseSqlAlchemyRepo):
+class RegularOperationRuleRepo(AbstractRegularOperationRuleRepo, BaseSqlAlchemyRepo):
     """Читает и записывает позиции в общей транзакции планирования."""
 
-    async def get(self, user_uid: UUID, uid: UUID) -> RegularTransactionRule | None:
+    async def get(self, user_uid: UUID, uid: UUID) -> RegularOperationRule | None:
         """Получить доступную регулярную операцию владельца под блокировкой."""
         row = await self._session.scalar(
             select(RegularOperation)
@@ -26,7 +26,7 @@ class RegularTransactionRuleRepo(AbstractRegularTransactionRuleRepo, BaseSqlAlch
             )
             .with_for_update()
         )
-        return RegularTransactionRule.model_validate(row, from_attributes=True) if row is not None else None
+        return RegularOperationRule.model_validate(row, from_attributes=True) if row is not None else None
 
     async def has_source(self, user_uid: UUID, source_uid: UUID) -> bool:
         """Проверить наличие неудалённой регулярной операции, созданной из плана."""
@@ -37,7 +37,7 @@ class RegularTransactionRuleRepo(AbstractRegularTransactionRuleRepo, BaseSqlAlch
         )
         return await self._session.scalar(stmt) is not None
 
-    async def save(self, rule: RegularTransactionRule, *, new: bool = False) -> None:
+    async def save(self, rule: RegularOperationRule, *, new: bool = False) -> None:
         """Записать параметры регулярной операции, сохранив ссылочную целостность при создании позиций."""
         fields = rule.model_dump(mode="json", include={"frequency"})
         values = rule.model_dump(exclude={"uid", "frequency"}) | fields
@@ -89,7 +89,7 @@ class RegularTransactionRuleRepo(AbstractRegularTransactionRuleRepo, BaseSqlAlch
             update(RegularOccurrence).where(RegularOccurrence.plan_uid == plan_uid).values(is_exception=True)
         )
 
-    async def link(self, plan_uid: UUID) -> tuple[Position, RegularTransactionRule] | None:
+    async def link(self, plan_uid: UUID) -> tuple[Position, RegularOperationRule] | None:
         """Получить метаданные связи, в том числе с удалённой регулярной операцией."""
         stmt = (
             select(RegularOccurrence, RegularOperation)
@@ -100,6 +100,6 @@ class RegularTransactionRuleRepo(AbstractRegularTransactionRuleRepo, BaseSqlAlch
         if row is None:
             return None
         position, rule = row
-        return Position.model_validate(position, from_attributes=True), RegularTransactionRule.model_validate(
+        return Position.model_validate(position, from_attributes=True), RegularOperationRule.model_validate(
             rule, from_attributes=True
         )

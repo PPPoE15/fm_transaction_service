@@ -9,12 +9,12 @@ from pydantic import ConfigDict, Field, model_validator
 from apps.modules.planning.api import deps
 from apps.modules.planning.api.endpoints import Clock, User
 from apps.modules.planning.api.schemas import PlanDateIn
-from apps.modules.planning.application.regular import RegularTransactionRuleInput
+from apps.modules.planning.application.regular import RegularOperationRuleInput
 from apps.modules.planning.application.regular_queries import RegularQueries
 from apps.modules.planning.application.regular_schemas import (
     ConversionResult,
-    RegularTransactionList,
-    RegularTransactionView,
+    RegularOperationList,
+    RegularOperationView,
 )
 from apps.modules.planning.domain.model import Money
 from apps.modules.planning.domain.schedule import Frequency
@@ -26,7 +26,7 @@ router = APIRouter(tags=["Планирование"])
 URL = "/regular-operations"
 
 
-class CreateRegularTransactionSchema(RegularTransactionRuleInput):
+class CreateRegularOperationSchema(RegularOperationRuleInput):
     """Строгие входные даты и запрет лишних полей."""
 
     model_config = ConfigDict(extra="forbid")
@@ -34,13 +34,13 @@ class CreateRegularTransactionSchema(RegularTransactionRuleInput):
     end_date: PlanDateIn | None = None
 
 
-class ConvertRegularTransactionSchema(CreateRegularTransactionSchema):
+class ConvertRegularOperationSchema(CreateRegularOperationSchema):
     """Новые параметры регулярной операции и версия исходного плана."""
 
     expected_version: int = Field(ge=1, strict=True)
 
 
-class UpdateRegularTransactionSchema(Base):
+class UpdateRegularOperationSchema(Base):
     """Частичные параметры с различением пропуска и очистки."""
 
     model_config = ConfigDict(extra="forbid")
@@ -66,7 +66,7 @@ class UpdateRegularTransactionSchema(Base):
         return self
 
 
-class RegularTransactionPageParams(PageParams):
+class RegularOperationPageParams(PageParams):
     """Границы страницы регулярных операций."""
 
     skip: int = Field(Query(default=0, ge=0))
@@ -74,43 +74,43 @@ class RegularTransactionPageParams(PageParams):
 
 
 @router.get(URL)
-async def list_regular_transactions(
+async def list_regular_operations(
     user: User,
     clock: Clock,
-    page: Annotated[RegularTransactionPageParams, Depends()],
+    page: Annotated[RegularOperationPageParams, Depends()],
     source_plan_uid: UUID | None = None,
-) -> RegularTransactionList:
+) -> RegularOperationList:
     """Прочитать страницу собственных регулярных операций."""
     async with async_session_factory() as session:
         return await RegularQueries(session).list(user.uid, page, source_plan_uid, clock())
 
 
 @router.post(URL, status_code=status.HTTP_201_CREATED)
-async def create_regular_transaction(
-    item: CreateRegularTransactionSchema, user: User, clock: Clock
-) -> RegularTransactionView:
+async def create_regular_operation(
+    item: CreateRegularOperationSchema, user: User, clock: Clock
+) -> RegularOperationView:
     """Создать регулярную операцию и рассчитанные платежи."""
     return await deps.regular_commands(clock).create(user.uid, item)
 
 
 @router.get(URL + "/{operation_uid}")
-async def get_regular_transaction(operation_uid: UUID, user: User, clock: Clock) -> RegularTransactionView:
+async def get_regular_operation(operation_uid: UUID, user: User, clock: Clock) -> RegularOperationView:
     """Прочитать собственную регулярную операцию."""
     async with async_session_factory() as session:
         return await RegularQueries(session).get(user.uid, operation_uid, clock())
 
 
 @router.patch(URL + "/{operation_uid}")
-async def update_regular_transaction(
-    operation_uid: UUID, item: UpdateRegularTransactionSchema, user: User, clock: Clock
-) -> RegularTransactionView:
+async def update_regular_operation(
+    operation_uid: UUID, item: UpdateRegularOperationSchema, user: User, clock: Clock
+) -> RegularOperationView:
     """Изменить условия регулярной операции и пересчитать платежи."""
     changes = item.model_dump(exclude_unset=True, exclude={"expected_version"})
     return await deps.regular_commands(clock).update(user.uid, operation_uid, changes, item.expected_version)
 
 
 @router.delete(URL + "/{operation_uid}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_regular_transaction(
+async def delete_regular_operation(
     operation_uid: UUID, user: User, clock: Clock, expected_version: Annotated[int, Query(ge=1)]
 ) -> Response:
     """Удалить регулярную операцию и её невыполненные платежи."""
@@ -120,7 +120,7 @@ async def delete_regular_transaction(
 
 @router.post("/planned-operations/{plan_uid}/recurrence", status_code=status.HTTP_201_CREATED)
 async def convert_plan(
-    plan_uid: UUID, item: ConvertRegularTransactionSchema, user: User, clock: Clock
+    plan_uid: UUID, item: ConvertRegularOperationSchema, user: User, clock: Clock
 ) -> ConversionResult:
     """Сделать план регулярным с учётом состояния источника."""
     return await deps.regular_commands(clock).convert(user.uid, plan_uid, item, item.expected_version)

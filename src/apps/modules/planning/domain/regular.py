@@ -10,19 +10,17 @@ from apps.modules.planning.domain.schedule import Frequency, RegularSchedule, ge
 from apps.shared.apps_types import TransactionType
 from apps.shared.schemas import Base
 
-RegularTransactionStatus = Literal["active", "ended", "deleted"]
+RegularOperationStatus = Literal["active", "ended", "deleted"]
 
 
-def regular_transaction_status(
-    end_date: date | None, deleted_at: datetime | None, today: date
-) -> RegularTransactionStatus:
+def regular_operation_status(end_date: date | None, deleted_at: datetime | None, today: date) -> RegularOperationStatus:
     """Вычислить состояние ссылки на регулярную операцию на заданную дату."""
     if deleted_at is not None:
         return "deleted"
     return "ended" if end_date is not None and end_date < today else "active"
 
 
-class RegularTransactionRule(Base):
+class RegularOperationRule(Base):
     """Параметры и последняя обработанная граница регулярной операции."""
 
     uid: UUID
