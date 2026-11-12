@@ -35,6 +35,8 @@ def scheduled_time(value: str) -> time:
 
 async def extend_plans(today: date, stopped: asyncio.Event) -> int:
     """Продлить горизонт за один проход, сохранив результат каждой команды отдельно."""
+    if stopped.is_set():
+        return 0
     commands = RegularCommands(PlanUnitOfWork(async_session_factory), lambda: today)
     processed = created = failures = 0
     async for owner, uid in generation_candidates(async_session_factory, today):
@@ -46,6 +48,8 @@ async def extend_plans(today: date, stopped: asyncio.Event) -> int:
         except (BaseError, SQLAlchemyError, OSError, ValueError) as exc:
             failures += 1
             logger.error("Ошибка продления регулярной операции %s (%s)", uid, type(exc).__name__)
+        if stopped.is_set():
+            break
     logger.info(
         "Проход продления планов: дата=%s обработано=%d создано=%d ошибок=%d остановка=%s",
         today,
