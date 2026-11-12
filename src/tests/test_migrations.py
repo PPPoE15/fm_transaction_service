@@ -10,6 +10,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import pool, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 BEFORE_FM_41 = "5b7e2c1d9a40"
@@ -30,7 +31,11 @@ def alembic_config(postgres_dsn: str) -> Iterator[Config]:
         yield config
     finally:
         command.upgrade(config, "head")
-        _run(postgres_dsn, "TRUNCATE planned_transactions, transactions, categories, starting_balances")
+        _run(
+            postgres_dsn,
+            "TRUNCATE recurring_occurrences, recurring_operations, planned_transactions, "
+            "transactions, categories, starting_balances",
+        )
 
 
 def _run(dsn: str, sql: str, params: list[dict[str, Any]] | None = None) -> list[Any]:
@@ -141,3 +146,68 @@ def test_fm_107_upgrade_downgrade_preserves_existing_data(postgres_dsn: str, ale
     command.downgrade(alembic_config, "a33b00000001")
     assert _run(postgres_dsn, "SELECT * FROM transactions") == before
     assert _names(postgres_dsn) == {category_uid: "Существующая"}
+
+
+@pytest.mark.db
+def test_fm_114_recurring_storage(postgres_dsn: str, alembic_config: Config) -> None:
+    """Миграция сохраняет планы и факты, включая завершённый платёж удалённой серии."""
+    command.downgrade(alembic_config, "a10700000001")
+    user, category, plan, pending, fact, series = (uuid4() for _ in range(6))
+    _insert_categories(postgres_dsn, [(category, user, "Связь", "outcome", 100)])
+    params = {"user": user, "category": category, "fact": fact, "plan": plan, "pending": pending, "series": series}
+    _run(
+        postgres_dsn,
+        "INSERT INTO transactions (uid, user_uid, category_uid, money_sum, transaction_type, transaction_date) "
+        "VALUES (:fact, :user, :category, 100, 'outcome', '2026-11-09 12:00:00')",
+        [params],
+    )
+    _run(
+        postgres_dsn,
+        "INSERT INTO planned_transactions "
+        "(uid, user_uid, category_uid, planned_date, money_sum, transaction_type, status, completed_at, "
+        "category_name_snapshot, transaction_uid) VALUES "
+        "(:plan, :user, :category, '2026-11-09', 100, 'outcome', 'completed', now(), 'Связь', :fact), "
+        "(:pending, :user, :category, '2026-12-10', 100, 'outcome', 'pending', NULL, NULL, NULL)",
+        [params],
+    )
+    original_plans = _run(postgres_dsn, "SELECT * FROM planned_transactions ORDER BY uid")
+    original_facts = _run(postgres_dsn, "SELECT * FROM transactions")
+    command.upgrade(alembic_config, "head")
+    assert _run(postgres_dsn, "SELECT * FROM planned_transactions ORDER BY uid") == original_plans
+    assert _run(postgres_dsn, "SELECT * FROM transactions") == original_facts
+
+    _run(
+        postgres_dsn,
+        "INSERT INTO recurring_operations "
+        "(uid, user_uid, category_uid, first_date, money_sum, transaction_type, frequency, source_plan_uid) "
+        "VALUES (:series, :user, :category, '2026-11-09', 100, 'outcome', 'monthly', :plan)",
+        [params],
+    )
+    _run(
+        postgres_dsn,
+        "INSERT INTO recurring_occurrences (operation_uid, scheduled_date, plan_uid, is_exception) VALUES "
+        "(:series, '2026-11-09', :plan, false), (:series, '2026-12-09', :pending, true)",
+        [params],
+    )
+    state_query = (
+        "SELECT scheduled_date::text, plan_uid, is_exception FROM recurring_occurrences ORDER BY scheduled_date"
+    )
+    assert _run(postgres_dsn, state_query) == [("2026-11-09", plan, False), ("2026-12-09", pending, True)]
+    _run(postgres_dsn, "DELETE FROM planned_transactions WHERE uid = :pending", [params])
+    assert _run(postgres_dsn, state_query) == [("2026-11-09", plan, False), ("2026-12-09", None, True)]
+    with pytest.raises(IntegrityError):
+        _run(
+            postgres_dsn,
+            "INSERT INTO recurring_occurrences (operation_uid, scheduled_date) VALUES (:series, '2026-12-09')",
+            [params],
+        )
+    _run(
+        postgres_dsn,
+        "UPDATE recurring_operations SET deleted_at = now(), category_uid = NULL WHERE uid = :series",
+        [params],
+    )
+    assert _run(postgres_dsn, state_query)[0] == ("2026-11-09", plan, False)
+    completed_before_downgrade = _run(postgres_dsn, "SELECT * FROM planned_transactions")
+    command.downgrade(alembic_config, "a10700000001")
+    assert _run(postgres_dsn, "SELECT * FROM planned_transactions") == completed_before_downgrade
+    assert _run(postgres_dsn, "SELECT * FROM transactions") == original_facts
