@@ -13,6 +13,8 @@ from apps.modules.planning.infrastructure.orm import RecurringOperation
 from apps.shared.db.base_query import BaseQueries
 from apps.shared.schemas import PageParams
 
+MAX_SQL_OFFSET = 2**63 - 1
+
 
 class RecurringQueries(BaseQueries):
     """Читает доступные серии и актуальные имена их категорий."""
@@ -44,7 +46,9 @@ class RecurringQueries(BaseQueries):
             query = query.where(RecurringOperation.source_plan_uid == source)
         owned = query.cte("owned_series")
         counts = select(func.count().label("total")).select_from(owned).cte("series_count")
-        page = self._apply_pagination(select(owned).order_by(owned.c.first_date, owned.c.uid), page_params).cte(
+        # Контракт допускает произвольное неотрицательное смещение, PostgreSQL принимает bigint.
+        sql_page = page_params.model_copy(update={"skip": min(page_params.skip, MAX_SQL_OFFSET)})
+        page = self._apply_pagination(select(owned).order_by(owned.c.first_date, owned.c.uid), sql_page).cte(
             "series_page"
         )
         stmt = select(counts, page).select_from(counts.outerjoin(page, true())).order_by(page.c.first_date, page.c.uid)

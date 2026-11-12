@@ -294,3 +294,23 @@ async def test_series_without_payments_protects_category(
     assert (
         await client.patch(category_url, headers=headers, json={"category_type": "income"})
     ).status_code == HTTPStatus.OK
+
+
+async def test_series_page_accepts_skip_above_database_integer_range(
+    client: AsyncClient, db_engine: AsyncEngine, make_token: TokenFactory, move_clock: Callable[[date], None]
+) -> None:
+    """Допустимое смещение за пределами bigint даёт пустую страницу."""
+    move_clock(date(2028, 1, 31))
+    headers = {"Authorization": f"Bearer {make_token()}"}
+    cat = await category(client, headers)
+    created = await client.post(
+        "/recurring-operations",
+        headers=headers,
+        json={"category_uid": cat, "money_sum": 100, "first_date": "2028-01-31", "frequency": "yearly"},
+    )
+    assert created.status_code == HTTPStatus.CREATED, created.text
+    response = await client.get("/recurring-operations", headers=headers, params={"skip": 2**63})
+    assert response.status_code == HTTPStatus.OK, response.text
+    assert response.json()["total"] == 1
+    assert response.json()["content"] == []
+    assert response.json()["next_skip"] is None
