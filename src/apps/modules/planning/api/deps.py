@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 from apps.modules.planning.application.commands import PlanCommands
 from apps.modules.planning.application.confirmation import ConfirmPlanCommand
+from apps.modules.planning.application.regular import RegularCommands
 from apps.modules.planning.infrastructure.uow import PlanUnitOfWork
 from apps.shared.db.session import async_session_factory
 
@@ -38,3 +39,8 @@ def get_confirmation_clock() -> Callable[[], datetime]:
 def confirmation_command(clock: Callable[[], datetime]) -> ConfirmPlanCommand:
     """Собрать подтверждение с общей сессией планов, фактов и категорий."""
     return ConfirmPlanCommand(PlanUnitOfWork(async_session_factory), clock)
+
+
+def regular_commands(clock: Callable[[], date]) -> RegularCommands:
+    """Собрать команды регулярных операций в отдельной транзакции."""
+    return RegularCommands(PlanUnitOfWork(async_session_factory), clock)

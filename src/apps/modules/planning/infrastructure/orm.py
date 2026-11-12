@@ -34,15 +34,15 @@ class PlannedTransaction(AsyncBase):
     )
 
 
-class RecurringOperation(AsyncBase):
-    """Серия и граница генерации; запись сохраняется после логического удаления."""
+class RegularOperation(AsyncBase):
+    """Правило регулярной операции и граница генерации; запись сохраняется после логического удаления."""
 
-    __tablename__ = "recurring_operations"
+    __tablename__ = "regular_operations"
     __table_args__ = (
-        Index("ix_recurring_operations_user_first_uid", "user_uid", "first_date", "uid"),
-        Index("ix_recurring_operations_category_uid", "category_uid"),
+        Index("ix_regular_operations_user_first_uid", "user_uid", "first_date", "uid"),
+        Index("ix_regular_operations_category_uid", "category_uid"),
         Index(
-            "uq_recurring_operations_live_source",
+            "uq_regular_operations_live_source",
             "user_uid",
             "source_plan_uid",
             unique=True,
@@ -65,13 +65,13 @@ class RecurringOperation(AsyncBase):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
-class RecurringOccurrence(AsyncBase):
-    """Позиция серии; NULL вместо UID плана резервирует отдельно удалённый платёж."""
+class RegularOccurrence(AsyncBase):
+    """Позиция расписания регулярной операции; NULL вместо UID плана резервирует отдельно удалённый платёж."""
 
-    __tablename__ = "recurring_occurrences"
+    __tablename__ = "regular_occurrences"
 
     operation_uid: Mapped[UUID] = mapped_column(
-        Uuid, ForeignKey("recurring_operations.uid", ondelete="RESTRICT"), primary_key=True
+        Uuid, ForeignKey("regular_operations.uid", ondelete="RESTRICT"), primary_key=True
     )
     scheduled_date: Mapped[date] = mapped_column(Date, primary_key=True)
     plan_uid: Mapped[UUID | None] = mapped_column(

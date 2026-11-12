@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from uuid import UUID
 
 from apps.modules.planning.domain.model import Plan
+from apps.modules.planning.domain.regular import Position, RegularOperationRule
 
 
 class AbstractPlanRepo(ABC):
@@ -28,3 +29,47 @@ class AbstractPlanRepo(ABC):
     @abstractmethod
     async def delete(self, plan: Plan) -> None:
         """Удалить только план, не затрагивая факт."""
+
+    @abstractmethod
+    async def lock_owner(self, user_uid: UUID) -> None:
+        """Заблокировать изменения планов и регулярных операций владельца."""
+
+    @abstractmethod
+    async def link(self, plan_uid: UUID) -> tuple[Position, RegularOperationRule] | None:
+        """Прочитать метаданные регулярного платежа."""
+
+    @abstractmethod
+    async def mark_exception(self, plan_uid: UUID) -> None:
+        """Отметить ручное изменение позиции."""
+
+
+class AbstractRegularOperationRuleRepo(ABC):
+    """Порт записи регулярных операций и позиций в транзакции планирования."""
+
+    @abstractmethod
+    async def get(self, user_uid: UUID, uid: UUID) -> RegularOperationRule | None:
+        """Получить регулярную операцию под блокировкой."""
+
+    @abstractmethod
+    async def has_source(self, user_uid: UUID, source_uid: UUID) -> bool:
+        """Проверить наличие регулярной операции у исходного плана."""
+
+    @abstractmethod
+    async def save(self, rule: RegularOperationRule, *, new: bool = False) -> None:
+        """Сохранить регулярную операцию и её границу."""
+
+    @abstractmethod
+    async def positions(self, uid: UUID) -> list[Position]:
+        """Получить все зарезервированные позиции."""
+
+    @abstractmethod
+    async def payments_for_update(self, uid: UUID) -> list[tuple[Position, Plan]]:
+        """Получить позиции с доступными планами под блокировкой."""
+
+    @abstractmethod
+    async def add_positions(self, positions: list[Position]) -> None:
+        """Создать позиции в текущей транзакции."""
+
+    @abstractmethod
+    async def remove_position(self, position: Position) -> None:
+        """Освободить позицию при пересчёте."""

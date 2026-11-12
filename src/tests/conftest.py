@@ -102,7 +102,7 @@ async def db_engine(postgres_dsn: str) -> AsyncIterator[AsyncEngine]:
         async with engine.begin() as connection:
             await connection.execute(
                 text(
-                    "TRUNCATE recurring_occurrences, recurring_operations, planned_transactions, "
+                    "TRUNCATE regular_occurrences, regular_operations, planned_transactions, "
                     "transactions, categories, starting_balances"
                 )
             )

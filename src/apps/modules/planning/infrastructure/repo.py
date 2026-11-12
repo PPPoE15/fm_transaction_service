@@ -6,17 +6,23 @@ from sqlalchemy import delete, func, select, text, update
 
 from apps.modules.planning.application.ports import AbstractPlanRepo
 from apps.modules.planning.domain.model import Plan
+from apps.modules.planning.domain.regular import Position, RegularOperationRule
 from apps.modules.planning.infrastructure import builders
 from apps.modules.planning.infrastructure.orm import PlannedTransaction
+from apps.modules.planning.infrastructure.regular_repo import RegularOperationRuleRepo
 from apps.shared.db.base_repo import BaseSqlAlchemyRepo
 
 
 class PlanRepo(AbstractPlanRepo, BaseSqlAlchemyRepo):
     """Загружает и сохраняет планы без переноса доменных правил в SQL."""
 
+    async def lock_owner(self, user_uid: UUID) -> None:
+        """Сериализовать команды планирования по владельцу."""
+        await self._session.execute(text("SELECT pg_advisory_xact_lock(107, hashtext(:uid))"), {"uid": str(user_uid)})
+
     async def count_for_update(self, user_uid: UUID) -> int:
         """Сериализовать создание по владельцу даже для пустого набора."""
-        await self._session.execute(text("SELECT pg_advisory_xact_lock(107, hashtext(:uid))"), {"uid": str(user_uid)})
+        await self.lock_owner(user_uid)
         return int(
             await self._session.scalar(
                 select(func.count()).select_from(PlannedTransaction).where(PlannedTransaction.user_uid == user_uid)
@@ -26,6 +32,7 @@ class PlanRepo(AbstractPlanRepo, BaseSqlAlchemyRepo):
 
     async def get_for_update(self, user_uid: UUID, plan_uid: UUID) -> Plan | None:
         """Прочитать собственную запись под блокировкой до конца команды."""
+        await self.lock_owner(user_uid)
         stmt = (
             select(PlannedTransaction)
             .where(PlannedTransaction.uid == plan_uid, PlannedTransaction.user_uid == user_uid)
@@ -53,3 +60,11 @@ class PlanRepo(AbstractPlanRepo, BaseSqlAlchemyRepo):
                 PlannedTransaction.uid == plan.uid, PlannedTransaction.user_uid == plan.user_uid
             )
         )
+
+    async def link(self, plan_uid: UUID) -> tuple[Position, RegularOperationRule] | None:
+        """Прочитать метаданные регулярного платежа в транзакции плана."""
+        return await RegularOperationRuleRepo(self._session).link(plan_uid)
+
+    async def mark_exception(self, plan_uid: UUID) -> None:
+        """Отметить ручную правку связанной позиции."""
+        await RegularOperationRuleRepo(self._session).mark_exception(plan_uid)

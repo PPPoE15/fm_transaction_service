@@ -75,7 +75,12 @@ class ConfirmPlanCommand:
             # UPDATE плана с FK на новый факт заставляет сессию сначала сбросить ожидающую INSERT.
             await self.uow.plans.update(plan)
             result = PlanConfirmation(
-                plan=PlanView.build(plan, original_category.name, now.astimezone(ZoneInfo("Europe/Moscow")).date()),
+                plan=PlanView.build(
+                    plan,
+                    original_category.name,
+                    now.astimezone(ZoneInfo("Europe/Moscow")).date(),
+                    await self.uow.plans.link(plan.uid),
+                ),
                 transaction=TransactionSchema(
                     **transaction.model_dump(exclude={"user_uid", "category_uid"}),
                     category=CategoryRef(uid=fact_category.uid, name=fact_category.name),

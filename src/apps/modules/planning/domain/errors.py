@@ -66,3 +66,35 @@ class PlanOutcomeUnknownError(BaseError):
 
     msg = "Не удалось подтвердить сохранение операции. Проверьте список перед повторным созданием"
     code = "FM-503401"
+
+
+class RegularNotFoundError(PlanNotFoundError):
+    """Собственная доступная регулярная операция отсутствует."""
+
+    msg = "Регулярная операция не найдена"
+
+
+class RegularSourceError(BaseConflictError):
+    """Исходный план уже относится к регулярной операции."""
+
+    msg = "План уже регулярный"
+    code = "FM-409406"
+
+
+class RegularDuplicateError(BaseConflictError):
+    """Из выполненного плана уже создана доступная регулярная операция."""
+
+    msg = "Из выполненного плана уже создана регулярная операция"
+    code = "FM-409407"
+
+
+class RegularViolationError(BaseCustomValidationError):
+    """Бизнес-ошибка с указанием поля формы регулярной операции."""
+
+    code = "FM-400406"
+
+    def __init__(self, message: str, *, field: str) -> None:
+        """Сохранить поле и человекочитаемое сообщение."""
+        super().__init__()
+        self.field = field
+        self.msg = message
