@@ -63,7 +63,8 @@ class PlanCommands:
             today = self.clock()
             plan.update(changes, expected_version, today)
             await self.uow.plans.update(plan)
-            result = PlanView.build(plan, category.name, today)
+            await self.uow.plans.mark_exception(plan.uid)
+            result = PlanView.build(plan, category.name, today, await self.uow.plans.link(plan.uid))
             await self.uow.commit()
         return result
 

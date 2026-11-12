@@ -93,8 +93,10 @@ class Repo(AbstractCategoryRepo, BaseSqlAlchemyRepo):
         await self._session.execute(select(orm.Category.uid).where(orm.Category.uid == category_uid).with_for_update())
 
     async def has_plans(self, category_uid: apps_types.CategoryUID) -> bool:
-        """Проверить планы всех статусов без импорта соседнего модуля."""
-        stmt = select(orm.Category.planned_transactions.any()).where(orm.Category.uid == category_uid)
+        """Проверить планы и доступные серии без импорта соседнего модуля."""
+        stmt = select(orm.Category.planned_transactions.any() | orm.Category.recurring_operations.any()).where(
+            orm.Category.uid == category_uid
+        )
         return bool((await self._session.scalars(stmt)).one_or_none())
 
     async def has_transactions(self, category_uid: apps_types.CategoryUID) -> bool:

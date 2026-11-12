@@ -3,13 +3,14 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import Select, and_, func, select, true
+from sqlalchemy import RowMapping, Select, and_, func, select, true
 
 from apps.modules.category import CategoryORM
-from apps.modules.planning.application.schemas import PlanList, PlanView
+from apps.modules.planning.application.schemas import PlanList, PlanView, RecurrenceView
 from apps.modules.planning.domain.errors import PlanNotFoundError
 from apps.modules.planning.domain.model import Plan
-from apps.modules.planning.infrastructure.orm import PlannedTransaction
+from apps.modules.planning.domain.recurring import series_status
+from apps.modules.planning.infrastructure.orm import PlannedTransaction, RecurringOccurrence, RecurringOperation
 from apps.shared.apps_types import TransactionType
 from apps.shared.db.base_query import BaseQueries
 from apps.shared.schemas import PageParams
@@ -22,8 +23,18 @@ class PlanQueries(BaseQueries):
     def _select(user_uid: UUID) -> Select:
         """Выбрать поля агрегата и имя категории без дополнительных ORM-запросов."""
         return (
-            select(*PlannedTransaction.__table__.columns, CategoryORM.name.label("category_name"))
+            select(
+                *PlannedTransaction.__table__.columns,
+                CategoryORM.name.label("category_name"),
+                RecurringOccurrence.operation_uid,
+                RecurringOccurrence.scheduled_date,
+                RecurringOccurrence.is_exception,
+                RecurringOperation.deleted_at,
+                RecurringOperation.end_date,
+            )
             .join(CategoryORM, CategoryORM.uid == PlannedTransaction.category_uid)
+            .outerjoin(RecurringOccurrence, RecurringOccurrence.plan_uid == PlannedTransaction.uid)
+            .outerjoin(RecurringOperation, RecurringOperation.uid == RecurringOccurrence.operation_uid)
             .where(PlannedTransaction.user_uid == user_uid)
         )
 
@@ -36,8 +47,21 @@ class PlanQueries(BaseQueries):
         )
         if row is None:
             raise PlanNotFoundError
+        return self._view(row, today)
+
+    @staticmethod
+    def _view(row: RowMapping, today: date) -> PlanView:
+        """Представить план и его позицию из одного снимка."""
         plan = Plan.model_validate({key: row[key] for key in Plan.model_fields})
-        return PlanView.build(plan, row["category_name"], today)
+        view = PlanView.build(plan, row["category_name"], today)
+        if row["operation_uid"] is not None:
+            view.recurrence = RecurrenceView(
+                operation_uid=row["operation_uid"],
+                scheduled_date=row["scheduled_date"],
+                is_exception=row["is_exception"],
+                operation_status=series_status(row["end_date"], row["deleted_at"], today),
+            )
+        return view
 
     async def list(
         self,
@@ -46,11 +70,14 @@ class PlanQueries(BaseQueries):
         transaction_type: TransactionType | None,
         include_completed: bool,
         today: date,
+        include_recurring: bool = True,
     ) -> PlanList:
         """Вернуть страницу, total и due_count даже при пустой странице одним SELECT."""
         source = self._select(user_uid)
         if transaction_type is not None:
             source = source.where(PlannedTransaction.transaction_type == transaction_type)
+        if not include_recurring:
+            source = source.where(RecurringOccurrence.operation_uid.is_(None))
         owned = source.cte("owned_plans")
         visible = true() if include_completed else owned.c.status == "pending"
         counts = (
@@ -69,13 +96,7 @@ class PlanQueries(BaseQueries):
             select(counts, page).select_from(counts.outerjoin(page, true())).order_by(page.c.planned_date, page.c.uid)
         )
         rows = (await self._session.execute(stmt)).mappings().all()
-        content = [
-            PlanView.build(
-                Plan.model_validate({key: row[key] for key in Plan.model_fields}), row["category_name"], today
-            )
-            for row in rows
-            if row["uid"] is not None
-        ]
+        content = [self._view(row, today) for row in rows if row["uid"] is not None]
         next_skip = page_params.skip + len(content)
         total = rows[0]["total"]
         return PlanList(

@@ -66,3 +66,35 @@ class PlanOutcomeUnknownError(BaseError):
 
     msg = "Не удалось подтвердить сохранение операции. Проверьте список перед повторным созданием"
     code = "FM-503401"
+
+
+class RecurringNotFoundError(PlanNotFoundError):
+    """Собственная доступная серия отсутствует."""
+
+    msg = "Регулярная операция не найдена"
+
+
+class RecurringSourceError(BaseConflictError):
+    """Исходный план уже относится к серии."""
+
+    msg = "План уже регулярный"
+    code = "FM-409406"
+
+
+class RecurringDuplicateError(BaseConflictError):
+    """Из выполненного плана уже создана доступная серия."""
+
+    msg = "Из выполненного плана уже создана регулярная операция"
+    code = "FM-409407"
+
+
+class RecurringViolationError(BaseCustomValidationError):
+    """Бизнес-ошибка с указанием поля формы серии."""
+
+    code = "FM-400406"
+
+    def __init__(self, message: str, *, field: str) -> None:
+        """Сохранить поле и человекочитаемое сообщение."""
+        super().__init__()
+        self.field = field
+        self.msg = message
