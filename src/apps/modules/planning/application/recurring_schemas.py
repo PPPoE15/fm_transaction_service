@@ -1,18 +1,18 @@
-"""Представления серии и результата преобразования."""
+"""Представления регулярной операции и результата преобразования."""
 
 from datetime import date
 from typing import Literal
 from uuid import UUID
 
 from apps.modules.planning.application.schemas import CategoryRef, PlanView
-from apps.modules.planning.domain.recurring import Series
+from apps.modules.planning.domain.recurring import RegularTransactionRule
 from apps.modules.planning.domain.schedule import Frequency
 from apps.shared.apps_types import TransactionType
 from apps.shared.schemas import Base
 
 
-class SeriesItem(Base):
-    """Публичные поля серии без календаря запроса."""
+class RegularTransactionItem(Base):
+    """Публичные поля регулярной операции без календаря запроса."""
 
     uid: UUID
     money_sum: int
@@ -27,40 +27,40 @@ class SeriesItem(Base):
     source_plan_uid: UUID | None
 
     @classmethod
-    def fields(cls, series: Series, category_name: str, today: date) -> dict[str, object]:
+    def fields(cls, rule: RegularTransactionRule, category_name: str, today: date) -> dict[str, object]:
         """Сформировать общие поля списка и деталей."""
-        return series.model_dump(include=set(SeriesItem.model_fields) - {"category", "status"}) | {
-            "category": CategoryRef(uid=series.require_category_uid(), name=category_name),
-            "status": "ended" if series.end_date is not None and series.end_date < today else "active",
+        return rule.model_dump(include=set(RegularTransactionItem.model_fields) - {"category", "status"}) | {
+            "category": CategoryRef(uid=rule.require_category_uid(), name=category_name),
+            "status": "ended" if rule.end_date is not None and rule.end_date < today else "active",
         }
 
 
-class SeriesView(SeriesItem):
-    """Одна серия с календарём запроса."""
+class RegularTransactionView(RegularTransactionItem):
+    """Одна регулярная операция с календарём запроса."""
 
     today: date
     timezone: Literal["Europe/Moscow"] = "Europe/Moscow"
 
     @classmethod
-    def build(cls, series: Series, category_name: str, today: date) -> "SeriesView":
+    def build(cls, rule: RegularTransactionRule, category_name: str, today: date) -> "RegularTransactionView":
         """Собрать детали из снимка команды или запроса."""
-        return cls.model_validate(cls.fields(series, category_name, today) | {"today": today})
+        return cls.model_validate(cls.fields(rule, category_name, today) | {"today": today})
 
 
-class SeriesList(Base):
-    """Страница серий с общей датой и часовым поясом."""
+class RegularTransactionList(Base):
+    """Страница регулярных операций с общей датой и часовым поясом."""
 
     total: int
     next_skip: int | None
     today: date
     timezone: Literal["Europe/Moscow"] = "Europe/Moscow"
-    content: list[SeriesItem]
+    content: list[RegularTransactionItem]
 
 
 class ConversionResult(Base):
-    """Серия, способ использования источника и первый платёж."""
+    """Регулярная операция, способ использования источника и первый платёж."""
 
-    operation: SeriesView
+    operation: RegularTransactionView
     source_plan_uid: UUID
     source_disposition: Literal["attached", "unchanged"]
     first_plan: PlanView | None

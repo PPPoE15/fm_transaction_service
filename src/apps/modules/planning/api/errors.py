@@ -51,7 +51,7 @@ def category_error_response(request: Request, exc: PlanCategoryError | PlanCateg
 
 
 async def recurring_violation_handler(request: Request, exc: RecurringViolationError) -> JSONResponse:
-    """Вернуть бизнес-ошибку серии с конкретным полем формы."""
+    """Вернуть бизнес-ошибку регулярной операции с конкретным полем формы."""
     return JSONResponse(
         {
             "type": "/help-center?helpSectionId=errors#400",

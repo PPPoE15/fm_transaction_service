@@ -6,10 +6,10 @@ from sqlalchemy import delete, func, select, text, update
 
 from apps.modules.planning.application.ports import AbstractPlanRepo
 from apps.modules.planning.domain.model import Plan
-from apps.modules.planning.domain.recurring import Position, Series
+from apps.modules.planning.domain.recurring import Position, RegularTransactionRule
 from apps.modules.planning.infrastructure import builders
 from apps.modules.planning.infrastructure.orm import PlannedTransaction
-from apps.modules.planning.infrastructure.recurring_repo import RecurringRepo
+from apps.modules.planning.infrastructure.recurring_repo import RegularTransactionRuleRepo
 from apps.shared.db.base_repo import BaseSqlAlchemyRepo
 
 
@@ -61,10 +61,10 @@ class PlanRepo(AbstractPlanRepo, BaseSqlAlchemyRepo):
             )
         )
 
-    async def link(self, plan_uid: UUID) -> tuple[Position, Series] | None:
+    async def link(self, plan_uid: UUID) -> tuple[Position, RegularTransactionRule] | None:
         """Прочитать метаданные регулярного платежа в транзакции плана."""
-        return await RecurringRepo(self._session).link(plan_uid)
+        return await RegularTransactionRuleRepo(self._session).link(plan_uid)
 
     async def mark_exception(self, plan_uid: UUID) -> None:
         """Отметить ручную правку связанной позиции."""
-        await RecurringRepo(self._session).mark_exception(plan_uid)
+        await RegularTransactionRuleRepo(self._session).mark_exception(plan_uid)

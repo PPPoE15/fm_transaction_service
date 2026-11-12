@@ -1,21 +1,22 @@
-"""Адаптер хранения серий и позиций расписания."""
+"""Адаптер хранения регулярных операций и позиций расписания."""
 
 from uuid import UUID
 
 from sqlalchemy import delete, select, update
 
+from apps.modules.planning.application.ports import AbstractRegularTransactionRuleRepo
 from apps.modules.planning.domain.model import Plan
-from apps.modules.planning.domain.recurring import Position, Series
+from apps.modules.planning.domain.recurring import Position, RegularTransactionRule
 from apps.modules.planning.infrastructure import builders
 from apps.modules.planning.infrastructure.orm import PlannedTransaction, RecurringOccurrence, RecurringOperation
 from apps.shared.db.base_repo import BaseSqlAlchemyRepo
 
 
-class RecurringRepo(BaseSqlAlchemyRepo):
+class RegularTransactionRuleRepo(AbstractRegularTransactionRuleRepo, BaseSqlAlchemyRepo):
     """Читает и записывает позиции в общей транзакции планирования."""
 
-    async def get(self, user_uid: UUID, uid: UUID) -> Series | None:
-        """Получить доступную серию владельца под блокировкой."""
+    async def get(self, user_uid: UUID, uid: UUID) -> RegularTransactionRule | None:
+        """Получить доступную регулярную операцию владельца под блокировкой."""
         row = await self._session.scalar(
             select(RecurringOperation)
             .where(
@@ -25,10 +26,10 @@ class RecurringRepo(BaseSqlAlchemyRepo):
             )
             .with_for_update()
         )
-        return Series.model_validate(row, from_attributes=True) if row is not None else None
+        return RegularTransactionRule.model_validate(row, from_attributes=True) if row is not None else None
 
     async def has_source(self, user_uid: UUID, source_uid: UUID) -> bool:
-        """Проверить наличие неудалённой серии, созданной из плана."""
+        """Проверить наличие неудалённой регулярной операции, созданной из плана."""
         stmt = select(RecurringOperation.uid).where(
             RecurringOperation.user_uid == user_uid,
             RecurringOperation.source_plan_uid == source_uid,
@@ -36,15 +37,15 @@ class RecurringRepo(BaseSqlAlchemyRepo):
         )
         return await self._session.scalar(stmt) is not None
 
-    async def save(self, series: Series, *, new: bool = False) -> None:
-        """Записать параметры серии, сохранив ссылочную целостность при создании позиций."""
-        fields = series.model_dump(mode="json", include={"frequency"})
-        values = series.model_dump(exclude={"uid", "frequency"}) | fields
+    async def save(self, rule: RegularTransactionRule, *, new: bool = False) -> None:
+        """Записать параметры регулярной операции, сохранив ссылочную целостность при создании позиций."""
+        fields = rule.model_dump(mode="json", include={"frequency"})
+        values = rule.model_dump(exclude={"uid", "frequency"}) | fields
         if new:
-            self._session.add(RecurringOperation(uid=series.uid, **values))
+            self._session.add(RecurringOperation(uid=rule.uid, **values))
         else:
             await self._session.execute(
-                update(RecurringOperation).where(RecurringOperation.uid == series.uid).values(**values)
+                update(RecurringOperation).where(RecurringOperation.uid == rule.uid).values(**values)
             )
         await self._session.flush()
 
@@ -54,7 +55,7 @@ class RecurringRepo(BaseSqlAlchemyRepo):
         return [Position.model_validate(row, from_attributes=True) for row in rows]
 
     async def payments_for_update(self, uid: UUID) -> list[tuple[Position, Plan]]:
-        """Заблокировать существующие платежи серии в порядке UID."""
+        """Заблокировать существующие платежи регулярной операции в порядке UID."""
         stmt = (
             select(RecurringOccurrence, PlannedTransaction)
             .join(PlannedTransaction, PlannedTransaction.uid == RecurringOccurrence.plan_uid)
@@ -88,8 +89,8 @@ class RecurringRepo(BaseSqlAlchemyRepo):
             update(RecurringOccurrence).where(RecurringOccurrence.plan_uid == plan_uid).values(is_exception=True)
         )
 
-    async def link(self, plan_uid: UUID) -> tuple[Position, Series] | None:
-        """Получить метаданные связи, в том числе с удалённой серией."""
+    async def link(self, plan_uid: UUID) -> tuple[Position, RegularTransactionRule] | None:
+        """Получить метаданные связи, в том числе с удалённой регулярной операцией."""
         stmt = (
             select(RecurringOccurrence, RecurringOperation)
             .join(RecurringOperation, RecurringOperation.uid == RecurringOccurrence.operation_uid)
@@ -98,7 +99,7 @@ class RecurringRepo(BaseSqlAlchemyRepo):
         row = (await self._session.execute(stmt)).tuples().one_or_none()
         if row is None:
             return None
-        position, series = row
-        return Position.model_validate(position, from_attributes=True), Series.model_validate(
-            series, from_attributes=True
+        position, rule = row
+        return Position.model_validate(position, from_attributes=True), RegularTransactionRule.model_validate(
+            rule, from_attributes=True
         )

@@ -7,7 +7,12 @@ from uuid import UUID
 from pydantic import Field
 
 from apps.modules.planning.domain.model import Plan
-from apps.modules.planning.domain.recurring import Position, Series, SeriesStatus, series_status
+from apps.modules.planning.domain.recurring import (
+    Position,
+    RegularTransactionRule,
+    RegularTransactionStatus,
+    regular_transaction_status,
+)
 from apps.modules.transaction import TransactionSchema
 from apps.shared.apps_types import TransactionType
 from apps.shared.schemas import Base
@@ -25,7 +30,7 @@ class RecurrenceView(Base):
 
     operation_uid: UUID
     scheduled_date: date
-    operation_status: SeriesStatus
+    operation_status: RegularTransactionStatus
     is_exception: bool
 
 
@@ -50,16 +55,16 @@ class PlanView(Base):
 
     @classmethod
     def build(
-        cls, plan: Plan, category_name: str, today: date, link: tuple[Position, Series] | None = None
+        cls, plan: Plan, category_name: str, today: date, link: tuple[Position, RegularTransactionRule] | None = None
     ) -> "PlanView":
         """Представить исходные значения и вычислить наличие связанного факта."""
         recurrence = None
         if link is not None:
-            position, series = link
+            position, rule = link
             recurrence = RecurrenceView(
                 operation_uid=position.operation_uid,
                 scheduled_date=position.scheduled_date,
-                operation_status=series_status(series.end_date, series.deleted_at, today),
+                operation_status=regular_transaction_status(rule.end_date, rule.deleted_at, today),
                 is_exception=position.is_exception,
             )
         return cls(

@@ -69,27 +69,27 @@ class PlanOutcomeUnknownError(BaseError):
 
 
 class RecurringNotFoundError(PlanNotFoundError):
-    """Собственная доступная серия отсутствует."""
+    """Собственная доступная регулярная операция отсутствует."""
 
     msg = "Регулярная операция не найдена"
 
 
 class RecurringSourceError(BaseConflictError):
-    """Исходный план уже относится к серии."""
+    """Исходный план уже относится к регулярной операции."""
 
     msg = "План уже регулярный"
     code = "FM-409406"
 
 
 class RecurringDuplicateError(BaseConflictError):
-    """Из выполненного плана уже создана доступная серия."""
+    """Из выполненного плана уже создана доступная регулярная операция."""
 
     msg = "Из выполненного плана уже создана регулярная операция"
     code = "FM-409407"
 
 
 class RecurringViolationError(BaseCustomValidationError):
-    """Бизнес-ошибка с указанием поля формы серии."""
+    """Бизнес-ошибка с указанием поля формы регулярной операции."""
 
     code = "FM-400406"
 

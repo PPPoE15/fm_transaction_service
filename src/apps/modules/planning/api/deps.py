@@ -42,5 +42,5 @@ def confirmation_command(clock: Callable[[], datetime]) -> ConfirmPlanCommand:
 
 
 def recurring_commands(clock: Callable[[], date]) -> RecurringCommands:
-    """Собрать команды серий в отдельной транзакции."""
+    """Собрать команды регулярных операций в отдельной транзакции."""
     return RecurringCommands(PlanUnitOfWork(async_session_factory), clock)

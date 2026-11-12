@@ -1,4 +1,4 @@
-"""Данные серии и правила её календаря."""
+"""Правило регулярной операции и её календарь."""
 
 from datetime import date, datetime
 from typing import Literal
@@ -10,18 +10,20 @@ from apps.modules.planning.domain.schedule import Frequency, RecurringSchedule, 
 from apps.shared.apps_types import TransactionType
 from apps.shared.schemas import Base
 
-SeriesStatus = Literal["active", "ended", "deleted"]
+RegularTransactionStatus = Literal["active", "ended", "deleted"]
 
 
-def series_status(end_date: date | None, deleted_at: datetime | None, today: date) -> SeriesStatus:
-    """Вычислить состояние ссылки на серию на заданную дату."""
+def regular_transaction_status(
+    end_date: date | None, deleted_at: datetime | None, today: date
+) -> RegularTransactionStatus:
+    """Вычислить состояние ссылки на регулярную операцию на заданную дату."""
     if deleted_at is not None:
         return "deleted"
     return "ended" if end_date is not None and end_date < today else "active"
 
 
-class Series(Base):
-    """Параметры и последняя обработанная граница серии."""
+class RegularTransactionRule(Base):
+    """Параметры и последняя обработанная граница регулярной операции."""
 
     uid: UUID
     user_uid: UUID
@@ -42,7 +44,7 @@ class Series(Base):
         return RecurringSchedule(self.first_date, self.frequency, self.end_date)
 
     def horizon(self, today: date) -> date:
-        """Ограничить горизонт включительной датой окончания серии."""
+        """Ограничить горизонт включительной датой окончания регулярной операции."""
         horizon = generation_horizon(today)
         return min(horizon, self.end_date) if self.end_date is not None else horizon
 
@@ -58,7 +60,7 @@ class Series(Base):
             raise RecurringViolationError(str(exc), field="first_date") from exc
 
     def payment(self, when: date) -> PlanInput:
-        """Построить исходные значения платежа по серии."""
+        """Построить исходные значения платежа по регулярной операции."""
         return PlanInput(
             planned_date=when,
             category_uid=self.require_category_uid(),
@@ -67,9 +69,9 @@ class Series(Base):
         )
 
     def require_category_uid(self) -> UUID:
-        """Получить категорию действующей записи серии."""
+        """Получить категорию действующей записи регулярной операции."""
         if self.category_uid is None:
-            msg = "У доступной серии отсутствует категория"
+            msg = "У доступной регулярной операции отсутствует категория"
             raise ValueError(msg)
         return self.category_uid
 

@@ -9,7 +9,7 @@ from apps.modules.category import CategoryORM
 from apps.modules.planning.application.schemas import PlanList, PlanView, RecurrenceView
 from apps.modules.planning.domain.errors import PlanNotFoundError
 from apps.modules.planning.domain.model import Plan
-from apps.modules.planning.domain.recurring import series_status
+from apps.modules.planning.domain.recurring import regular_transaction_status
 from apps.modules.planning.infrastructure.orm import PlannedTransaction, RecurringOccurrence, RecurringOperation
 from apps.shared.apps_types import TransactionType
 from apps.shared.db.base_query import BaseQueries
@@ -59,7 +59,7 @@ class PlanQueries(BaseQueries):
                 operation_uid=row["operation_uid"],
                 scheduled_date=row["scheduled_date"],
                 is_exception=row["is_exception"],
-                operation_status=series_status(row["end_date"], row["deleted_at"], today),
+                operation_status=regular_transaction_status(row["end_date"], row["deleted_at"], today),
             )
         return view
 

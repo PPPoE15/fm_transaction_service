@@ -1,11 +1,10 @@
 """Порт хранилища планов без бизнес-решений в адаптере."""
 
 from abc import ABC, abstractmethod
-from typing import Protocol
 from uuid import UUID
 
 from apps.modules.planning.domain.model import Plan
-from apps.modules.planning.domain.recurring import Position, Series
+from apps.modules.planning.domain.recurring import Position, RegularTransactionRule
 
 
 class AbstractPlanRepo(ABC):
@@ -33,10 +32,10 @@ class AbstractPlanRepo(ABC):
 
     @abstractmethod
     async def lock_owner(self, user_uid: UUID) -> None:
-        """Заблокировать изменения планов и серий владельца."""
+        """Заблокировать изменения планов и регулярных операций владельца."""
 
     @abstractmethod
-    async def link(self, plan_uid: UUID) -> tuple[Position, Series] | None:
+    async def link(self, plan_uid: UUID) -> tuple[Position, RegularTransactionRule] | None:
         """Прочитать метаданные регулярного платежа."""
 
     @abstractmethod
@@ -44,26 +43,33 @@ class AbstractPlanRepo(ABC):
         """Отметить ручное изменение позиции."""
 
 
-class RecurringStorage(Protocol):
-    """Порт записи серий и позиций в транзакции планирования."""
+class AbstractRegularTransactionRuleRepo(ABC):
+    """Порт записи регулярных операций и позиций в транзакции планирования."""
 
-    async def get(self, user_uid: UUID, uid: UUID) -> Series | None:
-        """Получить серию под блокировкой."""
+    @abstractmethod
+    async def get(self, user_uid: UUID, uid: UUID) -> RegularTransactionRule | None:
+        """Получить регулярную операцию под блокировкой."""
 
+    @abstractmethod
     async def has_source(self, user_uid: UUID, source_uid: UUID) -> bool:
-        """Проверить наличие серии у исходного плана."""
+        """Проверить наличие регулярной операции у исходного плана."""
 
-    async def save(self, series: Series, *, new: bool = False) -> None:
-        """Сохранить серию и её границу."""
+    @abstractmethod
+    async def save(self, rule: RegularTransactionRule, *, new: bool = False) -> None:
+        """Сохранить регулярную операцию и её границу."""
 
+    @abstractmethod
     async def positions(self, uid: UUID) -> list[Position]:
         """Получить все зарезервированные позиции."""
 
+    @abstractmethod
     async def payments_for_update(self, uid: UUID) -> list[tuple[Position, Plan]]:
         """Получить позиции с доступными планами под блокировкой."""
 
+    @abstractmethod
     async def add_positions(self, positions: list[Position]) -> None:
         """Создать позиции в текущей транзакции."""
 
+    @abstractmethod
     async def remove_position(self, position: Position) -> None:
         """Освободить позицию при пересчёте."""

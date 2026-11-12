@@ -35,7 +35,7 @@ class PlannedTransaction(AsyncBase):
 
 
 class RecurringOperation(AsyncBase):
-    """Серия и граница генерации; запись сохраняется после логического удаления."""
+    """Правило регулярной операции и граница генерации; запись сохраняется после логического удаления."""
 
     __tablename__ = "recurring_operations"
     __table_args__ = (
@@ -66,7 +66,7 @@ class RecurringOperation(AsyncBase):
 
 
 class RecurringOccurrence(AsyncBase):
-    """Позиция серии; NULL вместо UID плана резервирует отдельно удалённый платёж."""
+    """Позиция расписания регулярной операции; NULL вместо UID плана резервирует отдельно удалённый платёж."""
 
     __tablename__ = "recurring_occurrences"
 
