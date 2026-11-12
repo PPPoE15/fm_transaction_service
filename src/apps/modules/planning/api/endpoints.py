@@ -37,12 +37,12 @@ async def list_plans(
     page: Annotated[PlanPageParams, Depends()],
     transaction_type: TransactionType | None = None,
     include_completed: bool = False,
-    include_recurring: bool = True,
+    include_regular: bool = True,
 ) -> PlanList:
     """Прочитать ближайшие планы, включая будущие и наступившие."""
     async with async_session_factory() as session:
         return await PlanQueries(session).list(
-            user.uid, page, transaction_type, include_completed, clock(), include_recurring
+            user.uid, page, transaction_type, include_completed, clock(), include_regular
         )
 
 

@@ -9,9 +9,9 @@ from pydantic import ConfigDict, Field, model_validator
 from apps.modules.planning.api import deps
 from apps.modules.planning.api.endpoints import Clock, User
 from apps.modules.planning.api.schemas import PlanDateIn
-from apps.modules.planning.application.recurring import RegularTransactionRuleInput
-from apps.modules.planning.application.recurring_queries import RecurringQueries
-from apps.modules.planning.application.recurring_schemas import (
+from apps.modules.planning.application.regular import RegularTransactionRuleInput
+from apps.modules.planning.application.regular_queries import RegularQueries
+from apps.modules.planning.application.regular_schemas import (
     ConversionResult,
     RegularTransactionList,
     RegularTransactionView,
@@ -23,7 +23,7 @@ from apps.shared.db.session import async_session_factory
 from apps.shared.schemas import Base, PageParams
 
 router = APIRouter(tags=["Планирование"])
-URL = "/recurring-operations"
+URL = "/regular-operations"
 
 
 class CreateRegularTransactionSchema(RegularTransactionRuleInput):
@@ -82,7 +82,7 @@ async def list_regular_transactions(
 ) -> RegularTransactionList:
     """Прочитать страницу собственных регулярных операций."""
     async with async_session_factory() as session:
-        return await RecurringQueries(session).list(user.uid, page, source_plan_uid, clock())
+        return await RegularQueries(session).list(user.uid, page, source_plan_uid, clock())
 
 
 @router.post(URL, status_code=status.HTTP_201_CREATED)
@@ -90,14 +90,14 @@ async def create_regular_transaction(
     item: CreateRegularTransactionSchema, user: User, clock: Clock
 ) -> RegularTransactionView:
     """Создать регулярную операцию и рассчитанные платежи."""
-    return await deps.recurring_commands(clock).create(user.uid, item)
+    return await deps.regular_commands(clock).create(user.uid, item)
 
 
 @router.get(URL + "/{operation_uid}")
 async def get_regular_transaction(operation_uid: UUID, user: User, clock: Clock) -> RegularTransactionView:
     """Прочитать собственную регулярную операцию."""
     async with async_session_factory() as session:
-        return await RecurringQueries(session).get(user.uid, operation_uid, clock())
+        return await RegularQueries(session).get(user.uid, operation_uid, clock())
 
 
 @router.patch(URL + "/{operation_uid}")
@@ -106,7 +106,7 @@ async def update_regular_transaction(
 ) -> RegularTransactionView:
     """Изменить условия регулярной операции и пересчитать платежи."""
     changes = item.model_dump(exclude_unset=True, exclude={"expected_version"})
-    return await deps.recurring_commands(clock).update(user.uid, operation_uid, changes, item.expected_version)
+    return await deps.regular_commands(clock).update(user.uid, operation_uid, changes, item.expected_version)
 
 
 @router.delete(URL + "/{operation_uid}", status_code=status.HTTP_204_NO_CONTENT)
@@ -114,7 +114,7 @@ async def delete_regular_transaction(
     operation_uid: UUID, user: User, clock: Clock, expected_version: Annotated[int, Query(ge=1)]
 ) -> Response:
     """Удалить регулярную операцию и её невыполненные платежи."""
-    await deps.recurring_commands(clock).delete(user.uid, operation_uid, expected_version)
+    await deps.regular_commands(clock).delete(user.uid, operation_uid, expected_version)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -123,4 +123,4 @@ async def convert_plan(
     plan_uid: UUID, item: ConvertRegularTransactionSchema, user: User, clock: Clock
 ) -> ConversionResult:
     """Сделать план регулярным с учётом состояния источника."""
-    return await deps.recurring_commands(clock).convert(user.uid, plan_uid, item, item.expected_version)
+    return await deps.regular_commands(clock).convert(user.uid, plan_uid, item, item.expected_version)

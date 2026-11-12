@@ -34,7 +34,7 @@ def generation_horizon(today: date) -> date:
 
 
 @dataclass(frozen=True, slots=True)
-class RecurringSchedule:
+class RegularSchedule:
     """Хранит исходный календарный якорь и необязательное включительное окончание."""
 
     first_date: date

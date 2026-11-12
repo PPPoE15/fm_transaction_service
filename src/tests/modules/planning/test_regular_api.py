@@ -10,8 +10,8 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from apps.modules.planning.api.deps import get_clock, recurring_commands
-from apps.modules.planning.application import recurring
+from apps.modules.planning.api.deps import get_clock, regular_commands
+from apps.modules.planning.application import regular
 from apps.web.main import app
 from tests.conftest import TokenFactory
 from tests.modules.planning.test_api import category
@@ -51,7 +51,7 @@ async def test_materializes_calendar_and_filters(
     headers = {"Authorization": f"Bearer {make_token()}"}
     cat = await category(client, headers)
     created = await client.post(
-        "/recurring-operations",
+        "/regular-operations",
         headers=headers,
         json={
             "category_uid": cat,
@@ -65,9 +65,9 @@ async def test_materializes_calendar_and_filters(
     plans = (await client.get("/planned-operations", headers=headers)).json()
     assert [plan["planned_date"] for plan in plans["content"]] == ["2028-01-31", "2028-02-29", "2028-03-31"]
     assert all(plan["recurrence"]["operation_uid"] == created.json()["uid"] for plan in plans["content"])
-    filtered = (await client.get("/planned-operations?include_recurring=false", headers=headers)).json()
+    filtered = (await client.get("/planned-operations?include_regular=false", headers=headers)).json()
     assert filtered["total"] == filtered["due_count"] == 0
-    page = (await client.get("/recurring-operations", headers=headers)).json()
+    page = (await client.get("/regular-operations", headers=headers)).json()
     assert page["today"] == "2028-01-31"
     assert "today" not in page["content"][0]
 
@@ -80,12 +80,12 @@ async def test_recalculation_keeps_exceptions_and_deleted_dates(
     headers = {"Authorization": f"Bearer {make_token()}"}
     cat = await category(client, headers)
     created = await client.post(
-        "/recurring-operations",
+        "/regular-operations",
         headers=headers,
         json={"category_uid": cat, "money_sum": 100, "first_date": "2028-01-31", "frequency": "monthly"},
     )
     assert created.status_code == HTTPStatus.CREATED, created.text
-    url = f"/recurring-operations/{created.json()['uid']}"
+    url = f"/regular-operations/{created.json()['uid']}"
     plans = (await client.get("/planned-operations", headers=headers)).json()["content"]
     first, edited, removed, completed = plans[:4]
     updated = await client.patch(
@@ -177,9 +177,9 @@ async def test_conversion_reuses_pending_only_and_isolates_sources(
     assert (data["first_plan"]["uid"] == original["uid"]) is not completed
     if completed:
         assert (await client.get(source, headers=headers)).json() == original
-    regular_transaction_url = f"/recurring-operations/{data['operation']['uid']}"
+    regular_transaction_url = f"/regular-operations/{data['operation']['uid']}"
     assert (await client.get(regular_transaction_url, headers=other)).status_code == HTTPStatus.NOT_FOUND
-    page = await client.get("/recurring-operations", headers=headers, params={"source_plan_uid": original["uid"]})
+    page = await client.get("/regular-operations", headers=headers, params={"source_plan_uid": original["uid"]})
     assert page.json()["total"] == 1
     values["expected_version"] = original["version"] if completed else data["first_plan"]["version"]
     repeated = await client.post(f"{source}/recurrence", headers=headers, json=values)
@@ -203,19 +203,17 @@ async def test_parallel_generation_catches_up_and_quota_rolls_back(
     cat = await category(client, headers)
     values = {"category_uid": cat, "money_sum": 100, "first_date": "2028-01-31", "frequency": "monthly"}
     with monkeypatch.context() as limited:
-        limited.setattr(recurring, "MAX_PLANS", 1)
-        rejected = await client.post("/recurring-operations", headers=headers, json=values)
+        limited.setattr(regular, "MAX_PLANS", 1)
+        rejected = await client.post("/regular-operations", headers=headers, json=values)
     assert rejected.status_code == HTTPStatus.CONFLICT, rejected.text
     assert rejected.json()["code"] == "FM-409404"
-    assert (await client.get("/recurring-operations", headers=headers)).json()["total"] == 0
+    assert (await client.get("/regular-operations", headers=headers)).json()["total"] == 0
     assert (await client.get("/planned-operations", headers=headers)).json()["total"] == 0
-    created = await client.post("/recurring-operations", headers=headers, json=values)
+    created = await client.post("/regular-operations", headers=headers, json=values)
     assert created.status_code == HTTPStatus.CREATED, created.text
     uid = UUID(created.json()["uid"])
     later = date(2029, 3, 1)
-    results = await asyncio.gather(
-        *(recurring_commands(date.today).generate(owner, uid, later) for _worker in range(2))
-    )
+    results = await asyncio.gather(*(regular_commands(date.today).generate(owner, uid, later) for _worker in range(2)))
     assert sorted(results) == [0, 13]
     move_clock(later)
     plans = (await client.get("/planned-operations", headers=headers)).json()
@@ -236,7 +234,7 @@ async def test_update_catches_up_old_schedule_and_extends_ended_rule(
     headers = {"Authorization": f"Bearer {make_token()}"}
     cat = await category(client, headers)
     created = await client.post(
-        "/recurring-operations",
+        "/regular-operations",
         headers=headers,
         json={
             "category_uid": cat,
@@ -247,13 +245,13 @@ async def test_update_catches_up_old_schedule_and_extends_ended_rule(
         },
     )
     assert created.status_code == HTTPStatus.CREATED, created.text
-    url = f"/recurring-operations/{created.json()['uid']}"
+    url = f"/regular-operations/{created.json()['uid']}"
     move_clock(date(2029, 3, 1))
     original = (await client.get(url, headers=headers)).json()
     assert original["status"] == "ended"
     changes = {"expected_version": 1, "money_sum": 200, "end_date": "2029-03-31"}
     with monkeypatch.context() as limited:
-        limited.setattr(recurring, "MAX_PLANS", 14)
+        limited.setattr(regular, "MAX_PLANS", 14)
         failed = await client.patch(url, headers=headers, json=changes)
     assert failed.status_code == HTTPStatus.CONFLICT, failed.text
     assert (await client.get(url, headers=headers)).json() == original
@@ -277,7 +275,7 @@ async def test_regular_transaction_without_payments_protects_category(
     headers = {"Authorization": f"Bearer {make_token()}"}
     cat = await category(client, headers)
     created = await client.post(
-        "/recurring-operations",
+        "/regular-operations",
         headers=headers,
         json={"category_uid": cat, "money_sum": 100, "first_date": "2029-02-01", "frequency": "monthly"},
     )
@@ -287,7 +285,7 @@ async def test_regular_transaction_without_payments_protects_category(
     conflict = await client.patch(category_url, headers=headers, json={"category_type": "income"})
     assert conflict.status_code == HTTPStatus.CONFLICT, conflict.text
     assert conflict.json()["code"] == "FM-409405"
-    regular_transaction_url = f"/recurring-operations/{created.json()['uid']}"
+    regular_transaction_url = f"/regular-operations/{created.json()['uid']}"
     assert (
         await client.delete(regular_transaction_url, headers=headers, params={"expected_version": 1})
     ).status_code == HTTPStatus.NO_CONTENT
@@ -304,12 +302,12 @@ async def test_regular_transaction_page_accepts_skip_above_database_integer_rang
     headers = {"Authorization": f"Bearer {make_token()}"}
     cat = await category(client, headers)
     created = await client.post(
-        "/recurring-operations",
+        "/regular-operations",
         headers=headers,
         json={"category_uid": cat, "money_sum": 100, "first_date": "2028-01-31", "frequency": "yearly"},
     )
     assert created.status_code == HTTPStatus.CREATED, created.text
-    response = await client.get("/recurring-operations", headers=headers, params={"skip": 2**63})
+    response = await client.get("/regular-operations", headers=headers, params={"skip": 2**63})
     assert response.status_code == HTTPStatus.OK, response.text
     assert response.json()["total"] == 1
     assert response.json()["content"] == []

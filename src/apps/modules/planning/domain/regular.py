@@ -4,9 +4,9 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from apps.modules.planning.domain.errors import RecurringViolationError
+from apps.modules.planning.domain.errors import RegularViolationError
 from apps.modules.planning.domain.model import PlanInput
-from apps.modules.planning.domain.schedule import Frequency, RecurringSchedule, generation_horizon
+from apps.modules.planning.domain.schedule import Frequency, RegularSchedule, generation_horizon
 from apps.shared.apps_types import TransactionType
 from apps.shared.schemas import Base
 
@@ -39,9 +39,9 @@ class RegularTransactionRule(Base):
     generated_through: date | None = None
     deleted_at: datetime | None = None
 
-    def schedule(self) -> RecurringSchedule:
+    def schedule(self) -> RegularSchedule:
         """Построить календарь из сохранённых условий."""
-        return RecurringSchedule(self.first_date, self.frequency, self.end_date)
+        return RegularSchedule(self.first_date, self.frequency, self.end_date)
 
     def horizon(self, today: date) -> date:
         """Ограничить горизонт включительной датой окончания регулярной операции."""
@@ -53,11 +53,11 @@ class RegularTransactionRule(Base):
         try:
             schedule = self.schedule()
         except ValueError as exc:
-            raise RecurringViolationError(str(exc), field="end_date") from exc
+            raise RegularViolationError(str(exc), field="end_date") from exc
         try:
             schedule.validate_first_date(today, previous_first_date=previous)
         except ValueError as exc:
-            raise RecurringViolationError(str(exc), field="first_date") from exc
+            raise RegularViolationError(str(exc), field="first_date") from exc
 
     def payment(self, when: date) -> PlanInput:
         """Построить исходные значения платежа по регулярной операции."""

@@ -7,7 +7,7 @@ from apps.modules.planning.domain.errors import (
     PlanCategoryError,
     PlanCategoryTypeError,
     PlanOutcomeUnknownError,
-    RecurringViolationError,
+    RegularViolationError,
 )
 
 
@@ -30,7 +30,7 @@ async def outcome_unknown_handler(request: Request, exc: PlanOutcomeUnknownError
 def setup_exception_handlers(app: FastAPI) -> None:
     """Подключить обработчик при сборке приложения."""
     app.exception_handler(PlanOutcomeUnknownError)(outcome_unknown_handler)
-    app.exception_handler(RecurringViolationError)(recurring_violation_handler)
+    app.exception_handler(RegularViolationError)(regular_violation_handler)
 
 
 def category_error_response(request: Request, exc: PlanCategoryError | PlanCategoryTypeError) -> JSONResponse:
@@ -50,7 +50,7 @@ def category_error_response(request: Request, exc: PlanCategoryError | PlanCateg
     )
 
 
-async def recurring_violation_handler(request: Request, exc: RecurringViolationError) -> JSONResponse:
+async def regular_violation_handler(request: Request, exc: RegularViolationError) -> JSONResponse:
     """Вернуть бизнес-ошибку регулярной операции с конкретным полем формы."""
     return JSONResponse(
         {

@@ -5,7 +5,7 @@ from typing import Literal
 from uuid import UUID
 
 from apps.modules.planning.application.schemas import CategoryRef, PlanView
-from apps.modules.planning.domain.recurring import RegularTransactionRule
+from apps.modules.planning.domain.regular import RegularTransactionRule
 from apps.modules.planning.domain.schedule import Frequency
 from apps.shared.apps_types import TransactionType
 from apps.shared.schemas import Base

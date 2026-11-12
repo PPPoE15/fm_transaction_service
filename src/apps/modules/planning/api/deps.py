@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 from apps.modules.planning.application.commands import PlanCommands
 from apps.modules.planning.application.confirmation import ConfirmPlanCommand
-from apps.modules.planning.application.recurring import RecurringCommands
+from apps.modules.planning.application.regular import RegularCommands
 from apps.modules.planning.infrastructure.uow import PlanUnitOfWork
 from apps.shared.db.session import async_session_factory
 
@@ -41,6 +41,6 @@ def confirmation_command(clock: Callable[[], datetime]) -> ConfirmPlanCommand:
     return ConfirmPlanCommand(PlanUnitOfWork(async_session_factory), clock)
 
 
-def recurring_commands(clock: Callable[[], date]) -> RecurringCommands:
+def regular_commands(clock: Callable[[], date]) -> RegularCommands:
     """Собрать команды регулярных операций в отдельной транзакции."""
-    return RecurringCommands(PlanUnitOfWork(async_session_factory), clock)
+    return RegularCommands(PlanUnitOfWork(async_session_factory), clock)

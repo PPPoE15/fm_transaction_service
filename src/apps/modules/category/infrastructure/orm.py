@@ -57,5 +57,5 @@ class Category(AsyncBase):
         cascade="all, delete-orphan",
     )
 
-    recurring_operations: Mapped[list[AsyncBase]] = relationship("RecurringOperation", viewonly=True)
+    regular_operations: Mapped[list[AsyncBase]] = relationship("RegularOperation", viewonly=True)
     planned_transactions: Mapped[list[AsyncBase]] = relationship("PlannedTransaction", viewonly=True)

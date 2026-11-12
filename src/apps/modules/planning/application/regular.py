@@ -5,20 +5,20 @@ from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
 
 from apps.modules.category import Category
-from apps.modules.planning.application.recurring_schemas import ConversionResult, RegularTransactionView
+from apps.modules.planning.application.regular_schemas import ConversionResult, RegularTransactionView
 from apps.modules.planning.application.schemas import PlanView
 from apps.modules.planning.application.uow import AbstractPlanUnitOfWork
 from apps.modules.planning.domain.errors import (
     PlanLimitError,
     PlanNotFoundError,
     PlanVersionError,
-    RecurringDuplicateError,
-    RecurringNotFoundError,
-    RecurringSourceError,
-    RecurringViolationError,
+    RegularDuplicateError,
+    RegularNotFoundError,
+    RegularSourceError,
+    RegularViolationError,
 )
 from apps.modules.planning.domain.model import MAX_PLANS, Money, Plan, PlanChanges
-from apps.modules.planning.domain.recurring import Position, RegularTransactionRule
+from apps.modules.planning.domain.regular import Position, RegularTransactionRule
 from apps.modules.planning.domain.schedule import Frequency
 from apps.shared.api_types import DescriptionIn
 from apps.shared.schemas import Base
@@ -35,7 +35,7 @@ class RegularTransactionRuleInput(Base):
     end_date: date | None = None
 
 
-class RecurringCommands:
+class RegularCommands:
     """Изменяет регулярные операции и платежи под общей блокировкой владельца."""
 
     def __init__(self, uow: AbstractPlanUnitOfWork, clock: Callable[[], date]) -> None:
@@ -48,7 +48,7 @@ class RecurringCommands:
         await self.uow.plans.lock_owner(user_uid)
         rule = await self.uow.regular_transaction_rules.get(user_uid, uid)
         if rule is None:
-            raise RecurringNotFoundError
+            raise RegularNotFoundError
         if expected_version is not None and rule.version != expected_version:
             raise PlanVersionError
         return rule
@@ -60,11 +60,11 @@ class RecurringCommands:
         category = await self.uow.categories.get_by_uid_for_key_share(uid)
         if category is None or not category.belongs_to(user_uid):
             msg = "Категория недоступна"
-            raise RecurringViolationError(msg, field="category_uid")
+            raise RegularViolationError(msg, field="category_uid")
         previous = rule.transaction_type if rule else source.transaction_type if source else None
         if previous is not None and category.category_type != previous:
             msg = "Категория должна иметь тот же тип"
-            raise RecurringViolationError(msg, field="category_uid")
+            raise RegularViolationError(msg, field="category_uid")
         return category
 
     async def _materialize(self, rule: RegularTransactionRule, start: date, end: date) -> dict[date, Plan]:
@@ -163,9 +163,9 @@ class RecurringCommands:
                 raise PlanNotFoundError
             source.check_version(expected_version)
             if await self.uow.plans.link(source.uid) is not None:
-                raise RecurringSourceError
+                raise RegularSourceError
             if await self.uow.regular_transaction_rules.has_source(user_uid, plan_uid):
-                raise RecurringDuplicateError
+                raise RegularDuplicateError
             rule, first = await self._create(user_uid, values, source)
             await self.uow.commit()
         return ConversionResult(

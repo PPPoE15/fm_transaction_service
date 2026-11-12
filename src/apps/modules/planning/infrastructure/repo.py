@@ -6,10 +6,10 @@ from sqlalchemy import delete, func, select, text, update
 
 from apps.modules.planning.application.ports import AbstractPlanRepo
 from apps.modules.planning.domain.model import Plan
-from apps.modules.planning.domain.recurring import Position, RegularTransactionRule
+from apps.modules.planning.domain.regular import Position, RegularTransactionRule
 from apps.modules.planning.infrastructure import builders
 from apps.modules.planning.infrastructure.orm import PlannedTransaction
-from apps.modules.planning.infrastructure.recurring_repo import RegularTransactionRuleRepo
+from apps.modules.planning.infrastructure.regular_repo import RegularTransactionRuleRepo
 from apps.shared.db.base_repo import BaseSqlAlchemyRepo
 
 

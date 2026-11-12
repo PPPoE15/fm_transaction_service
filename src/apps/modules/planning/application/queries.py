@@ -9,8 +9,8 @@ from apps.modules.category import CategoryORM
 from apps.modules.planning.application.schemas import PlanList, PlanView, RecurrenceView
 from apps.modules.planning.domain.errors import PlanNotFoundError
 from apps.modules.planning.domain.model import Plan
-from apps.modules.planning.domain.recurring import regular_transaction_status
-from apps.modules.planning.infrastructure.orm import PlannedTransaction, RecurringOccurrence, RecurringOperation
+from apps.modules.planning.domain.regular import regular_transaction_status
+from apps.modules.planning.infrastructure.orm import PlannedTransaction, RegularOccurrence, RegularOperation
 from apps.shared.apps_types import TransactionType
 from apps.shared.db.base_query import BaseQueries
 from apps.shared.schemas import PageParams
@@ -26,15 +26,15 @@ class PlanQueries(BaseQueries):
             select(
                 *PlannedTransaction.__table__.columns,
                 CategoryORM.name.label("category_name"),
-                RecurringOccurrence.operation_uid,
-                RecurringOccurrence.scheduled_date,
-                RecurringOccurrence.is_exception,
-                RecurringOperation.deleted_at,
-                RecurringOperation.end_date,
+                RegularOccurrence.operation_uid,
+                RegularOccurrence.scheduled_date,
+                RegularOccurrence.is_exception,
+                RegularOperation.deleted_at,
+                RegularOperation.end_date,
             )
             .join(CategoryORM, CategoryORM.uid == PlannedTransaction.category_uid)
-            .outerjoin(RecurringOccurrence, RecurringOccurrence.plan_uid == PlannedTransaction.uid)
-            .outerjoin(RecurringOperation, RecurringOperation.uid == RecurringOccurrence.operation_uid)
+            .outerjoin(RegularOccurrence, RegularOccurrence.plan_uid == PlannedTransaction.uid)
+            .outerjoin(RegularOperation, RegularOperation.uid == RegularOccurrence.operation_uid)
             .where(PlannedTransaction.user_uid == user_uid)
         )
 
@@ -70,14 +70,14 @@ class PlanQueries(BaseQueries):
         transaction_type: TransactionType | None,
         include_completed: bool,
         today: date,
-        include_recurring: bool = True,
+        include_regular: bool = True,
     ) -> PlanList:
         """Вернуть страницу, total и due_count даже при пустой странице одним SELECT."""
         source = self._select(user_uid)
         if transaction_type is not None:
             source = source.where(PlannedTransaction.transaction_type == transaction_type)
-        if not include_recurring:
-            source = source.where(RecurringOccurrence.operation_uid.is_(None))
+        if not include_regular:
+            source = source.where(RegularOccurrence.operation_uid.is_(None))
         owned = source.cte("owned_plans")
         visible = true() if include_completed else owned.c.status == "pending"
         counts = (

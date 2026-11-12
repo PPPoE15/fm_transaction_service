@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import Field
 
 from apps.modules.planning.domain.model import Plan
-from apps.modules.planning.domain.recurring import (
+from apps.modules.planning.domain.regular import (
     Position,
     RegularTransactionRule,
     RegularTransactionStatus,

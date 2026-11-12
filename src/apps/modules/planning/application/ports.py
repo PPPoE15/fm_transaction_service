@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from uuid import UUID
 
 from apps.modules.planning.domain.model import Plan
-from apps.modules.planning.domain.recurring import Position, RegularTransactionRule
+from apps.modules.planning.domain.regular import Position, RegularTransactionRule
 
 
 class AbstractPlanRepo(ABC):
