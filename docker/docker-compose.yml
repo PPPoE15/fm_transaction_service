@@ -36,9 +36,16 @@ services:
       - ../template.env
     environment:
       REGULAR_OPERATIONS_RUN_AT: ${REGULAR_OPERATIONS_RUN_AT:-03:00}
+      REGULAR_OPERATIONS_READY_FILE: /run/fm-worker/ready
     volumes:
       - ../src:/opt/financial_manager
     command: ["python", "-m", "apps.workers.regular_operations"]
+    tmpfs: ["/run/fm-worker"]
+    healthcheck:
+      test: ["CMD", "test", "-f", "/run/fm-worker/ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
     restart: unless-stopped
     stop_grace_period: 1m
 

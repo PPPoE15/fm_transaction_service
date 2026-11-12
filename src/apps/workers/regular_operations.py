@@ -6,12 +6,15 @@ import os
 import re
 import signal
 from datetime import date, datetime, time
+from pathlib import Path
 
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from apps import db_models
 from apps.modules.planning.application.regular import RegularCommands
 from apps.modules.planning.infrastructure.generation_queries import generation_candidates
+from apps.modules.planning.infrastructure.orm import RegularOperation
 from apps.modules.planning.infrastructure.uow import PlanUnitOfWork
 from apps.shared.db.session import async_engine, async_session_factory
 from apps.shared.exceptions import BaseError
@@ -66,6 +69,14 @@ async def _extend_today(stopped: asyncio.Event) -> None:
     await extend_plans(moscow_now().date(), stopped)
 
 
+async def mark_ready(path: Path | None) -> None:
+    """Подтвердить Compose доступ к таблице регулярных операций."""
+    async with async_session_factory() as session:
+        await session.execute(select(RegularOperation.uid).limit(0))
+    if path is not None:
+        path.touch()
+
+
 async def _main(at: time) -> None:
     """Настроить остановку процесса и запустить ежедневное расписание."""
     db_models.AsyncBase.registry.configure()
@@ -74,8 +85,10 @@ async def _main(at: time) -> None:
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stopped.set)
-    logger.info("Воркер продления планов запущен, расписание %s по Москве", at.isoformat(timespec="minutes"))
     try:
+        ready_file = os.environ.get("REGULAR_OPERATIONS_READY_FILE")
+        await mark_ready(Path(ready_file) if ready_file else None)
+        logger.info("Воркер продления планов запущен, расписание %s по Москве", at.isoformat(timespec="minutes"))
         jobs = [DailyJob("regular_operations", at, _extend_today, run_at_startup=True)]
         await run_jobs(jobs, stopped, now=moscow_now)
     except (SQLAlchemyError, OSError) as exc:

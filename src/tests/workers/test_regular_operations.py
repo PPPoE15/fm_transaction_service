@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from apps.config import DBSettings
 from apps.modules.planning.application.regular import RegularCommands
@@ -48,3 +48,11 @@ async def test_stop_does_not_read_next_page(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(regular_operations, "generation_candidates", candidates)
     monkeypatch.setattr(RegularCommands, "generate", generate)
     assert await regular_operations.extend_plans(today, stopped) == 1
+
+
+@pytest.mark.db
+async def test_readiness_marks_reachable_database(db_engine: AsyncEngine, tmp_path: Path) -> None:
+    """Подтвердить готовность после подключения к мигрированной БД."""
+    path = tmp_path / "ready"
+    await regular_operations.mark_ready(path)
+    assert path.is_file()
