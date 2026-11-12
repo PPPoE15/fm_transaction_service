@@ -100,6 +100,11 @@ async def db_engine(postgres_dsn: str) -> AsyncIterator[AsyncEngine]:
         yield engine
     finally:
         async with engine.begin() as connection:
-            await connection.execute(text("TRUNCATE planned_transactions, transactions, categories, starting_balances"))
+            await connection.execute(
+                text(
+                    "TRUNCATE recurring_occurrences, recurring_operations, planned_transactions, "
+                    "transactions, categories, starting_balances"
+                )
+            )
         async_session_factory.configure(bind=async_engine)
         await engine.dispose()
