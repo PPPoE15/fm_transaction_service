@@ -14,7 +14,7 @@ build: ## Собрать образ.
 	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml -p financial_manager build --no-cache
 
 up_all:  ## Запуск сервиса.
-	docker-compose -f docker/docker-compose.yml -p financial_manager up --force-recreate -d web
+	docker-compose -f docker/docker-compose.yml -p financial_manager up --force-recreate -d web regular-operations-worker
 
 down_all:  ## Остановка сервиса.
 	docker-compose -f docker/docker-compose.yml -p financial_manager down

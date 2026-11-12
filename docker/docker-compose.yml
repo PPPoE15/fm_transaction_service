@@ -26,6 +26,22 @@ services:
     command: python -m debugpy --listen 0.0.0.0:5678 -m uvicorn apps.web.main:app --host "0.0.0.0" --port 8000 --reload
 
 
+  regular-operations-worker:
+    image: financial_manager:testing
+    platform: linux/amd64
+    depends_on:
+      _init-migrations:
+        condition: service_completed_successfully
+    env_file:
+      - ../template.env
+    environment:
+      REGULAR_OPERATIONS_RUN_AT: ${REGULAR_OPERATIONS_RUN_AT:-03:00}
+    volumes:
+      - ../src:/opt/financial_manager
+    command: ["python", "-m", "apps.workers.regular_operations"]
+    restart: unless-stopped
+    stop_grace_period: 1m
+
 # --- tests ---
 
   downgrade-migrations-tests:
