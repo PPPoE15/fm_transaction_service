@@ -1,18 +1,20 @@
 """Проверки API регулярных операций на PostgreSQL."""
 
 import asyncio
+from asyncio import Event
 from collections.abc import Callable
 from datetime import date
 from http import HTTPStatus
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from apps.modules.planning.api.deps import get_clock, regular_commands
+from apps.modules.planning.api.deps import get_clock
 from apps.modules.planning.application import regular
 from apps.web.main import app
+from apps.workers.regular_operations import extend_plans
 from tests.conftest import TokenFactory
 from tests.modules.planning.test_api import category
 from tests.modules.planning.test_confirmation import confirm, payload
@@ -211,9 +213,8 @@ async def test_parallel_generation_catches_up_and_quota_rolls_back(
     assert (await client.get("/planned-operations", headers=headers)).json()["total"] == 0
     created = await client.post("/regular-operations", headers=headers, json=values)
     assert created.status_code == HTTPStatus.CREATED, created.text
-    uid = UUID(created.json()["uid"])
     later = date(2029, 3, 1)
-    results = await asyncio.gather(*(regular_commands(date.today).generate(owner, uid, later) for _worker in range(2)))
+    results = await asyncio.gather(*(extend_plans(later, Event()) for _worker in range(2)))
     assert sorted(results) == [0, 13]
     move_clock(later)
     plans = (await client.get("/planned-operations", headers=headers)).json()
