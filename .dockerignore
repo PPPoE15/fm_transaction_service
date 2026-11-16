@@ -1,0 +1,17 @@
+.git
+.venv
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.superpowers
+.env
+*.env
+!template.env
+secrets
+*.pem
+*.key
+.coverage
+htmlcov
+docs

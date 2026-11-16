@@ -3,9 +3,12 @@ from types import TracebackType
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from apps.modules.planning.api import setup_exception_handlers as setup_planning_errors
+from apps.web.body_size import BodySizeLimitMiddleware
 from apps.web.bootstrap import exception_handlers, logger
 from apps.web.config import app_settings
 from apps.web.router import main_router
+from apps.web.security import validate_public_key
 
 
 class LifespanEvent:
@@ -23,6 +26,7 @@ class LifespanEvent:
     async def __aenter__(self) -> None:
         """Событие выполняющееся при starts up."""
         logger.setup()
+        validate_public_key()
 
     async def __aexit__(
         self,
@@ -49,7 +53,10 @@ def build_app() -> FastAPI:
         lifespan=LifespanEvent,
     )
 
-    fastapi_app.include_router(main_router)
+    # Префикс задаёт сам сервис (как /auth у сервиса авторизации), обратный прокси передаёт путь как есть
+    fastapi_app.include_router(main_router, prefix="/transaction")
+    # До CORS: последний добавленный middleware — внешний, и ответ 413 тоже получает CORS-заголовки
+    fastapi_app.add_middleware(BodySizeLimitMiddleware)
     fastapi_app.add_middleware(
         CORSMiddleware,
         allow_origins=[
@@ -61,9 +68,11 @@ def build_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["Content-Disposition"],
     )
     exception_handlers.setup(fastapi_app)
 
+    setup_planning_errors(fastapi_app)
     return fastapi_app
 
 

@@ -45,6 +45,7 @@ class DBSettings(BaseSettings):
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_prefix=_db_env_prefix,
+        hide_input_in_errors=True,
         secrets_dir=SECRETS_DIR,
         env_file=ENV_FILES,
         extra="ignore",

@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any, Self
 
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.status import (
     HTTP_400_BAD_REQUEST,
 )
+
+if TYPE_CHECKING:
+    from fastapi import Request
+
+    from apps.shared.exceptions import BaseError
 
 logger = logging.getLogger("default")
 
@@ -56,6 +61,22 @@ class BaseErrorResponseSchema(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
+
+    @classmethod
+    def from_error(cls, request: Request, exc: BaseError, **fields: Any) -> Self:
+        """
+        Построить ответ по доменной ошибке.
+
+        Собственный код ошибки (`BaseError.code`) заменяет код по умолчанию для HTTP-статуса.
+
+        Args:
+            request: Запрос, при обработке которого возникла ошибка.
+            exc: Доменная ошибка.
+            **fields: Дополнительные поля ответа.
+        """
+        if exc.code:
+            fields["code"] = exc.code
+        return cls.model_validate({"instance": request.url.path, "detail": exc.msg, **fields})
 
     def json_response(self) -> JSONResponse:
         """Конвертировать ошибку в JSONResponse."""

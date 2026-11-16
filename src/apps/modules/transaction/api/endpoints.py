@@ -1,0 +1,135 @@
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, Request, Response
+from starlette import status
+
+from apps.modules.transaction.application.exceptions import TransactionNotFoundError
+from apps.modules.transaction.application.queries import schemas as q_schemas
+from apps.modules.transaction.application.queries.get import TransactionQueries
+from apps.shared import apps_types
+from apps.shared.db.session import async_session_factory
+from apps.web.security import UserInfo, get_user_info
+
+from . import deps, schemas
+
+router = APIRouter(tags=["Транзакции"])
+
+
+@router.get(
+    "/transactions",
+    summary="Получение списка транзакций пользователя",
+    description="Получить список транзакций пользователя",
+)
+async def get_transactions(
+    page_params: Annotated[q_schemas.TransactionPageParams, Depends()],
+    user: Annotated[UserInfo, Depends(get_user_info)],
+    filter_params: Annotated[q_schemas.TransactionFilters, Depends()],
+) -> q_schemas.TransactionList:
+    """
+    Список транзакций пользователя.
+
+    Args:
+        page_params: Параметры пагинации.
+        filter_params: Параметры фильтрации.
+        user: Информация об авторизованном пользователе.
+    """
+    async with async_session_factory() as session:
+        transactions_queries = TransactionQueries(session)
+        transactions, total = await transactions_queries.get_transactions(
+            user_uid=user.uid,
+            page_params=page_params,
+            filter_params=filter_params,
+        )
+    next_skip = page_params.skip + len(transactions)
+    return q_schemas.TransactionList(
+        total=total, content=transactions, next_skip=next_skip if next_skip < total else None
+    )
+
+
+@router.post(
+    "/transactions",
+    status_code=status.HTTP_201_CREATED,
+    summary="Создание транзакции",
+    description=(
+        "Создать транзакцию в статье пользователя. 400 `FM-400201` — статьи `category_uid` нет у пользователя; "
+        "400 `FM-400202` — тип транзакции не совпадает с типом статьи; 409 `FM-409202` — достигнут лимит "
+        "в 100 000 транзакций."
+    ),
+)
+async def create_user_transaction(
+    item_in: schemas.CreateTransactionSchema,
+    user: Annotated[UserInfo, Depends(get_user_info)],
+    request: Request,
+    response: Response,
+) -> q_schemas.TransactionSchema:
+    """
+    Создать транзакцию пользователя.
+
+    Args:
+        item_in: Информация о транзакции.
+        user: Информация об авторизованном пользователе.
+        request: Запрос: от его пути строится `Location` созданной транзакции.
+        response: Ответ: в него добавляется `Location`.
+    """
+    command_handler = deps.build_create_transaction_command_handler()
+    transaction = await command_handler.handle(
+        user_uid=user.uid,
+        transaction_date=item_in.transaction_date,
+        category_uid=item_in.category_uid,
+        money_sum=item_in.money_sum,
+        transaction_type=item_in.transaction_type,
+        description=item_in.description,
+    )
+    # Название статьи для ответа — из той же выборки, что и у списка: ответ создания и элемент списка совпадают.
+    async with async_session_factory() as session:
+        created = await TransactionQueries(session).get_transaction(user_uid=user.uid, transaction_uid=transaction.uid)
+    # NOTE(FM-52): если транзакцию удалили между commit и чтением, успешное создание ответит 404 — клиент может
+    # повторить запрос и создать дубль. Окно узкое (параллельный DELETE того же пользователя); убрать можно, собирая
+    # ответ из агрегата и статьи, которую команда уже прочитала, но тогда ответ и элемент списка строятся разным кодом.
+    if created is None:
+        # Транзакцию удалили между commit команды и чтением (параллельный DELETE того же пользователя).
+        raise TransactionNotFoundError
+    # От пути запроса, а не фиксированный: так префикс `/transaction` (и переходный путь без него) сохраняется.
+    response.headers["Location"] = f"{request.url.path.rstrip('/')}/{transaction.uid}"
+    return created
+
+
+@router.delete("/transactions/{transaction_uid}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_transaction(
+    transaction_uid: apps_types.TransactionUID,
+    user: Annotated[UserInfo, Depends(get_user_info)],
+    expected_version: Annotated[int | None, Query(ge=1)] = None,
+) -> Response:
+    """Удалить собственную операцию с необязательной проверкой версии."""
+    await deps.build_delete_transaction_command_handler().handle(
+        user_uid=user.uid, transaction_uid=transaction_uid, expected_version=expected_version
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/transactions/{transaction_uid}")
+async def update_user_transaction(
+    transaction_uid: apps_types.TransactionUID,
+    item_in: schemas.UpdateTransactionSchema,
+    user: Annotated[UserInfo, Depends(get_user_info)],
+) -> q_schemas.TransactionSchema:
+    """Частично изменить собственную операцию и вернуть сохранённое состояние."""
+    return await deps.build_update_transaction_command_handler().handle(
+        user_uid=user.uid,
+        transaction_uid=transaction_uid,
+        changes=item_in.changes(),
+        expected_version=item_in.expected_version,
+    )
+
+
+@router.get("/transactions/{transaction_uid}")
+async def get_transaction(
+    transaction_uid: apps_types.TransactionUID,
+    user: Annotated[UserInfo, Depends(get_user_info)],
+) -> q_schemas.TransactionSchema:
+    """Прочитать текущий собственный факт; чужой и отсутствующий UID не различаются."""
+    async with async_session_factory() as session:
+        result = await TransactionQueries(session).get_transaction(user.uid, transaction_uid)
+    if result is None:
+        raise TransactionNotFoundError
+    return result

@@ -5,6 +5,9 @@ on:
     branches: ["dev", "master"]
   pull_request: {}
 
+permissions:
+  contents: read
+
 jobs:
 
   lint-and-test:
@@ -13,6 +16,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.sha }}
+        persist-credentials: false
 
     - uses: actions/setup-python@v5
       with:
@@ -33,7 +39,126 @@ jobs:
     - name: Mypy
       run: poetry run mypy --config-file=pyproject.toml src/
 
+    - name: Test SSH deployment client
+      run: python3 -m unittest discover -s scripts/tests -p test_deploy_ssh.py -v
+
     - name: Pytest
       run: poetry run pytest
       env:
         PYTHONPATH: src
+
+  container-check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: dev
+            dockerfile: Dockerfile
+            check: dev
+            workdir: /opt/fm_transaction_service
+          - target: master
+            dockerfile: Dockerfile
+            check: master
+            workdir: /opt/fm_transaction_service
+          - target: development-env
+            dockerfile: docker/Dockerfile
+            check: dev
+            workdir: /opt/financial_manager
+          - target: default
+            dockerfile: Dockerfile
+            check: master
+            workdir: /opt/fm_transaction_service
+          - target: default
+            dockerfile: docker/Dockerfile
+            check: dev
+            workdir: /opt/financial_manager
+          - target: master
+            dockerfile: Dockerfile
+            check: master
+            workdir: /opt/fm_transaction_service
+            venv: /opt/custom-venv
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check Dockerfile compatibility
+      run: diff -u <(sed '$d' Dockerfile) <(sed '$d' docker/Dockerfile)
+    - name: Build and check runtime
+      env:
+        TARGET: ${{ matrix.target }}
+        DOCKERFILE: ${{ matrix.dockerfile }}
+        CHECK: ${{ matrix.check }}
+        WORKDIR: ${{ matrix.workdir }}
+        VIRTUAL_ENV: ${{ matrix.venv || '/opt/venv' }}
+      run: |
+        if [ "$TARGET" = default ]; then
+          docker build --build-arg VIRTUAL_ENV="$VIRTUAL_ENV" -f "$DOCKERFILE" -t fm-image-check .
+        else
+          docker build --build-arg VIRTUAL_ENV="$VIRTUAL_ENV" --target "$TARGET" -f "$DOCKERFILE" -t fm-image-check .
+        fi
+        docker run --rm -w /opt/fm_transaction_service fm-image-check python scripts/check-image.py "$CHECK"
+        if [ "$CHECK" = dev ]; then
+          docker run --rm -w /opt/fm_transaction_service fm-image-check pytest -q src/tests/web/test_security.py
+          docker run --rm -w /opt/fm_transaction_service fm-image-check ruff check --config=pyproject.toml src/
+        fi
+        test "$(docker image inspect fm-image-check --format '{{.Config.WorkingDir}}')" = "$WORKDIR"
+
+  publish:
+    needs: [lint-and-test, container-check]
+    if: >-
+      ${{ github.event_name == 'push' && needs.lint-and-test.result == 'success' &&
+          (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/master') }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: publish-${{ github.repository }}-${{ github.ref_name }}
+      cancel-in-progress: false
+    outputs:
+      image: ${{ steps.publish.outputs.image }}
+      digest: ${{ steps.publish.outputs.digest }}
+      sha: ${{ steps.publish.outputs.sha }}
+      environment: ${{ steps.publish.outputs.environment }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.sha }}
+        persist-credentials: false
+    - uses: docker/setup-buildx-action@v3
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ vars.DOCKERHUB_USERNAME || 'pppoe15' }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Publish verified image
+      id: publish
+      env:
+        CI_RESULT: ${{ needs.lint-and-test.result }}
+        IMAGE: ${{ vars.DOCKERHUB_USERNAME || 'pppoe15' }}/${{ github.event.repository.name }}
+      run: bash scripts/publish-image.sh
+    - name: Save deployment metadata
+      uses: actions/upload-artifact@v4
+      with:
+        name: publication-${{ github.ref_name }}-${{ github.sha }}-${{ github.run_attempt }}
+        path: publication.json
+        if-no-files-found: error
+
+  deploy:
+    needs: publish
+    if: ${{ success() && github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'master') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Deploy published digest over verified SSH
+        env:
+          DEPLOY_ENVIRONMENT: ${{ github.ref_name }}
+          DEPLOY_COMPONENT: transaction
+          DEPLOY_IMAGE: ${{ needs.publish.outputs.image }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_ROOT: ${{ secrets.DEPLOY_ROOT }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: python3 scripts/deploy-ssh.py

@@ -7,6 +7,9 @@ services:
 
 # --- apps ---
 
+  # NOTE(FM-9): приложение проверяет при старте публичный ключ JWT (WEB_PUBLIC_KEY_PATH, по умолчанию
+  # /run/secrets/jwt_public_key) и без него падает. Для локального запуска смонтируйте публичный ключ
+  # сервиса авторизации, например volume ../secrets/jwt_public_key:/run/secrets/jwt_public_key:ro.
   web:
     image: financial_manager:testing
     platform: linux/amd64
@@ -22,6 +25,29 @@ services:
       - 5678:5678  # для remote debug
     command: python -m debugpy --listen 0.0.0.0:5678 -m uvicorn apps.web.main:app --host "0.0.0.0" --port 8000 --reload
 
+
+  regular-operations-worker:
+    image: financial_manager:testing
+    platform: linux/amd64
+    depends_on:
+      _init-migrations:
+        condition: service_completed_successfully
+    env_file:
+      - ../template.env
+    environment:
+      REGULAR_OPERATIONS_RUN_AT: ${REGULAR_OPERATIONS_RUN_AT:-03:00}
+      REGULAR_OPERATIONS_READY_FILE: /run/fm-worker/ready
+    volumes:
+      - ../src:/opt/financial_manager
+    command: ["python", "-m", "apps.workers.regular_operations"]
+    tmpfs: ["/run/fm-worker"]
+    healthcheck:
+      test: ["CMD", "test", "-f", "/run/fm-worker/ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    restart: unless-stopped
+    stop_grace_period: 1m
 
 # --- tests ---
 

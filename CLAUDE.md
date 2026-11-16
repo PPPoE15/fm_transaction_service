@@ -20,8 +20,10 @@ make run_linters
 ruff check --config=pyproject.toml src/
 mypy --config-file=pyproject.toml src/
 
-# Run a single test (pytest is not yet declared in pyproject.toml — install it if missing)
-cd src && pytest tests/web/test_healthy.py -v
+# Tests (run from repo root; pytest config lives in pyproject.toml: pythonpath=src, asyncio_mode=auto)
+poetry run pytest                      # full run; tests marked `db` start postgres:16 via testcontainers (needs Docker)
+poetry run pytest -m "not db"          # quick run without Docker
+poetry run pytest src/tests/web/test_security.py -v
 
 # Coverage
 make pytest_coverage
@@ -35,42 +37,278 @@ make build      # docker compose build (docker/docker-compose.yml)
 make up_all     # start the `web` service (applies migrations first via _init-migrations)
 make down_all
 
-# Verify all migrations downgrade cleanly
+# Verify downgrade/upgrade on isolated testcontainers Postgres (historical target name)
 make test_downgrade_migrations_compose
 ```
 
-Note: the root `docker-compose.yaml` and `Makefile`'s `build`/`up_all`/`down_all` targets reference `docker/docker-compose.yml`, which is the actual dev compose file (builds via `docker/Dockerfile`, target `development-env`). The root `Dockerfile` (targets `dev`/`master`) is what CI (`.github/workflows/docker-image-*.yml`) builds and pushes to Docker Hub as `fm_transaction_service:dev`/`:master`.
+Note: the root `docker-compose.yaml` and `Makefile`'s `build`/`up_all`/`down_all` targets reference `docker/docker-compose.yml`, which is the actual dev compose file (builds via `docker/Dockerfile`, target `development-env`). The root `Dockerfile` (targets `dev`/`master`) is what CI (`.github/workflows/lint-and-test.yml`, job `publish` after successful checks) builds and pushes to Docker Hub as `fm_transaction_service:<target>-<full SHA>`. Deployment metadata pins the digest; see README.md.
+
+Tests: `src/tests/__init__.py` sets up the test env (generates an RSA key pair, points `WEB_PUBLIC_KEY_PATH` at the public key, dummy `DB_*`) before any `apps` import, because settings are read at import time. `src/tests/conftest.py` has `make_token` (RS256 tokens like the auth service issues), `client` (httpx over the ASGI app) and the `db` fixtures: a session-scoped Postgres container with `alembic upgrade head`, and `db_engine`, which rebinds `async_session_factory` to it and truncates tables after each test. Without Docker the `db` tests fail with an explicit message rather than being skipped. Command handlers are unit-tested with plain in-memory fakes from `src/tests/modules/<module>/fakes.py`.
 
 Config is loaded from `dev.env`/`prod.env` (see `ENV_FILES` in `src/apps/config.py` and `src/apps/web/config.py`) or `/run/secrets`; `template.env` is the template used to generate a local env file. Env vars are prefixed `DB_` (database) and `WEB_` (app settings).
 
 ## Architecture
 
-### Layout
+### Layout — modules on top, layers inside (FM-30)
 
-- `src/apps/` — shared, transport-agnostic code: `config.py` (DB/logging settings), `apps_types/` (domain-wide `Annotated` type aliases like `UserUID`, `MoneySum`, `TransactionType`), `db_models/` (SQLAlchemy ORM models + `AsyncBase` declarative base with an explicit constraint-naming convention), `utils/`.
-- `src/apps/web/` — the FastAPI application: `main.py` builds the app (CORS, exception handlers, lifespan), `router.py` aggregates module routers, `security.py` does JWT decoding (signature verification is currently disabled — `verify_signature: False`) to produce `UserInfo`, `config.py` holds `WEB_`-prefixed app settings, `core/` holds cross-module base classes (see below), `connectors/postgres.py` builds the async SQLAlchemy engine from `db_settings.DSN`.
-- `src/apps/web/modules/<module>/` — one directory per bounded context (currently `category`, `transaction`). Every module follows the same internal layering; use `transaction` as the reference implementation when adding a new module or endpoint.
+- `src/apps/config.py` — DB/logging settings (`DB_` prefix).
+- `src/apps/shared/` — shared kernel with no domain logic, used by several modules: `apps_types/` (domain-wide `Annotated` aliases like `UserUID`, `MoneySum`, `TransactionType`), `api_types.py` (request-field constraints shared by modules: `DescriptionIn`, `LocalDateTimeIn` — the contract's `LocalDateTime`, years 2000–2099, the date must exist), `schemas.py` (`Base`, `PageParams`), `api_schemas.py` (`BaseResponseSchema`/`BaseListResponseSchema` envelopes), `exceptions.py` (`BaseError` family), `unit_of_work.py` (`AbstractUnitOfWork`, `AbstractSQLAlchemyUnitOfWork`), `logger.py`, `datetime_tz.py`, and `db/` — `base.py` (`AsyncBase` declarative base with an explicit constraint-naming convention), `session.py` (`async_engine` from `db_settings.DSN`, `async_session_factory`), `base_repo.py` (`BaseSqlAlchemyRepo`), `base_query.py` (`BaseQueries` with `_apply_pagination`/`_model_to_dict`), `tz_type.py`.
+- `src/apps/web/` — application assembly, no domain logic: `main.py` builds the app (CORS, exception handlers, lifespan) and mounts the API under `/transaction` (the reverse proxy passes the path through unchanged, like `/auth` in the auth service; tests' `client` fixture has `base_url` ending in `/transaction`, so test paths omit it), `router.py` includes each module's `api` router, `body_size.py` (`BodySizeLimitMiddleware`: a body over 16 KiB → 413 `FM-413000` before auth and parsing; `Content-Length` is checked up front, a chunked body is read up to the limit; the proxy's `client_max_body_size` is the primary limit), `security.py` verifies the access token (RS256 signature with the auth service's public key from `WEB_PUBLIC_KEY_PATH`, default `/run/secrets/jwt_public_key`; `exp` and `sub` required; any failure → 401) and produces `UserInfo` (just `uid` from `sub`). The key is checked on startup (`validate_public_key` in `LifespanEvent`), so a missing/private/non-PEM key fails the app at boot. `config.py` holds `WEB_`-prefixed settings; `exception_handlers/`, `bootstrap/`, `telemetry/`.
+- `src/apps/modules/<module>/` — one package per bounded context: `category` (статьи), `transaction` (транзакции), `reports` (отчёты, read-only; FM-27: `GET /budget-structure`) and `starting_balance` (стартовый остаток). `reports` has no tables of its own, so `infrastructure/` is empty; queries aggregate over the category/transaction ORM exported by those modules, report rules live in `domain/` and take today's date as a parameter (`api/deps.get_today`, overridden in tests). One file per report in each layer (`domain/budget_structure.py`, `application/queries/budget_structure.py`), so the next read-only report (balance) goes next to it. Being read-only, `reports` deviates from the layering below: no commands/UoW/ports/fakes, the query class (`GetBudgetStructure.execute`) returns the domain read model, which is also the response schema (`NOTE(FM-27)` in `api/endpoints.py`), and its tests are domain unit tests plus API tests on Postgres. Write-side areas get their own module. `starting_balance` (стартовый остаток, FM-37: `GET`/`POST /starting-balance`) is one: table `starting_balances` with `user_uid` as the primary key (one row per user, `created_at` is diagnostic only and not returned), set once and never changed — the command checks that there's no balance yet (409 `FM-409201`), and on a race of two `POST`s the repo translates the primary-key violation into the same error. Date rules (default — yesterday, years 2000–2099, not after today → 422 `FM-422002`) live in the aggregate `StartingBalance.create`, today's date comes from its own `api/deps.get_today` (overridden in tests). It depends on no other module and exports `StartingBalanceORM` for read-only reports.
+- `transaction` (FM-52: `POST /transactions` → 201 `Transaction` + `Location`). The read schema `TransactionSchema` with `category: CategoryRef {uid, name}` (`application/queries/schemas.py`) is shared by the list and the create response. Create rules live in `CreateTransactionCommandHandler`: the category from `category_uid` must be the user's (else 400 `FM-400201` — a value in the body, not a path resource, so not 404; `PATCH /transactions/{uid}` uses the same guard), `transaction_type` must match the category type (400 `FM-400202`), at most `MAX_TRANSACTIONS_PER_USER` = 100 000 per user (409 `FM-409202`). Atomicity comes from the repos, decisions stay in the handler: `count_by_user_for_update` takes a per-user advisory lock (namespace 52) before counting, and the category is read with `get_by_uid_for_key_share` (`FOR KEY SHARE`), so a concurrent type change (`lock_category`, `FOR UPDATE`) either waits for the insert or is seen by it. Lock order on create: user's transaction set, then the category row.
+- `src/apps/db_models/__init__.py` — ORM registry: imports every module's `infrastructure/orm.py` and re-exports `AsyncBase`, so Alembic (`migrations/env.py` imports `AsyncBase` **from here**, not from `shared.db.base`) sees all tables. The app itself doesn't import it — see the relationship rule below.
 - `src/migrations/` — Alembic env (`env.py` runs migrations async via `run_sync`) and versioned migration scripts.
-- `src/tests/` — pytest tests, mirroring the `src/apps/...` layout (currently minimal).
+- `src/tests/` — `modules/<module>/` (command-handler unit tests + that module's in-memory fakes in `fakes.py`; the shared commit/rollback mixin is `tests/modules/fakes.py`), `web/` (security, isolation, health), `test_architecture.py` (module boundary rules, see below).
 
 ### Module layering (CQRS-ish, per module)
 
-Each module under `modules/<name>/` is split into:
+Each `modules/<name>/` contains only `__init__.py` and four layers; use `transaction` as the reference when adding a module or endpoint:
 
-- `aggregators/` — plain Pydantic domain objects (not ORM models). Own their invariants and mutation logic via classmethods/methods (e.g. `Transaction.create(...)`, `transaction.update(...)`). These are what commands and repos operate on — never pass ORM models across layer boundaries.
-- `application/commands/` — write side. Each command is a `*CommandHandler` class with a single `handle(...)` method, constructed with a module-specific Unit of Work. `uow.py` in each module defines an `Abstract<Module>UnitOfWork(AbstractUnitOfWork)` protocol exposing the module's repo(s) as attributes, and a concrete SQLAlchemy implementation (`<Module>UnitOfWork(Abstract<Module>UnitOfWork, AbstractSQLAlchemyUnitOfWork)`) that instantiates the repo inside `__aenter__`.
-- `application/queries/` — read side. `*Queries(BaseQueries)` classes take a session directly (no UoW — reads don't need transactional write semantics) and build SQLAlchemy `Select` statements, applying filters/pagination, then map ORM rows to `application/queries/schemas.py` Pydantic response schemas via a `build_list`/`build` helper.
-- `infrastructure/db/repos/` — `interface.py` defines an `abc.ABC` repo interface operating on aggregators; `repo.py` implements it against SQLAlchemy (`Repo(Abstract<X>Repo, BaseSqlAlchemyRepo)`), converting aggregator <-> ORM via `builders.py` (`build_orm`, `build`, `build_list`).
-- `endpoints/` — `endpoints.py` defines the `APIRouter`; handlers build a command handler via `deps.py` (`deps.build_create_<x>_command_handler()` etc., wiring the concrete UoW), call `.handle(...)`, then open a fresh session via `async_session_factory` to run a query and return a response. `schemas.py` holds request bodies specific to this module's endpoints (distinct from `application/queries/schemas.py`, which holds response/filter schemas).
+- `__init__.py` — the module's public API (`__all__`). **The only thing other modules may import.** `category` exports `Category`, `AbstractCategoryRepo`, `CategoryRepo`, `CategoryORM`; `transaction` exports `TransactionORM` (for read-only reports); `starting_balance` exports `StartingBalanceORM`; `reports` exports nothing.
+- `domain/` — plain Pydantic aggregates (not ORM models), no SQLAlchemy/FastAPI. Own their invariants and mutation logic (e.g. `Transaction.create(...)`, `transaction.update(...)`, `belongs_to`). Commands and repos operate on these — never pass ORM models across layer boundaries.
+- `application/` — `commands/` (write side: `*CommandHandler` with a single `handle(...)`, built with the module's Unit of Work), `queries/` (read side: `*Queries(BaseQueries)` take a session directly — no UoW — build `Select`s on the module's ORM and map rows to `queries/schemas.py` response schemas), `ports.py` (`abc.ABC` repository interfaces over aggregates), `uow.py` (`Abstract<Module>UnitOfWork` exposing the repos as attributes), `exceptions.py`, `guards.py` (ownership checks: someone else's record is "not found").
+- `infrastructure/` — `orm.py` (SQLAlchemy models), `repo.py` (`Repo(Abstract<X>Repo, BaseSqlAlchemyRepo)`, aggregate <-> ORM via `builders.py`), `uow.py` (concrete `<Module>UnitOfWork(Abstract…, AbstractSQLAlchemyUnitOfWork)` that creates the repos in `__aenter__`).
+- `api/` — `endpoints.py` (`APIRouter`; handlers build a command handler — via `deps.py` where present — call `.handle(...)`, then open a fresh session via `async_session_factory` for the follow-up query), `schemas.py` (request bodies), `deps.py`.
 
-Cross-cutting base classes for the above live in `src/apps/web/core/`: `base.py` (`BaseSqlAlchemyRepo`), `unit_of_work.py` (`AbstractUnitOfWork`, `AbstractSQLAlchemyUnitOfWork`), `base_query.py` (`BaseQueries`, with `_apply_pagination`/`_model_to_dict` helpers), `schemas.py` (`BaseResponseSchema`/`BaseListResponseSchema` generic API envelopes), `deps.py` (`async_session_factory`).
+Dependency rules (enforced by `src/tests/test_architecture.py`, which reads imports statically, including `TYPE_CHECKING` ones):
+
+- A module imports another module only through its `__init__` (`from apps.modules import category`, `from apps.modules.category import …`); no cycles. Today `transaction` → `category` and `reports` → `category`, `transaction`, `starting_balance`; `category` and `starting_balance` know nothing about the others.
+- `shared/` imports neither `modules/`, `db_models/` nor `web/`. Modules import from `web/` only `apps.web.security` (auth dependency).
+- `domain/` doesn't import other layers of its module; `api/` is imported only by `web/`.
+- Cross-module ORM relationships are declared by class name (`relationship("Transaction", …)`), not by importing the other module. The name resolves only once the target model is loaded: in the app `web/router.py` loads every module (via their `api`), in Alembic the `db_models` registry does. Code outside the app that touches a module's ORM (scripts, workers, a module test without `apps.web.main`) must import `apps.db_models` first, otherwise SQLAlchemy resolves `"Transaction"` to its own `sqlalchemy.engine.Transaction` (`UnmappedClassError`). The only reverse link is `Category.transactions`: `Repo.has_transactions` uses it (FM-45: changing the type of a category with transactions is 400 `FM-400101`), and it carries a cascade delete of a category's transactions — only the cascade is meant to go away, together with the legacy category delete (see `NOTE(FM-30)` in `category/infrastructure/orm.py`).
+
+The "Adapters stay thin" rule from the workspace `CLAUDE.md` applies unchanged.
 
 Each request gets its own `AsyncSession`: commands open one implicitly inside the UoW (`session_factory()` in `__aenter__`); endpoint handlers open a second, separate one directly via `async_session_factory()` for the query that runs after a write. Sessions are not shared between the write and the follow-up read.
 
 ### Errors
 
-Domain/application code raises typed exceptions from `apps.web.utils.exceptions` (`BaseCustomValidationError` -> 422, `BaseNotFoundError` -> 404, `BaseForbiddenError` -> 403) or subclasses defined per-module (e.g. `modules/transaction/application/commands/exceptions.py`). These are translated to RFC7807-style JSON responses (`BaseErrorResponseSchema` in `exception_handlers/base.py`) by handlers registered in `exception_handlers/`, wired up via `exception_handlers.setup(fastapi_app)` in `main.py`.
+Domain/application code raises typed exceptions from `apps.shared.exceptions` (`BaseCustomValidationError` -> 400, `BaseUnprocessableError` -> 422 with its `field` in `validation`, `BaseNotFoundError` -> 404, `BaseConflictError` -> 409, `BaseForbiddenError` -> 403) or subclasses defined per module in `application/exceptions.py`. Every command checks ownership against `UserInfo.uid` (aggregate `belongs_to`); someone else's transaction or category is reported as not found (404), never 403. An exception's own `code` (`FM-XXXNNN`, e.g. `FM-404201`) replaces the status's default code (`FM-404000`) in the response via `BaseErrorResponseSchema.from_error`. Exceptions are translated to RFC7807-style JSON responses (`BaseErrorResponseSchema` in `web/exception_handlers/base.py`) by handlers registered in `web/exception_handlers/`, wired up via `exception_handlers.setup(fastapi_app)` in `main.py`.
 
 ### Linting
 
 `ruff` runs with `lint.select = ["ALL"]` plus an explicit ignore list — see `pyproject.toml`. Notable per-path relaxations: `src/tests/*` allows asserts/missing docstrings/private-member access; `src/migrations/*` allows missing docstrings. `mypy` runs in strict-ish mode (`disallow_untyped_defs`, `check_untyped_defs`, `no_implicit_reexport`) with the pydantic mypy plugin enabled.
+
+## Дневной общий остаток (FM-87)
+
+`GET /transaction/balance-history?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD` — дневной ряд
+общего остатка, не месячные столбцы доходов/расходов. Диапазон включает обе границы,
+1–366 дней, годы 2000–2099, не позже сегодня в `Europe/Moscow`. `reports/api/deps.get_now`
+фиксирует один московский момент для проверки диапазона и отсечения будущих операций.
+Даты `LocalDateTime` трактуются как московские без дополнительного пересчёта.
+
+`GetBalanceHistory` одним SELECT читает стартовый остаток и дневные суммы операций
+пользователя: MVCC-снимок один даже при READ COMMITTED. Суммы считаются в BIGINT;
+`build_balance_history` переносит известный остаток между днями. Операции до начала
+диапазона входят в остаток; операции стартового дня повторно не входят. До стартовой
+даты возвращается `null`, на дату — стартовая сумма. Сегодня включены только операции
+до момента запроса. Без стартовой суммы — `409 / FM-409203`; ошибки диапазона
+`422 / FM-422000` проверяются первыми. Ответ содержит `currency: RUB`, `unit: rubles`,
+`timezone: Europe/Moscow`. Таблицы и миграции не добавляются.
+
+
+### Импорт файлов (FM-92)
+
+`modules/import_export/` выдаёт `GET /import-export/templates/{transaction_type}?format=csv|xlsx`
+(с JWT, под общим префиксом `/transaction`) и предоставляет публичный `parse_file(content, *,
+transaction_type, file_format, filename, content_type=None) -> list[ParsedRecord]`.
+`ParsedRecord` содержит `row`, `transaction_date`, `money_sum`, `category_name`, `description`.
+Разбор не обращается к БД и не сохраняет операции. Сопоставление категорий с владельцем/типом,
+POST multipart, атомарное сохранение и лимиты HTTP-загрузки добавляются в FM-93.
+
+- `domain/`: сырые/нормализованные записи, правила полей, `ImportIssue` и `ImportFileError`.
+- `application/parsing.py`: проверка размера/типа файла, полный структурный разбор,
+  ограничение операций и ошибок. Ошибка структуры заменяет ошибки значений; частичный результат не возвращается.
+- `infrastructure/`: CSV, ограниченная распаковка ZIP, безопасный XML и чтение XLSX;
+  openpyxl используется для генерации шаблонов и распознавания форматов дат.
+  Числа XML читаются через Decimal, чтобы не терять дроби через float; обход идёт по существующим
+  XML-строкам, без доверия worksheet dimension. DTD/entities и внешние связи запрещены.
+- `api/`: выдача шаблонов и регистрация обработчика ошибок RFC 7807 при сборке web.
+  `Content-Disposition` открыт через CORS.
+
+Модуль не зависит от других модулей и не имеет ORM/UoW. Публичные экспорты:
+`parse_file`, `ParsedRecord`, `ImportIssue`, `ImportFileError`.
+Нормативный контракт: `fm-auto-dev/contracts/import-export.md` (FM-91).
+Вызывающий код обязан ограничить фактически прочитанный поток до передачи `bytes` парсеру;
+повторная проверка здесь ограничивает размер уже полученного файла 5 МиБ. Лимиты: 10 000
+операций, 100 ошибок, 1000 ZIP-элементов, 50 МиБ распакованных данных.
+
+
+### Импорт операций (FM-93)
+
+`import_export` принимает CSV/XLSX через `POST /import-export/imports/{income|outcome}?format=csv|xlsx`.
+`api/uploads.py` проверяет ровно одну file-part, завершённость multipart и лимит файла 5 МиБ;
+`web/body_size.py` считает реальные байты тела импорта (6 МиБ), сохраняя 16 КиБ на остальных маршрутах.
+Синхронный файловый разбор выполняется через `asyncio.to_thread`, чтобы XLSX не блокировал event loop.
+`application/parsing.py` сначала проверяет структуру/ресурсные ограничения всего файла, затем объединяет
+ошибки полей и категорий в порядке строк и колонок (первые 100 и признак усечения).
+
+`ImportCommandHandler` использует публичный API `transaction` (агрегат, UoW, лимит и ошибка квоты).
+Порядок блокировок: advisory 52 пользователя, advisory 41 его категорий, затем FOR UPDATE категорий
+выбранного типа по UID. Порядок совместим с обычным созданием транзакций и изменением категорий.
+`CategoryRepo.get_all_for_import` удерживает строки от переименования/смены типа/удаления до commit;
+сопоставление выполняется по точному имени после Unicode strip и ограничено владельцем и типом.
+Квота 100000 проверяется после валидации; весь пакет создаётся обычными агрегатами Transaction и одним commit.
+Повторы и одинаковые строки создают отдельные операции; отдельной истории импорта или дедупликации нет.
+
+`ImportUnitOfWork` выполняет flush до COMMIT: ошибка записи после подтверждённого rollback — FM-500301;
+нарушение FK категории — FM-409301. Потеря результата COMMIT — FM-503301 с outcome=unknown,
+без imported_count и Retry-After. Вторичный сбой cleanup не должен скрывать неизвестный исход.
+Ошибки SQLSTATE классов 23/40 при COMMIT с сохранённым соединением подтверждают отказ сервера.
+Интеграционные тесты import_export проверяют Postgres, квоту, конкурентность, список операций,
+структуру бюджета, историю остатка и изоляцию; новые миграции не требуются.
+
+По решению пользователя в FM-93 маршрут `DELETE /category` временно удалён из API и OpenAPI.
+Команда удаления, репозиторий и ORM-каскад оставлены без изменений; их исправление — отдельная работа.
+
+### Гибкий CSV-импорт (FM-96, backend)
+
+Правила ниже расширяют CSV-часть FM-91; XLSX сохраняет прежние правила.
+`csv_files.read_csv` определяет `,` или `;` по распознанным обязательным заголовкам,
+с учётом CSV-кавычек. Поля `Дата`, `Сумма`, `Категория`, `Описание` обязательны в заголовке,
+уникальны после Unicode strip и могут идти в любом порядке. Иные столбцы (включая заполненные)
+игнорируются. При отсутствии ячейки обязательного поля возвращается ошибка значения;
+пустое описание допустимо. Полностью пустые после нормализации обязательные поля не создают операцию,
+даже если дополнительные столбцы заполнены. Число дополнительных столбцов не ограничено отдельно
+от размера файла. Незакрытые и некорректно расположенные кавычки остаются ошибкой структуры.
+
+`domain/csv_values.py` очищает все значения по краям через Unicode strip (включая описание)
+и приводит CSV-дату к общей календарной проверке. День и месяц — одна или две ASCII-цифры,
+год — две цифры или 2000–2099. Двузначный год всегда относится к 2000–2099.
+Разделители между компонентами — непустые последовательности нецифровых символов,
+могут различаться; совпадающий с разделителем CSV знак должен быть заключён в кавычки
+вместе с полем. Внутренние пробелы категории и описания не меняются. В CSV пробелы, точки и запятые
+между цифрами суммы удаляются как разделители разрядов: `1,25` означает 125 целых рублей.
+Знаки, ведущие нули и значения вне 1–1 000 000 000 остаются ошибками; XLSX не меняется.
+Сообщения unknown_category и ambiguous_category содержат проверенное имя из файла.
+
+`errors[].row` для CSV теперь означает физическую строку начала записи (CR/LF/CRLF),
+а не порядковый номер логической записи. Ошибки заголовков имеют row=1 и field обязательного
+поля; ошибки кавычек — строку начала повреждённой записи; ошибки кодировки — строку
+повреждённых байтов; отсутствие операций — row=1. Поля reason и коды FM сохраняются.
+Ошибки структуры по-прежнему прекращают разбор; ошибки значений/категорий собираются
+до 100 с errors_truncated. Дополнительные колонки не влияют на лимит операций и атомарность.
+
+Сопутствующие изменения UI (подпись физических строк, общая подсказка) и нормативного
+контракта в fm-auto-dev выполняются отдельными частями FM-96. До их внедрения старый UI
+может по-прежнему называть физическую строку «Запись CSV» и показывать общую подсказку.
+
+## Контейнеры (FM-67)
+
+Основной `Dockerfile` и `docker/Dockerfile` совпадают, кроме последней строки (CI проверяет общий текст через `diff`).
+Последняя стадия выбирает прежнюю сборку по умолчанию: master в корне,
+development-env в docker/.
+Оба поддерживают `dev`, `master` и `development-env`. Основа — Python 3.13
+slim-bookworm. Poetry 2.1 устанавливается в отдельный `/opt/poetry` только
+в builder; `/opt/venv` содержит common для master, все группы для dev.
+Нативные зависимости устанавливаются из lock-файла; текущие wheels не требуют
+libpq5 или компиляторов в runtime. curl нужен healthcheck в Compose, gettext-base
+сохранён для совместимости, tzdata — для Europe/Moscow. Кэши pip отключены,
+индексы apt удаляются в том же слое. Не добавляйте Poetry в runtime.
+
+`development-env` сохраняет `/opt/financial_manager` для bind mount `src` и
+debugpy; dev/master сохраняют `/opt/fm_transaction_service` и прежний entrypoint.
+CI строит все три цели и запускает `scripts/check-image.py` перед публикацией.
+Инструкции и замеры — `docs/container-images.md`.
+
+
+### Редактирование таблицы операций (FM-99)
+
+Одиночные PATCH/DELETE используют `/transactions/{transaction_uid}`. PATCH частичный,
+принимает `category_uid`, возвращает одну `Transaction`; DELETE — 204 без тела.
+`description: null` очищает поле, отсутствие поля сохраняет его. Необязательная
+`expected_version` в теле PATCH или query DELETE даёт 409/FM-409204 при несовпадении.
+Новая миграция добавляет положительную BIGINT `version`, начиная с 1 для всех операций.
+Каждый успешный PATCH повышает её, даже при совпадении значений.
+
+`GET /transactions` объединяет фильтры через AND, включая точный `category_uid` и
+регистронезависимую подстроку `category` (символы `%` и `_` литеральны). Один SQL с CTE
+читает страницу, категорию и count из общего MVCC-снимка; LEFT JOIN сохраняет total
+для пустой страницы. Ответ содержит `next_skip`, null на последней/пустой странице.
+Сортировка по дате дополнена UID ASC. Между страницами снимок не закрепляется.
+
+`PATCH /transactions/batch` принимает 1–100 уникальных `{uid, expected_version, changes}`.
+Изменения: `date`, `money_sum`, `category_uid`, `description`; календарная дата сохраняет
+локальное время и микросекунды. Все проверки и записи выполняются внутри одного UoW.
+Приоритет ошибок: доступ 404, версия 409, категория 400. Ни одна строка не сохраняется
+при ошибке. Ответ `{content}` сохраняет порядок входа и содержит повышенные версии.
+
+`POST /transactions/batch-delete` принимает 1–100 `{uid, expected_version}` и возвращает
+HTTP 200 с `results` в порядке входа: `{index,uid,status:204}` либо результат 404/FM-404000
+или 409/FM-409204 с `code,message`. Чужая операция неотличима от отсутствующей.
+Ожидаемые ошибки строк пропускаются; допустимые удаления фиксируются вместе, неожиданный
+сбой до commit откатывает весь запрос. Вход валидируется целиком до команды.
+`BatchRoute` переводит ошибки входа и атомарного сохранения в RFC7807 с массивом `errors`.
+Статические пакетные маршруты зарегистрированы перед путями с UUID.
+
+Порядок блокировок: операции по UID ASC, затем итоговые категории по UID ASC;
+одиночная запись использует тот же порядок. Категории удерживаются до commit, как при
+создании. Ответ изменения строится из проверенного состояния внутри UoW и выдаётся
+после commit, без повторного чтения, которое могло бы увидеть чужую конкурентную запись.
+Ключа идемпотентности и хранения ответов нет: устаревшая версия при повторе сохранения
+даёт конфликт, уже удалённый UID — 404 в результате строки. После неизвестного исхода
+клиент перечитывает данные и не повторяет автоматически.
+
+`BodySizeLimitMiddleware` ограничивает реальные байты всех HTTP-тел, даже при заданном
+Content-Length. Для PATCH batch и POST batch-delete предел включительно 512 КиБ,
+для остальных 16 КиБ; исключение импорта 6 МиБ не изменено. Превышение обычного/пакетного
+лимита даёт application/problem+json, 413/FM-413000. Настройка внешнего proxy в fm_devops
+и проверки через него выполняются отдельным проходом по решению пользователя.
+
+## Фильтры списков (FM-32)
+
+Границы плана статей `below_money_sum`/`above_money_sum` включительны. Отсутствие
+параметра отличается от нуля: `below_money_sum=0` выбирает нулевые планы,
+`above_money_sum=0` — все заданные планы; SQL NULL исключается обоими фильтрами.
+Фильтры и владелец применяются до подсчёта total и пагинации.
+`TransactionRepo.get_by_user_uid` отбирает операции по `user_uid`, а не UID операции.
+Поиск операций по `category` использует существующий регистронезависимый поиск
+буквальной подстроки названия (в том числе `%` и `_`), с тем же фильтром для total.
+
+### Запланированные операции (FM-107)
+
+Модуль `planning` хранит планы отдельно от фактов: ORM `PlannedTransaction`, таблица `planned_transactions`. CRUD `/planned-operations` не меняет
+баланс. Подтверждение реализуется в FM-108. PATCH/DELETE требуют `expected_version`;
+PATCH разрешён только для pending и увеличивает версию даже при прежних значениях.
+Суммы — целые положительные рубли. Дата создания/итоговая дата PATCH — сегодня или
+позже по Europe/Moscow (2000–2099); часы читаются после ожидания блокировок.
+
+Список сортируется по дате и UID ASC, по умолчанию скрывает completed. Один SQL-снимок
+даёт content/total/due_count; limit 1–500, skip 0–100000. Для главной используется limit=4.
+Квота 100000 включает выполненные; advisory lock сериализует создания одного владельца.
+Порядок команд: advisory lock при создании либо строка плана при PATCH/DELETE, затем
+категория. Категорию с планами любого статуса нельзя удалить/сменить её тип (409405).
+HTTP-удаление категорий, ранее убранное в FM-93, не возвращается.
+
+Completed хранит исходные поля и снимок имени категории. FK факта ON DELETE SET NULL
+и триггер `planned_fact_unlinked` сохраняют план при любом способе удаления факта и
+повышают его версию. Удаление плана факт не удаляет. Миграцию с триггером необходимо
+применять Alembic; одного `metadata.create_all` недостаточно.
+Бизнес-правила проверяются в приложении; CHECK-ограничений в таблице планов нет.
+Нет Idempotency-Key и автоматических повторов. Потеря ответа COMMIT возвращает
+503/FM-503401; клиент проверяет список перед ручным повторным созданием.
+
+### Подтверждение плана (FM-108)
+
+`POST /planned-operations/{plan_uid}/confirm` принимает полный набор фактических полей
+(transaction_date, money_sum, category_uid, необязательный description) и expected_version.
+Тип берётся из плана. Дата факта использует LocalDateTime и может быть прошлой/будущей;
+плановая дата при подтверждении не переносится. Ответ `{plan, transaction}` собирается
+до commit из проверенного состояния и выдаётся только после успешного сохранения.
+
+`ConfirmPlanCommand` использует одну сессию PlanUnitOfWork для плана, факта и категорий.
+Порядок блокировок: собственный план -> квота фактов (advisory 52) -> исходная и фактическая
+категории по UID ASC. Квота общая с обычным созданием/импортом. Публичный validate_creation
+модуля transaction проверяет владельца, тип категории и квоту как для POST факта, так и
+для подтверждения. Planning зависит от transaction; обратной зависимости нет.
+
+Plan.complete сохраняет исходные поля и имя исходной категории, фиксирует UTC completed_at,
+связь и следующую версию. Часы читаются один раз после блокировок; today вычисляется из
+того же момента в Europe/Moscow. Повтор completed всегда 409401, даже со старой версией;
+неактуальная версия pending —409402. Автоматического повторного создания/COMMIT нет.
+Ошибка COMMIT с неизвестным результатом —503401; клиент перечитывает план и факты.
+
+`GET /transactions/{transaction_uid}` возвращает актуальный собственный факт или одинаковый
+404 для чужого/отсутствующего. Изменение факта не переписывает план. Существующий FK/триггер
+при удалении факта сохраняет completed и исходные значения, обнуляет ссылку и повышает версию.
+Новые CHECK-ограничения и миграции не добавляются.

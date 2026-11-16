@@ -3,9 +3,9 @@ run_linters: ## Запуск линтеров
 	ruff format src --check || echo
 	mypy src || echo
 
-test_downgrade_migrations_compose:  ## Запуск проверки отката всех миграций через docker compose.
-	docker compose -f docker/docker-compose-dev-team.yaml -p financial_manager-tests up --force-recreate --abort-on-container-exit downgrade-migrations-tests || true
-	docker compose -f docker/docker-compose-dev-team.yaml -p financial_manager-tests down -v --remove-orphans
+# Историческое имя сохранено; изолированный Postgres поднимает testcontainers.
+test_downgrade_migrations_compose:  ## Проверить upgrade/downgrade на отдельном Docker Postgres.
+	poetry run pytest src/tests/test_migrations.py src/tests/modules/transaction/test_version_migration.py src/tests/modules/transaction/test_index_migration.py
 
 pytest_coverage:  ## Запуск pytest с coverage
 	pytest --cov --cov-report html
@@ -14,7 +14,7 @@ build: ## Собрать образ.
 	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml -p financial_manager build --no-cache
 
 up_all:  ## Запуск сервиса.
-	docker-compose -f docker/docker-compose.yml -p financial_manager up --force-recreate -d web
+	docker-compose -f docker/docker-compose.yml -p financial_manager up --force-recreate -d web regular-operations-worker
 
 down_all:  ## Остановка сервиса.
 	docker-compose -f docker/docker-compose.yml -p financial_manager down

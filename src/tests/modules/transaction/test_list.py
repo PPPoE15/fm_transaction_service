@@ -1,0 +1,207 @@
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
+
+import pytest
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncEngine
+from starlette import status
+
+from apps.modules.category import CategoryORM
+from apps.modules.transaction import TransactionORM
+from apps.shared.db.session import async_session_factory
+from tests.conftest import TokenFactory
+
+OWN_OUTCOMES = 7
+INCOME_NUMBER = 8
+FOREIGN_NUMBER = 9
+TIED_COUNT = 3
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("skip", "-1"), ("skip", "100001"), ("limit", "0"), ("limit", "501"), ("sort", "uid")]
+    + [
+        (field, value)
+        for field in ("after", "before")
+        for value in (
+            "1999-12-31T23:59:59",
+            "2100-01-01T00:00:00",
+            "2026-02-30T00:00:00",
+            "2026-01-01",
+            "2026-01-01 00:00:00",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00+03:00",
+            "2026-01-01T00:00:00.1234567",
+            "1767225600",
+        )
+    ],
+)
+async def test_invalid_list_params(client: AsyncClient, make_token: TokenFactory, field: str, value: str) -> None:
+    """Проверить отклонение неверных параметров списка."""
+    response = await client.get(
+        "/transactions", params={field: value}, headers={"Authorization": f"Bearer {make_token()}"}
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.text
+
+
+async def test_reversed_dates(client: AsyncClient, make_token: TokenFactory) -> None:
+    """Проверить код ошибки обратного диапазона."""
+    response = await client.get(
+        "/transactions",
+        params={"after": "2026-02-01T00:00:00", "before": "2026-01-01T00:00:00"},
+        headers={"Authorization": f"Bearer {make_token()}"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.text
+    assert response.json()["code"] == "FM-422001"
+
+
+@pytest.mark.db
+@pytest.mark.parametrize("sort", [None, "-transaction_date", "transaction_date"])
+async def test_list_order_and_filters(
+    client: AsyncClient, make_token: TokenFactory, db_engine: AsyncEngine, sort: str | None
+) -> None:
+    """Проверить порядок, пагинацию, фильтры и изоляцию пользователей."""
+    owner, stranger, category_uid = uuid4(), uuid4(), uuid4()
+    async with async_session_factory() as session:
+        session.add(CategoryORM(uid=category_uid, user_uid=owner, name="Еда", category_type="outcome"))
+        await session.flush()
+        for number in reversed(range(1, 10)):
+            session.add(
+                TransactionORM(
+                    uid=UUID(int=number, version=4),
+                    user_uid=stranger if number == FOREIGN_NUMBER else owner,
+                    category_uid=category_uid,
+                    transaction_date=datetime(2026, 1, min(number, 5), tzinfo=UTC).replace(tzinfo=None),
+                    money_sum=100,
+                    transaction_type="income" if number == INCOME_NUMBER else "outcome",
+                    description=None,
+                )
+            )
+        await session.commit()
+    headers = {"Authorization": f"Bearer {make_token(owner)}"}
+    params = {"transaction_type": "outcome", "limit": "5"}
+    if sort:
+        params["sort"] = sort
+    response = await client.get("/transactions", headers=headers, params=params)
+    assert response.status_code == status.HTTP_200_OK, response.text
+    data = response.json()
+    expected = [1, 2, 3, 4, 5] if sort == "transaction_date" else [5, 6, 7, 4, 3]
+    assert data["total"] == OWN_OUTCOMES
+    assert [item["uid"] for item in data["content"]] == [str(UUID(int=n, version=4)) for n in expected]
+    assert all(item["category"] == {"uid": str(category_uid), "name": "Еда"} for item in data["content"])
+    page = await client.get("/transactions", headers=headers, params={**params, "skip": "1", "limit": "1"})
+    assert page.json()["total"] == OWN_OUTCOMES
+    assert page.json()["content"] == data["content"][1:2]
+    bounded = await client.get(
+        "/transactions",
+        headers=headers,
+        params={
+            **params,
+            "after": "2026-01-05T00:00:00",
+            "before": "2026-01-05T00:00:00.000000",
+        },
+    )
+    assert bounded.json()["total"] == TIED_COUNT
+    assert [item["uid"] for item in bounded.json()["content"]] == [str(UUID(int=n, version=4)) for n in [5, 6, 7]]
+
+
+@pytest.mark.db
+@pytest.mark.parametrize("date", ["2000-01-01T00:00:00", "2099-12-31T23:59:59.999999"])
+async def test_valid_boundaries(
+    client: AsyncClient, make_token: TokenFactory, db_engine: AsyncEngine, date: str
+) -> None:
+    """Проверить допустимые границы параметров."""
+    response = await client.get(
+        "/transactions",
+        headers={"Authorization": f"Bearer {make_token()}"},
+        params={
+            "skip": "100000",
+            "limit": "500",
+            "after": date,
+            "before": date,
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK, response.text
+    assert response.json() == {"total": 0, "content": [], "next_skip": None}
+
+
+@pytest.mark.db
+async def test_category_filters_and_next_skip(
+    client: AsyncClient, make_token: TokenFactory, db_engine: AsyncEngine
+) -> None:
+    """Точный и текстовый фильтры объединяются, пустая страница сохраняет total."""
+    owner, category_uid = uuid4(), uuid4()
+    async with async_session_factory() as session:
+        session.add(CategoryORM(uid=category_uid, user_uid=owner, name="Еда 100%", category_type="outcome"))
+        await session.flush()
+        session.add_all(
+            [
+                TransactionORM(
+                    uid=uuid4(),
+                    user_uid=owner,
+                    category_uid=category_uid,
+                    transaction_date=datetime(2026, 1, 1, tzinfo=UTC).replace(tzinfo=None),
+                    money_sum=100,
+                    transaction_type="outcome",
+                )
+                for _ in range(3)
+            ]
+        )
+        await session.commit()
+    headers = {"Authorization": f"Bearer {make_token(owner)}"}
+    params: dict[str, str | int] = {"category_uid": str(category_uid), "category": "100%", "limit": 2}
+    first = await client.get("/transactions", headers=headers, params=params)
+    assert first.status_code == status.HTTP_200_OK, first.text
+    expected_total, expected_next = 3, 2
+    assert first.json()["total"] == expected_total
+    assert first.json()["next_skip"] == expected_next
+    assert len(first.json()["content"]) == expected_next
+    last = await client.get("/transactions", headers=headers, params={**params, "skip": 2})
+    assert last.json()["total"] == expected_total
+    assert last.json()["next_skip"] is None
+    assert len(last.json()["content"]) == 1
+    empty = await client.get("/transactions", headers=headers, params={**params, "skip": 3})
+    assert empty.json() == {"total": 3, "content": [], "next_skip": None}
+    missing = await client.get("/transactions", headers=headers, params={**params, "category_uid": str(uuid4())})
+    assert missing.json() == {"total": 0, "content": [], "next_skip": None}
+    mismatched = await client.get("/transactions", headers=headers, params={**params, "category": "другое"})
+    assert mismatched.json() == {"total": 0, "content": [], "next_skip": None}
+
+
+@pytest.mark.db
+@pytest.mark.parametrize("substring", ["еДа", "100%", "а_б"])
+async def test_category_substring_isolated_pages(
+    client: AsyncClient, make_token: TokenFactory, db_engine: AsyncEngine, substring: str
+) -> None:
+    """Подстрока без учёта регистра и с буквальными %/_ фильтрует страницы и total только владельца."""
+    owner, stranger = uuid4(), uuid4()
+    matches = [uuid4(), uuid4()]
+    async with async_session_factory() as session:
+        for user_uid in (owner, stranger):
+            for index, name in enumerate(["ОбЕДА 100% а_б", "еда 100% а_б дома", "Транспорт 1000 аХб"]):
+                category_uid = uuid4()
+                session.add(CategoryORM(uid=category_uid, user_uid=user_uid, name=name, category_type="outcome"))
+                await session.flush()
+                session.add(
+                    TransactionORM(
+                        uid=matches[index] if user_uid == owner and index < len(matches) else uuid4(),
+                        user_uid=user_uid,
+                        category_uid=category_uid,
+                        transaction_date=datetime(2026, 1, index + 1, tzinfo=UTC).replace(tzinfo=None),
+                        money_sum=100,
+                        transaction_type="outcome",
+                    )
+                )
+        await session.commit()
+    headers = {"Authorization": f"Bearer {make_token(owner)}"}
+    for skip in range(len(matches) + 1):
+        response = await client.get(
+            "/transactions",
+            headers=headers,
+            params={"category": substring, "limit": 1, "skip": skip, "sort": "transaction_date"},
+        )
+        assert response.status_code == status.HTTP_200_OK, response.text
+        body = response.json()
+        assert body["total"] == len(matches)
+        assert [item["uid"] for item in body["content"]] == [str(uid) for uid in matches[skip : skip + 1]]
+        assert body["next_skip"] == (skip + 1 if skip + 1 < len(matches) else None)
