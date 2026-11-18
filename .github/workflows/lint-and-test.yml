@@ -42,9 +42,6 @@ jobs:
     - name: Test SSH deployment client
       run: python3 -m unittest discover -s scripts/tests -p test_deploy_ssh.py -v
 
-    - name: Test SSH deployment client
-      run: python3 -m unittest discover -s scripts/tests -p test_deploy_ssh.py -v
-
     - name: Pytest
       run: poetry run pytest
       env:
