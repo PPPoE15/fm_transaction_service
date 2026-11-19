@@ -75,9 +75,9 @@ def describe_failure(code, stderr):
         log = re.fullmatch(r'(Command|Compose config) failed; inspect protected server log ([0-9]{16,20}\.log)', line)
         if log:
             return f'Server controller: {log[1]} failed. Read DEPLOY_ROOT/logs/{log[2]} on the server.'
-        if line in {'HTTPS smoke failed: /', 'HTTPS smoke failed: /auth/me',
-                    'HTTPS smoke failed: /transaction/categories'}:
-            return 'Server controller: ' + line + '. Check HTTPS access from the server.'
+        smoke = re.fullmatch(r'(HTTPS?) smoke failed: (?:/|/auth/me|/transaction/categories)', line)
+        if smoke:
+            return 'Server controller: ' + line + f'. Check {smoke[1]} access from the server.'
     if code == 127:
         return 'Remote command unavailable. Check Python 3 on the server.'
     if code == 2 and "can't open file" in stderr and 'release.py' in stderr and '[Errno 2]' in stderr:
@@ -90,7 +90,8 @@ def checked_response(stdout, request):
     response = json.loads(stdout)
     images = response['images']
     if (response['environment'] != request['environment']
-            or set(images) != {'ui', 'auth', 'transaction', 'postgres', 'caddy'}
+            or set(images) not in ({'ui', 'auth', 'transaction', 'postgres'},
+                                   {'ui', 'auth', 'transaction', 'postgres', 'caddy'})
             or images[request['component']] != request['image']
             or any(not re.fullmatch(r'[a-z0-9][a-z0-9./_-]*@sha256:[0-9a-f]{64}', image)
                    for image in images.values())):

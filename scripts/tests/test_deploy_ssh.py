@@ -79,5 +79,44 @@ class SSHTest(unittest.TestCase):
                 module.prepare(dict(self.env, **{key: value}), '/tmp/credentials')
 
 
+    def test_response_accepts_current_and_legacy_image_sets(self):
+        """Принимает четыре образа FM-123 и прежние пять без потери digest."""
+        request, _ = module.prepare(self.env, '/tmp/credentials')
+        for components in (('ui', 'auth', 'transaction', 'postgres'),
+                           ('ui', 'auth', 'transaction', 'postgres', 'caddy')):
+            with self.subTest(components=components):
+                response = {'environment': 'dev', 'images': {
+                    component: request['image'] for component in components}}
+                self.assertEqual(module.checked_response(json.dumps(response), request), response)
+
+    def test_response_rejects_missing_extra_and_invalid_images(self):
+        """Отклоняет неполные наборы, лишние компоненты и неподтверждённые digest."""
+        request, _ = module.prepare(self.env, '/tmp/credentials')
+        for legacy in (False, True):
+            images = dict.fromkeys(('ui', 'auth', 'transaction', 'postgres'), request['image'])
+            if legacy:
+                images['caddy'] = request['image']
+            variants = [dict(images, extra=request['image']), dict(images, ui='repo@sha256:' + 'b' * 64)]
+            variants.extend({key: value for key, value in images.items() if key != missing}
+                            for missing in ('ui', 'auth', 'transaction', 'postgres'))
+            variants.extend(dict(images, **{key: 'repo:latest'}) for key in images)
+            for invalid in variants:
+                with self.subTest(images=invalid), self.assertRaises(ValueError):
+                    module.checked_response(json.dumps({'environment': 'dev', 'images': invalid}), request)
+            with self.assertRaises(ValueError):
+                module.checked_response(json.dumps({'environment': 'master', 'images': images}), request)
+
+    def test_smoke_errors_allow_only_known_paths_and_protocols(self):
+        """Объясняет HTTP/HTTPS smoke, не раскрывая произвольный серверный вывод."""
+        for protocol in ('HTTP', 'HTTPS'):
+            for endpoint in ('/', '/auth/me', '/transaction/categories'):
+                with self.subTest(protocol=protocol, endpoint=endpoint):
+                    error = f'{protocol} smoke failed: {endpoint}'
+                    self.assertEqual(module.describe_failure(1, 'PRIVATE\n' + error),
+                                     f'Server controller: {error}. Check {protocol} access from the server.')
+            for endpoint in ('/PRIVATE', '/auth/me?PRIVATE', '/ PRIVATE'):
+                self.assertNotIn('PRIVATE', module.describe_failure(1, f'{protocol} smoke failed: {endpoint}'))
+
+
 if __name__ == '__main__':
     unittest.main()
