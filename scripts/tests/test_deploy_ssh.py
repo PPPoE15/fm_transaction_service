@@ -43,7 +43,7 @@ class SSHTest(unittest.TestCase):
                 (255, 'PRIVATE: Permission denied (publickey).', 'DEPLOY_KEY'),
                 (255, 'ssh: connect to host PRIVATE: Connection timed out', 'timed out'),
                 (1, 'PRIVATE\nCommand failed; inspect protected server log 1794194800000000000.log',
-                 'logs/1794194800000000000.log'),
+                 '1794194800000000000.log'),
                 (1, 'PRIVATE\nHTTPS smoke failed: /transaction/categories', 'HTTPS smoke'),
                 (1, 'PRIVATE', 'exit 1')):
             with self.subTest(code=code, expected=expected):
@@ -64,7 +64,7 @@ class SSHTest(unittest.TestCase):
             remote = subprocess.CompletedProcess([], 0, stdout=json.dumps(response), stderr='PRIVATE-STDERR')
             output = io.StringIO()
             with patch.dict(os.environ, env, clear=True), patch.object(
-                    module.subprocess, 'run', return_value=remote), redirect_stdout(output):
+                    module, 'run_ssh', return_value=remote), redirect_stdout(output):
                 module.main()
             self.assertIn('[1/3] Validating', output.getvalue())
             self.assertIn('[3/3] Server confirmed', output.getvalue())
@@ -116,6 +116,64 @@ class SSHTest(unittest.TestCase):
                                      f'Server controller: {error}. Check {protocol} access from the server.')
             for endpoint in ('/PRIVATE', '/auth/me?PRIVATE', '/ PRIVATE'):
                 self.assertNotIn('PRIVATE', module.describe_failure(1, f'{protocol} smoke failed: {endpoint}'))
+
+
+class LiveSSHTest(unittest.TestCase):
+    """Проверяет реальную передачу SSH-журнала до завершения удалённой команды."""
+
+    def test_streams_stderr_before_completion_and_keeps_json_response(self):
+        """Первая строка видна, пока удалённый процесс ещё ждёт разрешения завершиться."""
+        import sys
+        import threading
+        import time
+        from contextlib import redirect_stderr
+
+        with tempfile.TemporaryDirectory() as directory:
+            gate = Path(directory) / 'finish'
+            remote_code = (
+                'import json,sys,time,pathlib; json.load(sys.stdin); '
+                'print("pull started", end="", file=sys.stderr, flush=True); '
+                f'gate=pathlib.Path({str(gate)!r}); '
+                '\nwhile not gate.exists(): time.sleep(0.01)\n'
+                'print("pull finished", file=sys.stderr, flush=True); print("{}")'
+            )
+            output = io.StringIO()
+            results = []
+
+            def run():
+                """Запустить SSH-транспорт с реальным дочерним процессом."""
+                results.append(module.run_ssh([sys.executable, '-u', '-c', remote_code], {}))
+
+            with redirect_stderr(output):
+                worker = threading.Thread(target=run)
+                worker.start()
+                try:
+                    deadline = time.monotonic() + 5
+                    while 'pull started' not in output.getvalue() and worker.is_alive() and time.monotonic() < deadline:
+                        time.sleep(0.01)
+                    self.assertIn('pull started', output.getvalue())
+                    self.assertTrue(worker.is_alive())
+                finally:
+                    gate.touch()
+                    worker.join(timeout=5)
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(results[0].stdout.strip(), '{}')
+            self.assertEqual(results[0].returncode, 0)
+            self.assertIn('pull finished', output.getvalue())
+            self.assertIn('pull finished', results[0].stderr)
+
+    def test_failure_preserves_live_traceback_and_exit_status(self):
+        """Ошибка SSH выводится полностью и остаётся доступной для итоговой диагностики."""
+        import sys
+        from contextlib import redirect_stderr
+
+        output = io.StringIO()
+        with redirect_stderr(output):
+            result = module.run_ssh(
+                [sys.executable, '-c', 'import sys; print("registry unavailable", file=sys.stderr); sys.exit(7)'], {})
+        self.assertEqual(result.returncode, 7)
+        self.assertIn('registry unavailable', output.getvalue())
+        self.assertIn('registry unavailable', result.stderr)
 
 
 if __name__ == '__main__':

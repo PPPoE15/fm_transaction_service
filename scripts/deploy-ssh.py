@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """SSH-клиент CD. Деплой приложения через общий серверный контроллер (FM-66)."""
+from collections import deque
+import codecs
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 import time
+import uuid
 
 
 def prepare(env, directory):
@@ -41,8 +45,35 @@ def prepare(env, directory):
     return request, command
 
 
+def run_ssh(command, request):
+    """Передаёт весь stderr SSH в Actions сразу, сохраняя JSON-ответ и хвост диагностики."""
+    errors = deque(maxlen=200)
+    marker = 'deployment-' + uuid.uuid4().hex
+    print('::stop-commands::' + marker, file=sys.stderr, flush=True)
+    try:
+        with tempfile.TemporaryFile(mode='w+t') as response:
+            with subprocess.Popen(command, stdin=subprocess.PIPE, stdout=response, stderr=subprocess.PIPE,
+                                  bufsize=-1) as process:
+                process.stdin.write(json.dumps(request).encode())
+                process.stdin.close()
+                decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
+                while True:
+                    chunk = process.stderr.read1(8192)
+                    text = decoder.decode(chunk, final=not chunk)
+                    sys.stderr.write(text)
+                    sys.stderr.flush()
+                    errors.append(text)
+                    if not chunk:
+                        break
+                code = process.wait()
+            response.seek(0)
+            return subprocess.CompletedProcess(command, code, stdout=response.read(), stderr=''.join(errors))
+    finally:
+        print('\n::' + marker + '::', file=sys.stderr, flush=True)
+
+
 def describe_failure(code, stderr):
-    """Возвращает проверенное описание ошибки без публикации вывода SSH или сервера."""
+    """Добавляет краткое описание ошибки к уже показанному полному SSH-журналу."""
     if code == 255:
         diagnostic = stderr.lower()
         reasons = (
@@ -72,9 +103,9 @@ def describe_failure(code, stderr):
             'Server environment mismatch',
         }:
             return 'Server controller: ' + line
-        log = re.fullmatch(r'(Command|Compose config) failed; inspect protected server log ([0-9]{16,20}\.log)', line)
+        log = re.fullmatch(r'(Command|Compose config) failed; inspect (?:protected )?server log ([a-zA-Z0-9_.-]+\.log)', line)
         if log:
-            return f'Server controller: {log[1]} failed. Read DEPLOY_ROOT/logs/{log[2]} on the server.'
+            return f'Server controller: {log[1]} failed. Deployment log: {log[2]} (output above).'
         smoke = re.fullmatch(r'(HTTPS?) smoke failed: (?:/|/auth/me|/transaction/categories)', line)
         if smoke:
             return 'Server controller: ' + line + f'. Check {smoke[1]} access from the server.'
@@ -82,7 +113,7 @@ def describe_failure(code, stderr):
         return 'Remote command unavailable. Check Python 3 on the server.'
     if code == 2 and "can't open file" in stderr and 'release.py' in stderr and '[Errno 2]' in stderr:
         return 'Server launcher missing. Check DEPLOY_ROOT and whether infrastructure bootstrap completed.'
-    return f'Remote deployment command failed (exit {code}). Check DEPLOY_ROOT/logs and pending.json.'
+    return f'Remote deployment command failed (exit {code}). See the complete deployment output above.'
 
 
 def checked_response(stdout, request):
@@ -120,8 +151,7 @@ def main():
         started = time.monotonic()
         response = None
         try:
-            result = subprocess.run(command, input=json.dumps(request), text=True, errors='replace',
-                                    capture_output=True, timeout=1800)
+            result = run_ssh(command, request)
             if result.returncode:
                 error = describe_failure(result.returncode, result.stderr)
             else:
@@ -131,8 +161,6 @@ def main():
                     error = 'SSH completed but the server returned an invalid deployment confirmation.'
                 else:
                     error = None
-        except subprocess.TimeoutExpired:
-            error = 'Deployment timed out. Check the SSH connection and pending state on the server.'
         except OSError:
             error = 'Cannot start OpenSSH on the Actions runner.'
 
