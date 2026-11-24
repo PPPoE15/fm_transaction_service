@@ -143,7 +143,7 @@ jobs:
     needs: publish
     if: ${{ success() && github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'master') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 120
     environment: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
