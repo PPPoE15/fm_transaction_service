@@ -1,6 +1,6 @@
 """Чтение стартового остатка и дневных агрегатов из единого снимка PostgreSQL."""
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime
 
 from sqlalchemy import BigInteger, Date, case, cast, func, select, true
 
@@ -36,11 +36,11 @@ class GetBalanceHistory(BaseQueries):
         signed_amount = case(
             (TransactionORM.transaction_type == apps_types.TransactionType.INCOME, amount), else_=-amount
         )
+        # Вся история нужна для общей нижней границы и обратного расчёта за концом выбранного периода.
         daily = (
             select(day.label("day"), func.sum(signed_amount).label("change"))
             .where(
                 TransactionORM.user_uid == user_uid,
-                TransactionORM.transaction_date < datetime.combine(date_to + timedelta(days=1), time.min),
                 TransactionORM.transaction_date <= now.replace(tzinfo=None),
             )
             .group_by(day)
