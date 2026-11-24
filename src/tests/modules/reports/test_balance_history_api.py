@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import delete, update
+from sqlalchemy import delete, event, update
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette import status
 
@@ -123,7 +123,7 @@ async def test_missing_own_balance(db_engine: AsyncEngine, client: AsyncClient, 
 
 @pytest.mark.db
 async def test_daily_history(db_engine: AsyncEngine, client: AsyncClient, headers: dict[str, str], owner: UUID) -> None:
-    """Неизвестные дни, стартовый день, перенос, долг и московская граница вычисляются точно."""
+    """Расчётные дни, стартовый день, перенос, долг и московская граница вычисляются точно."""
     await seed_balance(owner)
     for moment, amount, kind in [
         ("2025-12-28T12:00:00", 900, "income"),
@@ -142,11 +142,13 @@ async def test_daily_history(db_engine: AsyncEngine, client: AsyncClient, header
     assert response.json() == {
         "date_from": "2025-12-28",
         "date_to": "2026-01-01",
+        "history_start_date": "2025-12-28",
+        "starting_balance_date": "2025-12-29",
         "currency": "RUB",
         "unit": "rubles",
         "timezone": "Europe/Moscow",
         "points": [
-            {"date": "2025-12-28", "balance": None},
+            {"date": "2025-12-28", "balance": -700},
             {"date": "2025-12-29", "balance": 100},
             {"date": "2025-12-30", "balance": -50},
             {"date": "2025-12-31", "balance": -50},
@@ -208,3 +210,128 @@ async def test_mutations_and_large_totals(
         await session.commit()
     response = await client.get("/balance-history", headers=headers, params=params)
     assert [p["balance"] for p in response.json()["points"]] == [3_000_000_000, 3_000_000_000]
+
+
+@pytest.mark.db
+async def test_early_range_reads_through_anchor(
+    db_engine: AsyncEngine, client: AsyncClient, headers: dict[str, str], owner: UUID
+) -> None:
+    """Ранний диапазон учитывает операции вплоть до стартового дня и выдаёт общие границы."""
+    await seed_balance(owner, "2025-12-29", 50000)
+    await seed_transaction(owner, "2025-12-01T00:00:00", 2000)
+    await seed_transaction(owner, "2025-12-02T00:00:00", 3000, "outcome")
+    await seed_transaction(owner, "2025-12-29T23:59:59", 13000)
+    await seed_transaction(uuid4(), "2000-01-01T00:00:00", 999)
+    response = await client.get(
+        "/balance-history", headers=headers, params={"date_from": "2025-12-01", "date_to": "2025-12-03"}
+    )
+    assert response.status_code == status.HTTP_200_OK, response.text
+    data = response.json()
+    assert data["history_start_date"] == "2025-12-01"
+    assert data["starting_balance_date"] == "2025-12-29"
+    assert [point["balance"] for point in data["points"]] == [40000, 37000, 37000]
+    unavailable = await client.get(
+        "/balance-history", headers=headers, params={"date_from": "2025-11-01", "date_to": "2025-11-02"}
+    )
+    assert unavailable.status_code == status.HTTP_200_OK, unavailable.text
+    assert unavailable.json()["history_start_date"] == "2025-12-01"
+    assert [point["balance"] for point in unavailable.json()["points"]] == [None, None]
+
+
+@pytest.mark.db
+@pytest.mark.parametrize("moment", [None, "2026-01-01T00:30:01", "2026-01-01T00:30:00"])
+async def test_boundary_without_early_operations(
+    db_engine: AsyncEngine, client: AsyncClient, headers: dict[str, str], owner: UUID, moment: str | None
+) -> None:
+    """Без ранних операций, с будущей или только поздней операцией граница равна стартовой дате."""
+    await seed_balance(owner)
+    if moment is not None:
+        await seed_transaction(owner, moment, 50)
+    response = await client.get(
+        "/balance-history", headers=headers, params={"date_from": "2025-12-28", "date_to": "2026-01-01"}
+    )
+    assert response.status_code == status.HTTP_200_OK, response.text
+    assert response.json()["history_start_date"] == "2025-12-29"
+    assert response.json()["starting_balance_date"] == "2025-12-29"
+    last = 150 if moment == "2026-01-01T00:30:00" else 100
+    assert [point["balance"] for point in response.json()["points"]] == [None, 100, 100, 100, last]
+
+
+@pytest.mark.db
+async def test_today_anchor_excludes_future_transactions(
+    db_engine: AsyncEngine, client: AsyncClient, headers: dict[str, str], owner: UUID
+) -> None:
+    """Сегодняшняя стартовая сумма восстанавливает вчера только по наступившим операциям."""
+    await seed_balance(owner, "2026-01-01", 100)
+    await seed_transaction(owner, "2025-12-31T00:00:00", 10)
+    await seed_transaction(owner, "2026-01-01T00:30:00", 25)
+    await seed_transaction(owner, "2026-01-01T00:30:01", 1000)
+    response = await client.get(
+        "/balance-history", headers=headers, params={"date_from": "2025-12-31", "date_to": "2026-01-01"}
+    )
+    assert response.status_code == status.HTTP_200_OK, response.text
+    assert [point["balance"] for point in response.json()["points"]] == [75, 100]
+    assert response.json()["history_start_date"] == "2025-12-31"
+
+
+@pytest.mark.db
+async def test_early_mutations_move_boundary(
+    db_engine: AsyncEngine, client: AsyncClient, headers: dict[str, str], owner: UUID
+) -> None:
+    """Добавление, правка и удаление раннего факта пересчитывают ряд и его нижнюю границу."""
+    await seed_balance(owner, amount=0)
+    params = {"date_from": "2025-12-26", "date_to": "2025-12-29"}
+    uid = await seed_transaction(owner, "2025-12-27T00:00:00", 100)
+    later_uid = await seed_transaction(owner, "2025-12-28T00:00:00", 30)
+    response = await client.get("/balance-history", headers=headers, params=params)
+    assert response.status_code == status.HTTP_200_OK, response.text
+    assert response.json()["history_start_date"] == "2025-12-27"
+    assert [point["balance"] for point in response.json()["points"]] == [None, -30, 0, 0]
+    async with async_session_factory() as session:
+        await session.execute(
+            update(Transaction)
+            .where(Transaction.uid == uid)
+            .values(transaction_date=datetime.fromisoformat("2025-12-26T00:00:00"))
+        )
+        await session.execute(update(Transaction).where(Transaction.uid == later_uid).values(money_sum=50))
+        await session.commit()
+    response = await client.get("/balance-history", headers=headers, params=params)
+    assert response.json()["history_start_date"] == "2025-12-26"
+    assert [point["balance"] for point in response.json()["points"]] == [-50, -50, 0, 0]
+    async with async_session_factory() as session:
+        await session.execute(delete(Transaction).where(Transaction.user_uid == owner))
+        await session.commit()
+    response = await client.get("/balance-history", headers=headers, params=params)
+    assert response.json()["history_start_date"] == "2025-12-29"
+    assert [point["balance"] for point in response.json()["points"]] == [None, None, None, 0]
+
+
+@pytest.mark.db
+async def test_year_2000_and_zero_net_first_day_in_one_snapshot(
+    db_engine: AsyncEngine, client: AsyncClient, headers: dict[str, str], owner: UUID
+) -> None:
+    """Нулевой итог первого дня сохраняет границу 2000 года, все данные читаются одним SELECT."""
+    await seed_balance(owner, "2000-01-02", 5000)
+    await seed_transaction(owner, "2000-01-01T00:00:00", 100)
+    await seed_transaction(owner, "2000-01-01T12:00:00", 100, "outcome")
+    await seed_transaction(owner, "2000-01-02T00:00:00", 2000)
+    statements: list[str] = []
+
+    def record_statement(
+        connection: object, cursor: object, statement: str, parameters: object, context: object, executemany: bool
+    ) -> None:
+        """Запомнить SQL отчёта для проверки одного MVCC-снимка при READ COMMITTED."""
+        statements.append(statement)
+
+    event.listen(db_engine.sync_engine, "before_cursor_execute", record_statement)
+    try:
+        response = await client.get(
+            "/balance-history", headers=headers, params={"date_from": "2000-01-01", "date_to": "2000-01-02"}
+        )
+    finally:
+        event.remove(db_engine.sync_engine, "before_cursor_execute", record_statement)
+    assert response.status_code == status.HTTP_200_OK, response.text
+    assert response.json()["history_start_date"] == "2000-01-01"
+    assert [point["balance"] for point in response.json()["points"]] == [3000, 5000]
+    assert len(statements) == 1
+    assert statements[0].lstrip().upper().startswith("SELECT")

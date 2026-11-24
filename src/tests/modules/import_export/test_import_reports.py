@@ -65,3 +65,52 @@ async def test_import_financial_totals(
     finally:
         app.dependency_overrides.pop(get_today, None)
         app.dependency_overrides.pop(get_now, None)
+
+
+@pytest.mark.db
+async def test_import_before_starting_balance_restores_history(
+    db_engine: AsyncEngine, client: AsyncClient, make_token: TokenFactory
+) -> None:
+    """Импорт старых доходов и расходов восстанавливает историю, сохраняя стартовую сумму."""
+
+    def now() -> datetime:
+        """Вернуть момент после импортируемых операций и стартовой даты."""
+        return datetime(2026, 10, 27, tzinfo=ZoneInfo("Europe/Moscow"))
+
+    headers = {"Authorization": f"Bearer {make_token()}"}
+    app.dependency_overrides[get_now] = now
+    try:
+        starting = await client.post(
+            "/starting-balance", headers=headers, json={"amount": 50000, "balance_date": "2026-10-24"}
+        )
+        assert starting.status_code == HTTPStatus.CREATED, starting.text
+        params = {"date_from": "2026-10-01", "date_to": "2026-10-02"}
+        before = await client.get("/balance-history", headers=headers, params=params)
+        assert before.status_code == HTTPStatus.OK, before.text
+        assert before.json()["history_start_date"] == "2026-10-24"
+        assert [point["balance"] for point in before.json()["points"]] == [None, None]
+        for kind, rows in [
+            ("income", "01.10.2026;2000;Импорт;\n24.10.2026;13000;Импорт;\n"),
+            ("outcome", "02.10.2026;3000;Импорт;\n"),
+        ]:
+            await add_category(client, headers, "Импорт", kind)
+            response = await client.post(
+                f"/import-export/imports/{kind}?format=csv",
+                headers=headers,
+                files={"file": ("history.csv", ("Дата;Сумма;Категория;Описание\n" + rows).encode(), "text/csv")},
+            )
+            assert response.status_code == HTTPStatus.CREATED, response.text
+        after = await client.get("/balance-history", headers=headers, params=params)
+        assert after.status_code == HTTPStatus.OK, after.text
+        assert after.json()["history_start_date"] == "2026-10-01"
+        assert [point["balance"] for point in after.json()["points"]] == [40000, 37000]
+        anchor = await client.get(
+            "/balance-history", headers=headers, params={"date_from": "2026-10-24", "date_to": "2026-10-27"}
+        )
+        assert anchor.status_code == HTTPStatus.OK, anchor.text
+        assert [point["balance"] for point in anchor.json()["points"]] == [50000, 50000, 50000, 50000]
+        stored = await client.get("/starting-balance", headers=headers)
+        assert stored.status_code == HTTPStatus.OK, stored.text
+        assert stored.json() == starting.json()
+    finally:
+        app.dependency_overrides.pop(get_now, None)
